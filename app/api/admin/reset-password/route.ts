@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { usernameToEmail } from '@/lib/auth/username-email'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -20,36 +19,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
   }
 
-  const { username, password, aulaId } = await request.json()
+  const { userId, newPassword } = await request.json()
 
-  if (!username || !password) {
+  if (!userId || !newPassword) {
     return NextResponse.json({ error: 'Faltan campos' }, { status: 400 })
   }
 
-  // No se pide ni se guarda el email real del alumno (dato sensible de un menor).
-  // Supabase Auth exige un email, así que se deriva uno sintético del username.
-  const email = usernameToEmail(username)
-
-  // Use service role key for admin operations
   const adminSupabase = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const { data, error } = await adminSupabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
+  const { error } = await adminSupabase.auth.admin.updateUserById(userId, {
+    password: newPassword,
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-
-  // Create profile record
-  const { error: profileError } = await adminSupabase
-    .from('profiles')
-    .insert({ id: data.user.id, username, role: 'student', aula_id: aulaId ?? null })
-
-  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 400 })
 
   return NextResponse.json({ success: true })
 }

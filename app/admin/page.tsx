@@ -20,8 +20,14 @@ export default async function AdminPage() {
   // Fetch all students
   const { data: students } = await supabase
     .from('profiles')
-    .select('id, username, role, created_at')
+    .select('id, username, role, aula_id, created_at')
     .order('username')
+
+  // Fetch all aulas
+  const { data: aulas } = await supabase
+    .from('aulas')
+    .select('id, nombre, turno, created_at')
+    .order('nombre')
 
   // Fetch boss states from DB
   const { data: bossRows } = await supabase
@@ -60,6 +66,7 @@ export default async function AdminPage() {
           bossEnabledMap={bossEnabledMap}
           students={students ?? []}
           scoreMap={scoreMap}
+          aulas={aulas ?? []}
         />
       </main>
     </div>

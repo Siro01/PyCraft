@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { setLocalUser } from '@/lib/storage/local-store'
 import { PixelDust } from '@/components/ui/PixelFX'
+import { usernameToEmail } from '@/lib/auth/username-email'
 
 const LOCAL_MODE =
   process.env.NEXT_PUBLIC_LOCAL_MODE === 'true' ||
@@ -38,7 +39,7 @@ export default function LoginPage() {
   const [role, setRole]       = useState<'student' | 'admin'>('student')
 
   // Supabase mode fields
-  const [email, setEmail]       = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
 
   const [error, setError]   = useState('')
@@ -63,9 +64,12 @@ export default function LoginPage() {
     setLoading(true)
     const { createClient } = await import('@/lib/supabase/client')
     const supabase = createClient()
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: usernameToEmail(username),
+      password,
+    })
     if (authError) {
-      setError('Email o contraseña incorrectos.')
+      setError('Usuario o contraseña incorrectos.')
     } else {
       router.push('/dashboard')
       router.refresh()
@@ -236,18 +240,19 @@ export default function LoginPage() {
           <form onSubmit={handleSupabaseLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-              <label htmlFor="login-email" className="label-mono">
-                Email
+              <label htmlFor="login-username" className="label-mono">
+                Usuario
               </label>
               <input
-                id="login-email"
+                id="login-username"
                 className="input"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="alumno@escuela.edu"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="nombre_alumno"
                 required
-                autoComplete="email"
+                autoComplete="username"
+                autoFocus
               />
             </div>
 
