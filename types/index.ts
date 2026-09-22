@@ -1,4 +1,10 @@
 export type BossType = 'python' | 'sql' | 'mixed' | 'final'
+
+export interface DialogueLine {
+  text: string
+  /** Override del speaker (por defecto usa boss.name) */
+  speaker?: string
+}
 export type ChallengeType = 'python' | 'sql'
 export type ChallengeTier = 'junior' | 'trainee' | 'senior'
 export type UserRole = 'student' | 'admin'

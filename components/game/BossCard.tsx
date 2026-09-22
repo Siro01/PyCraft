@@ -58,7 +58,7 @@ export default function BossCard({ boss, hpCurrent, isEnabled = false, isDefeate
 
       {/* Sprite + info */}
       <div className="flex items-center gap-4">
-        <BossSprite boss={boss} size="sm" defeated={isDefeated} animated={animated && !isDefeated} />
+        <BossSprite boss={boss} size="sm" defeated={isDefeated} animated={animated && !isDefeated} hpRatio={hp / boss.hpMax} />
         <div className="flex-1 min-w-0">
           <p className="text-xs text-tx3 leading-relaxed line-clamp-2">{boss.description}</p>
           <p className="label-mono mt-2 truncate" style={{ color: boss.color }}>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import CodeMirrorEditor from './CodeMirrorEditor'
 import { isPyodideLoaded } from '@/lib/game/executor'
 import { IconSnake, IconDatabase, IconCheck, IconX, IconSword } from '@/components/ui/PixelIcons'
+import { LoadingBar } from '@/components/ui/LoadingBar'
 import type { Boss, Challenge } from '@/types'
 
 interface CodeEditorProps {
@@ -17,16 +18,6 @@ interface CodeEditorProps {
     expected: string
     error: string | null
   } | null
-}
-
-// Ring spinner — no unicode glyph standing in for an icon
-function Spinner({ size = 12 }: { size?: number }) {
-  return (
-    <span
-      className="inline-block rounded-full animate-spin shrink-0"
-      style={{ width: size, height: size, border: '2px solid currentColor', borderTopColor: 'transparent' }}
-    />
-  )
 }
 
 export default function CodeEditor({
@@ -155,10 +146,8 @@ export default function CodeEditor({
       {/* Pyodide loading notice (Python challenges, first visit) */}
       {!engineReady && challenge.type === 'python' && (
         <div className="card p-3 shrink-0 border-accent/30 bg-accent/5">
-          <div className="flex items-center gap-2 font-mono text-xs text-accent">
-            <Spinner />
-            Cargando motor Python (Pyodide)… primera vez tarda ~10 s.
-          </div>
+          <LoadingBar label="Cargando motor Python (Pyodide)..." size="sm" estimatedMs={10000} />
+          <p className="mt-2 font-mono text-[11px] text-tx3">La primera vez tarda ~10 s. Después queda listo.</p>
         </div>
       )}
 
@@ -169,9 +158,9 @@ export default function CodeEditor({
         disabled={isLoading || !engineReady}
       >
         {isLoading ? (
-          <><Spinner /> Ejecutando…</>
+          <LoadingBar label="Ejecutando" size="xs" tone="current" estimatedMs={1500} />
         ) : !engineReady ? (
-          <><Spinner /> Motor cargando…</>
+          <LoadingBar label="Motor cargando" size="xs" tone="current" estimatedMs={10000} />
         ) : (
           <><IconSword size={13} color="white" /> Atacar</>
         )}

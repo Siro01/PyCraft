@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { setLocalUser } from '@/lib/storage/local-store'
+import { setLocalUser, clearAmulets, clearAllProgress } from '@/lib/storage/local-store'
 import { PixelDust } from '@/components/ui/PixelFX'
+import { LoadingBar } from '@/components/ui/LoadingBar'
 import { usernameToEmail } from '@/lib/auth/username-email'
 
 const LOCAL_MODE =
@@ -42,6 +43,10 @@ export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
 
+  // Código de prueba (alumno TEST)
+  const [testMode, setTestMode] = useState(false)
+  const [code, setCode]         = useState('')
+
   const [error, setError]   = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -75,6 +80,33 @@ export default function LoginPage() {
       router.refresh()
     }
     setLoading(false)
+  }
+
+  // ── Código de prueba: entra como el alumno TEST ───────────────────────────
+  const handleTestLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/test-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(body.error ?? 'No se pudo iniciar la sesión de prueba.')
+        setLoading(false)
+        return
+      }
+      // Cada prueba arranca limpia: los amuletos viven en este navegador.
+      clearAmulets()
+      clearAllProgress()
+      window.location.href = '/dashboard'
+    } catch {
+      setError('Sin conexión con el servidor. Probá de nuevo.')
+      setLoading(false)
+    }
   }
 
   return (
@@ -161,14 +193,16 @@ export default function LoginPage() {
           margin: '0 0 6px', fontSize: '20px',
           color: 'hsl(var(--tx))',
         }}>
-          {LOCAL_MODE ? 'Modo local' : 'Iniciar sesión'}
+          {LOCAL_MODE ? 'Modo local' : testMode ? 'Modo prueba' : 'Iniciar sesión'}
         </h1>
         <p className="font-mono" style={{
           margin: '0 0 24px', fontSize: '13px', color: 'hsl(var(--tx3))',
         }}>
           {LOCAL_MODE
             ? 'El progreso se guarda en este navegador.'
-            : 'Tu docente crea tu cuenta.'}
+            : testMode
+              ? 'Ingresá el código que generó el docente.'
+              : 'Tu docente crea tu cuenta.'}
         </p>
 
         {/* ── LOCAL MODE FORM ── */}
@@ -231,7 +265,47 @@ export default function LoginPage() {
             )}
 
             <button type="submit" className="login-btn" disabled={loading} style={{ marginTop: '2px' }}>
-              {loading ? 'Entrando...' : 'Entrar al combate →'}
+              {loading ? <LoadingBar label="Entrando" size="xs" tone="current" estimatedMs={2000} /> : 'Entrar al combate →'}
+            </button>
+          </form>
+
+        ) : testMode ? (
+        /* ── TEST CODE FORM ── */
+          <form onSubmit={handleTestLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+              <label htmlFor="login-code" className="label-mono">
+                Código de prueba
+              </label>
+              <input
+                id="login-code"
+                className="input"
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="XXXX-XXXX"
+                required
+                autoFocus
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                maxLength={9}
+                style={{ letterSpacing: '0.2em', textAlign: 'center' }}
+              />
+            </div>
+
+            {error && (
+              <div role="alert" className="pixel-corners-sm" style={{
+                padding: '10px 12px',
+                background: 'hsl(var(--danger) / 0.08)',
+                border: '1px solid hsl(var(--danger) / 0.22)',
+                fontFamily: "'Courier New', monospace", fontSize: '12px', color: 'hsl(var(--danger))',
+              }}>
+                {error}
+              </div>
+            )}
+
+            <button type="submit" className="login-btn" disabled={loading} style={{ marginTop: '2px' }}>
+              {loading ? <LoadingBar label="Conectando" size="xs" tone="current" estimatedMs={3000} /> : 'Entrar como alumno TEST →'}
             </button>
           </form>
 
@@ -284,9 +358,23 @@ export default function LoginPage() {
             )}
 
             <button type="submit" className="login-btn" disabled={loading} style={{ marginTop: '2px' }}>
-              {loading ? 'Conectando...' : 'Entrar al combate →'}
+              {loading ? <LoadingBar label="Conectando" size="xs" tone="current" estimatedMs={3000} /> : 'Entrar al combate →'}
             </button>
           </form>
+        )}
+
+        {!LOCAL_MODE && (
+          <button
+            type="button"
+            onClick={() => { setTestMode((t) => !t); setError('') }}
+            className="font-mono"
+            style={{
+              display: 'block', margin: '20px auto 0', background: 'none', border: 'none',
+              cursor: 'pointer', fontSize: '11px', color: 'hsl(var(--tx3))', textDecoration: 'underline',
+            }}
+          >
+            {testMode ? '← Volver al inicio de sesión' : 'Tengo un código de prueba'}
+          </button>
         )}
 
         {/* Footer */}

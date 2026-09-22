@@ -6,9 +6,11 @@ import { useReveal } from '@/lib/hooks/useReveal'
 import {
   IconSnake, IconDatabase, IconSword, IconSprout,
   IconDagger, IconSkull, IconWizard, IconPotion,
-  IconCrystal, IconCrown, IconBolt, IconPickaxe,
+  IconCrystal, IconBolt, IconPickaxe,
 } from '@/components/ui/PixelIcons'
 import { PixelDust, PixelBlob } from '@/components/ui/PixelFX'
+import AsciiQuestion from '@/components/ui/AsciiQuestion'
+import CrashTransition from '@/components/landing/CrashTransition'
 import type { Boss } from '@/types'
 
 // ── Typewriter ────────────────────────────────────────────────────────────────
@@ -39,8 +41,71 @@ const CODE_LINES = [
   { text: '# → 14 jefes derrotados [OK]', color: 'hsl(var(--tx3))' },
 ]
 
+// ── Mini validador de asignaciones de Python ────────────────────────────────
+// No ejecuta código real (esto es la landing, no el motor Pyodide del juego):
+// valida con reglas simples una línea "nombre = valor" y devuelve mensajes de
+// error pensados para alguien que recién está aprendiendo, no un traceback real.
+const PY_KEYWORDS = new Set([
+  'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class',
+  'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global',
+  'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return',
+  'try', 'while', 'with', 'yield',
+])
+
+interface AttemptResult {
+  input: string
+  ok: boolean
+  message: string
+}
+
+function checkAssignment(raw: string): AttemptResult {
+  const input = raw.trim()
+
+  if (!input) {
+    return { input, ok: false, message: 'Escribí algo para probar. Ej: nombre = "Ada"' }
+  }
+  if (/^print\s*\(/.test(input)) {
+    return { input, ok: false, message: 'Por ahora practiquemos declarar una variable. Probá: edad = 12' }
+  }
+  if (!input.includes('=') || input.includes('==')) {
+    return { input, ok: false, message: 'Te falta el signo = para asignar un valor. Ej: edad = 12' }
+  }
+
+  const eqIdx = input.indexOf('=')
+  const name = input.slice(0, eqIdx).trim()
+  const value = input.slice(eqIdx + 1).trim()
+
+  if (!name) return { input, ok: false, message: 'Falta el nombre de la variable antes del =' }
+  if (!value) return { input, ok: false, message: `Falta el valor después del =. Ej: ${name} = "Ada"` }
+  if (/\s/.test(name)) return { input, ok: false, message: 'El nombre de variable no puede tener espacios — usá guión bajo: mi_nombre' }
+  if (/^\d/.test(name)) return { input, ok: false, message: `Una variable no puede empezar con un número: "${name}"` }
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) return { input, ok: false, message: `"${name}" no es un nombre válido — solo letras, números y _` }
+  if (PY_KEYWORDS.has(name)) return { input, ok: false, message: `"${name}" es una palabra reservada de Python, elegí otro nombre` }
+
+  if (/^(["']).*\1$/.test(value)) {
+    return { input, ok: true, message: `${name} = ${value} → texto (str) creado ✓` }
+  }
+  if (/^["']/.test(value) || /["']$/.test(value)) {
+    return { input, ok: false, message: 'Las comillas no cierran bien. Si es texto, escribilo así: "Ada"' }
+  }
+  if (/^-?\d+$/.test(value)) {
+    return { input, ok: true, message: `${name} = ${value} → número entero (int) creado ✓` }
+  }
+  if (/^-?\d+\.\d+$/.test(value)) {
+    return { input, ok: true, message: `${name} = ${value} → número decimal (float) creado ✓` }
+  }
+  if (value === 'True' || value === 'False') {
+    return { input, ok: true, message: `${name} = ${value} → booleano (bool) creado ✓` }
+  }
+  return { input, ok: false, message: `Si "${value}" es texto, ponelo entre comillas: ${name} = "${value}"` }
+}
+
 function CodeTerminal({ visible }: { visible: boolean }) {
   const [linesShown, setLinesShown] = useState(0)
+  const [history, setHistory] = useState<AttemptResult[]>([])
+  const [draft, setDraft] = useState('')
+  const scrollRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     if (!visible) return
     let i = 0
@@ -51,6 +116,21 @@ function CodeTerminal({ visible }: { visible: boolean }) {
     }, 280)
     return () => clearInterval(iv)
   }, [visible])
+
+  const bootDone = linesShown >= CODE_LINES.length
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [history, bootDone])
+
+  const handleSubmit = (e: { preventDefault: () => void }) => {
+    e.preventDefault()
+    if (!draft.trim()) return
+    setHistory((prev) => [...prev.slice(-4), checkAssignment(draft)])
+    setDraft('')
+  }
+
   return (
     <div
       className="pixel-corners p-5 font-mono text-xs leading-relaxed text-left"
@@ -67,13 +147,52 @@ function CodeTerminal({ visible }: { visible: boolean }) {
         <div className="w-3 h-3 rounded-full" style={{ background: '#FEBC2E' }} />
         <div className="w-3 h-3 rounded-full" style={{ background: '#28C840' }} />
       </div>
-      {CODE_LINES.slice(0, linesShown).map((line, i) => (
-        <div key={i} style={{ color: line.color || 'transparent', minHeight: '1.4em' }}>
-          {line.text || ' '}
+
+      <div ref={scrollRef} style={{ maxHeight: 210, overflowY: 'auto' }} className="no-scrollbar">
+        {CODE_LINES.slice(0, linesShown).map((line, i) => (
+          <div key={i} style={{ color: line.color || 'transparent', minHeight: '1.4em' }}>
+            {line.text || ' '}
+          </div>
+        ))}
+        {linesShown < CODE_LINES.length && linesShown > 0 && (
+          <span className="opacity-60">█</span>
+        )}
+
+        {bootDone && (
+          <>
+            <div className="mt-3 mb-2" style={{ color: 'hsl(var(--tx3))' }}>
+              ▸ Probá vos: declará tu primera variable
+            </div>
+            {history.map((h, i) => (
+              <div key={i} className="mb-1.5">
+                <div style={{ color: 'hsl(var(--tx2))' }}>&gt;&gt;&gt; {h.input}</div>
+                <div style={{ color: h.ok ? 'hsl(var(--python))' : 'hsl(var(--danger))' }}>
+                  {h.ok ? '✓ ' : '✗ '}{h.message}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      {bootDone && (
+        <div className="flex items-center gap-1.5 mt-1">
+          <span style={{ color: 'hsl(var(--tx2))' }}>&gt;&gt;&gt;</span>
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSubmit(e)
+            }}
+            placeholder='nombre = "Ada"'
+            aria-label="Terminal interactiva: declará tu primera variable de Python"
+            spellCheck={false}
+            autoComplete="off"
+            className="flex-1 bg-transparent outline-none font-mono text-xs"
+            style={{ color: 'hsl(var(--tx))', caretColor: 'hsl(var(--accent))' }}
+          />
         </div>
-      ))}
-      {linesShown < CODE_LINES.length && linesShown > 0 && (
-        <span className="opacity-60">█</span>
       )}
     </div>
   )
@@ -88,6 +207,8 @@ const BOSSES_WITH_ICON = new Set([
 
 function BossCard({ boss }: { boss: Boss }) {
   const [err, setErr] = useState(false)
+  // El jefe final es un misterio hasta llegar a él: signo de pregunta ASCII, sin nombre ni tema.
+  const isMystery = boss.classNumber === 14
   return (
     <div
       className="boss-color-el pixel-corners shrink-0 flex flex-col items-center gap-2 px-4 py-4 border transition-all duration-300"
@@ -107,7 +228,11 @@ function BossCard({ boss }: { boss: Boss }) {
         e.currentTarget.style.transform = 'translateY(0)'
       }}
     >
-      {BOSSES_WITH_ICON.has(boss.id) && !err ? (
+      {isMystery ? (
+        <div className="flex items-center justify-center" style={{ height: 76 }}>
+          <AsciiQuestion size={8} color={boss.color} />
+        </div>
+      ) : BOSSES_WITH_ICON.has(boss.id) && !err ? (
         <img
           src={`/bossicons/${boss.id}.png`}
           alt={boss.name}
@@ -121,9 +246,7 @@ function BossCard({ boss }: { boss: Boss }) {
           className="w-12 h-12 pixel-corners-sm flex items-center justify-center"
           style={{ background: `${boss.color}18` }}
         >
-          {boss.classNumber === 14
-            ? <IconCrown size={28} color={boss.color} />
-            : boss.type === 'sql'
+          {boss.type === 'sql'
             ? <IconDatabase size={28} color={boss.color} />
             : boss.type === 'mixed'
             ? <IconBolt size={28} color={boss.color} />
@@ -140,13 +263,13 @@ function BossCard({ boss }: { boss: Boss }) {
         className="font-mono text-[11px] text-center leading-tight"
         style={{ color: 'hsl(var(--tx2))' }}
       >
-        {boss.name}
+        {isMystery ? '???' : boss.name}
       </span>
       <span
         className="font-mono text-[9px] text-center leading-tight"
         style={{ color: 'hsl(var(--tx3))' }}
       >
-        {boss.topic.split('·')[0].trim()}
+        {isMystery ? 'Solo lo verás al llegar' : boss.topic.split('·')[0].trim()}
       </span>
     </div>
   )
@@ -204,6 +327,7 @@ export default function LandingPage() {
   const heroReveal = useReveal(0.01)
   const dialogRef = useRef<HTMLDivElement>(null)
   const [dialogStep, setDialogStep] = useState(0)
+  const [crashing, setCrashing] = useState(false)
 
   // Trigger dialogue animation on scroll into view
   useEffect(() => {
@@ -223,8 +347,9 @@ export default function LandingPage() {
   }, [])
 
   return (
+    <>
     <div
-      className="min-h-screen flex flex-col"
+      className={`min-h-screen flex flex-col ${crashing ? 'landing-crashing' : ''}`}
       style={{ background: 'hsl(var(--bg))', color: 'hsl(var(--tx))' }}
     >
 
@@ -421,9 +546,9 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Floating code terminal */}
+        {/* Interactive code terminal — deja de flotar una vez que se puede escribir en ella */}
         <div
-          className="relative z-10 w-full max-w-sm mt-16 animate-float"
+          className="relative z-10 w-full max-w-md mt-16"
           style={{
             transition: 'opacity 1s ease 800ms',
             opacity: heroReveal.visible ? 1 : 0,
@@ -632,9 +757,9 @@ export default function LandingPage() {
                 badge: 'PRÓXIMAMENTE',
               },
             ] as const).map(({ label, color, icon, desc, badge }, i) => (
-              <Reveal key={label} delay={i * 120}>
+              <Reveal key={label} delay={i * 120} className="h-full">
                 <div
-                  className="p-6 pixel-corners border relative overflow-hidden flex flex-col gap-3"
+                  className="h-full p-6 pixel-corners border relative overflow-hidden flex flex-col gap-3"
                   style={{ borderColor: `${color}30`, background: `${color}05` }}
                 >
                   {badge && (
@@ -675,9 +800,9 @@ export default function LandingPage() {
               { icon: <IconPotion size={28} color="hsl(var(--python))" />, title: 'Poción de Vida', color: 'hsl(var(--python))', desc: 'Restaurá tu barra de vida cuando las cosas se pongan difíciles. (TRAINEE)' },
               { icon: <IconCrystal size={28} color="#FFB800" />, title: 'Teletransportador', color: '#FFB800', desc: 'Saltate un jefe a elección. ¿Problema con los bucles? Saltá y volvé después.' },
             ] as const).map(({ icon, title, color, desc }, i) => (
-              <Reveal key={title} delay={i * 80}>
+              <Reveal key={title} delay={i * 80} className="h-full">
                 <div
-                  className="boss-color-el flex items-start gap-4 p-5 pixel-corners border"
+                  className="boss-color-el h-full flex items-start gap-4 p-5 pixel-corners border"
                   style={{ borderColor: `${color}25`, background: `${color}06` }}
                 >
                   <span className="shrink-0">{icon}</span>
@@ -708,6 +833,9 @@ export default function LandingPage() {
               style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 0%, hsl(var(--accent) / 0.07), transparent)' }}
             />
             <div className="relative z-10">
+              <div className="flex justify-center mb-5">
+                <AsciiQuestion size={18} />
+              </div>
               <div className="font-mono text-[11px] tracking-widest mb-4" style={{ color: 'hsl(var(--accent))' }}>
                 ¿LISTO PARA EL DESAFÍO?
               </div>
@@ -718,7 +846,11 @@ export default function LandingPage() {
                 14 jefes. 3 dificultades. Amuletos, mercaderes y batallas de código.
                 Un taller donde programar es la única forma de ganar.
               </p>
-              <a href="/login" className="btn-primary font-mono text-sm px-8 py-3 inline-flex items-center gap-2">
+              <a
+                href="/login"
+                onClick={(e) => { e.preventDefault(); setCrashing(true) }}
+                className="btn-primary font-mono text-sm px-8 py-3 inline-flex items-center gap-2"
+              >
                 <IconSword size={14} color="white" />
                 Entrar al taller
               </a>
@@ -752,5 +884,8 @@ export default function LandingPage() {
       </footer>
 
     </div>
+    {/* Fuera del contenedor con filtro: un filter rompe el position:fixed de sus hijos */}
+    {crashing && <CrashTransition href="/login" />}
+    </>
   )
 }

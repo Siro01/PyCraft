@@ -1,9 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import BossSprite from '@/components/game/BossSprite'
-import type { Boss } from '@/types'
+import ChallengesBrowser from './ChallengesBrowser'
+import StatsPanel from './StatsPanel'
+import TestStudentPanel from './TestStudentPanel'
+import { TEST_USERNAME } from '@/lib/test-student/constants'
+import { DEFAULT_TIER_ENABLED, TIER_META, TIER_ORDER } from '@/lib/game/tiers'
+import type { AttackRow, BattleRow } from '@/lib/admin/stats'
+import type { Boss, ChallengeTier } from '@/types'
 
 interface Student {
   id: string
@@ -26,6 +33,11 @@ interface AdminPanelProps {
   students: Student[]
   scoreMap: Record<string, { defeated: number; attacks: number }>
   aulas: Aula[]
+  aulaBossMap: Record<string, Record<string, boolean>>
+  activeIds: string[]
+  aulaTierMap: Record<string, Record<string, boolean>>
+  battles: BattleRow[]
+  attacks: AttackRow[]
 }
 
 const TURNO_LABEL: Record<string, string> = {
@@ -34,8 +46,18 @@ const TURNO_LABEL: Record<string, string> = {
   'otro': 'Otro',
 }
 
-export default function AdminPanel({ bosses, bossEnabledMap, students: initialStudents, scoreMap, aulas: initialAulas }: AdminPanelProps) {
+export default function AdminPanel({ bosses, bossEnabledMap, students: initialStudents, scoreMap, aulas: initialAulas, aulaBossMap, activeIds, aulaTierMap: initialTierMap, battles, attacks }: AdminPanelProps) {
+  const router = useRouter()
+  const [tierMap, setTierMap] = useState<Record<string, Record<string, boolean>>>(initialTierMap)
   const [enabledMap, setEnabledMap] = useState<Record<string, boolean>>(bossEnabledMap)
+  const [aulaEnabledMap, setAulaEnabledMap] = useState<Record<string, Record<string, boolean>>>(aulaBossMap)
+  const [bossAulaId, setBossAulaId] = useState('')
+
+  // Refresca los datos del servidor (activos, progreso) cada 30 s
+  useEffect(() => {
+    const t = setInterval(() => router.refresh(), 30_000)
+    return () => clearInterval(t)
+  }, [router])
   const [students, setStudents] = useState<Student[]>(initialStudents)
   const [aulas, setAulas] = useState<Aula[]>(initialAulas)
 
@@ -53,18 +75,47 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
   const [resetPassword, setResetPassword] = useState('')
   const [resetStatus, setResetStatus] = useState('')
 
-  const [tab, setTab] = useState<'bosses' | 'aulas' | 'students'>('bosses')
+  const [tab, setTab] = useState<'bosses' | 'exercises' | 'aulas' | 'students' | 'stats' | 'test'>('bosses')
+
+  const isTierEnabled = (aulaId: string, tier: ChallengeTier) =>
+    tierMap[aulaId]?.[tier] ?? DEFAULT_TIER_ENABLED[tier]
+
+  const toggleTier = async (aulaId: string, tier: ChallengeTier) => {
+    const next = !isTierEnabled(aulaId, tier)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('aula_tiers')
+      .upsert({ aula_id: aulaId, tier, is_enabled: next }, { onConflict: 'aula_id,tier' })
+    if (error) return
+    setTierMap((prev) => ({ ...prev, [aulaId]: { ...prev[aulaId], [tier]: next } }))
+  }
+
+  const isBossEnabled = (bossId: string) =>
+    bossAulaId ? aulaEnabledMap[bossAulaId]?.[bossId] ?? false : enabledMap[bossId] ?? false
 
   const toggleBoss = async (bossId: string) => {
     const supabase = createClient()
-    const next = !enabledMap[bossId]
+    const next = !isBossEnabled(bossId)
 
-    await supabase
-      .from('bosses')
-      .upsert({ id: bossId, is_enabled: next }, { onConflict: 'id' })
-
-    setEnabledMap((prev) => ({ ...prev, [bossId]: next }))
+    if (bossAulaId) {
+      const { error } = await supabase
+        .from('aula_bosses')
+        .upsert({ aula_id: bossAulaId, boss_id: bossId, is_enabled: next }, { onConflict: 'aula_id,boss_id' })
+      if (error) return
+      setAulaEnabledMap((prev) => ({ ...prev, [bossAulaId]: { ...prev[bossAulaId], [bossId]: next } }))
+    } else {
+      const { error } = await supabase
+        .from('bosses')
+        .upsert({ id: bossId, is_enabled: next }, { onConflict: 'id' })
+      if (error) return
+      setEnabledMap((prev) => ({ ...prev, [bossId]: next }))
+    }
   }
+
+  const activeSet = new Set(activeIds)
+  const activeIn = (aulaId: string | null) =>
+    students.filter((s) => s.role === 'student' && s.aula_id === aulaId && activeSet.has(s.id)).length
+  const totalActive = students.filter((s) => s.role === 'student' && activeSet.has(s.id)).length
 
   const createStudent = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -86,7 +137,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
         .from('profiles')
         .select('id, username, role, aula_id, created_at')
         .order('username')
-      if (data) setStudents(data as Student[])
+      if (data) setStudents((data as Student[]).filter((s) => s.username !== TEST_USERNAME))
     } else {
       const { error } = await res.json()
       setCreateStatus('Error: ' + error)
@@ -161,20 +212,29 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
 
   const tabs = [
     { key: 'bosses', label: 'Jefes' },
+    { key: 'exercises', label: 'Ejercicios' },
     { key: 'aulas', label: 'Aulas' },
     { key: 'students', label: 'Alumnos' },
+    { key: 'stats', label: 'Estadísticas' },
+    { key: 'test', label: 'Alumno TEST' },
   ] as const
 
   return (
     <div className="flex flex-col gap-6">
 
+      {/* Activos */}
+      <div className="flex items-center gap-2 font-mono text-xs text-tx2">
+        <span className="inline-block w-2 h-2 rounded-full" style={{ background: totalActive > 0 ? 'hsl(var(--python))' : 'hsl(var(--tx3))' }} />
+        {totalActive} alumno{totalActive === 1 ? '' : 's'} activo{totalActive === 1 ? '' : 's'} (últimos 10 min)
+      </div>
+
       {/* Tab bar */}
-      <div className="flex gap-1 border-b border-border pb-0">
+      <div className="flex gap-1 border-b border-border pb-0 overflow-x-auto">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`font-mono text-xs px-4 py-2 border-b-2 transition-all -mb-px ${
+            className={`font-mono text-xs px-4 py-2 border-b-2 transition-all -mb-px whitespace-nowrap ${
               tab === t.key
                 ? 'border-accent text-accent'
                 : 'border-transparent text-tx3 hover:text-tx'
@@ -189,11 +249,24 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
       {tab === 'bosses' && (
         <div>
           <p className="text-sm text-tx2 mb-4">
-            Habilitá cada jefe cuando el grupo llegue a esa clase.
+            Habilitá cada jefe cuando el grupo llegue a esa clase. La habilitación es por aula.
           </p>
+          <div className="flex items-center gap-2 mb-4">
+            <span className="label-mono">Aula</span>
+            <select
+              className="input max-w-[280px]"
+              value={bossAulaId}
+              onChange={(e) => setBossAulaId(e.target.value)}
+            >
+              <option value="">Sin aula (alumnos sin asignar)</option>
+              {aulas.map((a) => (
+                <option key={a.id} value={a.id}>{a.nombre} ({TURNO_LABEL[a.turno] ?? a.turno})</option>
+              ))}
+            </select>
+          </div>
           <div className="flex flex-col gap-2">
             {bosses.map((boss) => {
-              const isEnabled = enabledMap[boss.id] ?? false
+              const isEnabled = isBossEnabled(boss.id)
               return (
                 <div key={boss.id} className="card p-3 flex items-center gap-4">
                   <BossSprite boss={boss} size="sm" defeated={false} />
@@ -220,6 +293,26 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
           </div>
         </div>
       )}
+
+      {/* ── EXERCISES TAB ── */}
+      {tab === 'exercises' && (
+        <ChallengesBrowser
+          bosses={bosses}
+          aulas={aulas}
+          students={students}
+          aulaTierMap={tierMap}
+          battles={battles}
+          attacks={attacks}
+        />
+      )}
+
+      {/* ── STATS TAB ── */}
+      {tab === 'stats' && (
+        <StatsPanel bosses={bosses} aulas={aulas} students={students} battles={battles} attacks={attacks} />
+      )}
+
+      {/* ── TEST TAB ── */}
+      {tab === 'test' && <TestStudentPanel />}
 
       {/* ── AULAS TAB ── */}
       {tab === 'aulas' && (
@@ -272,10 +365,35 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
             {aulas.map((a) => {
               const count = students.filter((s) => s.aula_id === a.id).length
               return (
-                <div key={a.id} className="card p-3 flex items-center gap-4">
-                  <div className="flex-1 min-w-0">
+                <div key={a.id} className="card p-3 flex flex-wrap items-center gap-4">
+                  <div className="flex-1 min-w-[180px]">
                     <div className="font-mono text-sm font-bold text-tx truncate">{a.nombre}</div>
-                    <div className="text-xs text-tx3">{TURNO_LABEL[a.turno] ?? a.turno} · {count} alumno{count === 1 ? '' : 's'}</div>
+                    <div className="text-xs text-tx3">
+                      {TURNO_LABEL[a.turno] ?? a.turno} · {count} alumno{count === 1 ? '' : 's'} · {activeIn(a.id)} activo{activeIn(a.id) === 1 ? '' : 's'}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5" role="group" aria-label={`Dificultades habilitadas en ${a.nombre}`}>
+                    <span className="label-mono mr-1">Dificultades</span>
+                    {TIER_ORDER.map((t) => {
+                      const on = isTierEnabled(a.id, t)
+                      const color = `hsl(var(${TIER_META[t].colorVar}))`
+                      return (
+                        <button
+                          key={t}
+                          onClick={() => toggleTier(a.id, t)}
+                          aria-pressed={on}
+                          title={`${TIER_META[t].desc} — clic para ${on ? 'deshabilitar' : 'habilitar'}`}
+                          className="font-mono text-[10px] px-2 py-1 pixel-corners-sm border transition-all"
+                          style={{
+                            borderColor: on ? color : 'hsl(var(--border2))',
+                            color: on ? color : 'hsl(var(--tx3))',
+                            background: on ? 'hsl(var(--surface2))' : 'transparent',
+                          }}
+                        >
+                          {on ? '●' : '○'} {TIER_META[t].label}
+                        </button>
+                      )
+                    })}
                   </div>
                   <button
                     onClick={() => deleteAula(a.id)}

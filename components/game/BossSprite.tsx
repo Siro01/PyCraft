@@ -2,12 +2,15 @@
 
 import { useState } from 'react'
 import type { Boss } from '@/types'
+import ArchitectCanvas from './architect/ArchitectCanvas'
 
 interface BossSpriteProps {
   boss: Boss
   size?: 'sm' | 'md' | 'lg'
   defeated?: boolean
   animated?: boolean
+  /** hp actual / hp máximo (0..1). Solo El Arquitecto lo usa: se deshace a medida que pierde vida. */
+  hpRatio?: number
 }
 
 // ─── Display sizes (matches the old CSS-grid sizes) ──────────────────────────
@@ -204,7 +207,34 @@ function CssFallback({ boss, size, defeated }: { boss: Boss; size: 'sm'|'md'|'lg
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function BossSprite({ boss, size = 'md', defeated = false, animated = false }: BossSpriteProps) {
+// El Arquitecto (BOSS-14) no usa sprite: es una imagen de caracteres/puntos que se deshace con el HP.
+const ARCHITECT_PX = { sm: 64, md: 120, lg: 240 } as const
+
+function ArchitectSprite({ boss, size, defeated, animated, hpRatio }: Required<Pick<BossSpriteProps, 'size' | 'defeated' | 'animated'>> & { boss: Boss; hpRatio: number }) {
+  return (
+    <div
+      className={animated && !defeated ? 'animate-boss-idle' : ''}
+      style={{ width: ARCHITECT_PX[size], opacity: defeated ? 0.7 : 1 }}
+    >
+      <ArchitectCanvas
+        mode={size === 'lg' ? 'ascii' : 'dots'}
+        integrity={defeated ? 0.12 : hpRatio}
+        color={defeated ? '#7A8794' : '#BFE9FF'}
+        animate={animated && !defeated}
+        label={boss.name}
+      />
+    </div>
+  )
+}
+
+export default function BossSprite({ boss, size = 'md', defeated = false, animated = false, hpRatio = 1 }: BossSpriteProps) {
+  if (boss.id === 'el-arquitecto') {
+    return <ArchitectSprite boss={boss} size={size} defeated={defeated} animated={animated} hpRatio={hpRatio} />
+  }
+  return <StaticBossSprite boss={boss} size={size} defeated={defeated} animated={animated} />
+}
+
+function StaticBossSprite({ boss, size, defeated, animated }: { boss: Boss; size: 'sm' | 'md' | 'lg'; defeated: boolean; animated: boolean }) {
   const [imgError, setImgError] = useState(false)
   const px = DISPLAY_PX[size]
 

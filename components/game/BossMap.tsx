@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { useReveal } from '@/lib/hooks/useReveal'
 import BossCard from './BossCard'
+import ResetBossButton from './ResetBossButton'
 import { IconCheck, IconLock } from '@/components/ui/PixelIcons'
 import type { Boss } from '@/types'
 
@@ -23,6 +24,8 @@ interface BossMapProps {
   notice?: React.ReactNode
   /** Empty-state message when nothing is unlocked yet */
   emptyState?: React.ReactNode
+  /** Sesión del alumno TEST: permite reiniciar el progreso de cada jefe. */
+  testMode?: boolean
 }
 
 // Misma agrupación narrativa que "Cómo funciona" en la landing: Python (1–6),
@@ -117,9 +120,9 @@ function CompactEntry({ boss, isDefeated }: { boss: Boss; isDefeated: boolean })
 }
 
 // ── One row on the path: waypoint + (full card | compact entry) ──────────────
-function PathNode({ boss, isDefeated, isAvailable, isCurrent, hpCurrent, lineColor }: {
+function PathNode({ boss, isDefeated, isAvailable, isCurrent, hpCurrent, lineColor, testMode }: {
   boss: Boss; isDefeated: boolean; isAvailable: boolean; isCurrent: boolean
-  hpCurrent: number; lineColor: string
+  hpCurrent: number; lineColor: string; testMode?: boolean
 }) {
   const { ref, visible } = useReveal(0.1)
   const isLocked = !isAvailable && !isDefeated
@@ -160,18 +163,24 @@ function PathNode({ boss, isDefeated, isAvailable, isCurrent, hpCurrent, lineCol
         ) : (
           <CompactEntry boss={boss} isDefeated={isDefeated} />
         )}
+        {testMode && (isDefeated || hpCurrent < boss.hpMax) && (
+          <div className="mt-1.5 flex justify-end">
+            <ResetBossButton bossId={boss.id} />
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
 // ── One act: header + connecting line + its bosses ───────────────────────────
-function ActSection({ act, bosses, progress, enabledIds, firstAvailableId }: {
+function ActSection({ act, bosses, progress, enabledIds, firstAvailableId, testMode }: {
   act: typeof ACTS[number]
   bosses: Boss[]
   progress: Record<string, BossProgressEntry>
   enabledIds: Set<string>
   firstAvailableId?: string
+  testMode?: boolean
 }) {
   const { ref, visible } = useReveal(0.05)
   const defeatedCount = bosses.filter((b) => progress[b.id]?.defeated).length
@@ -214,6 +223,7 @@ function ActSection({ act, bosses, progress, enabledIds, firstAvailableId }: {
               isCurrent={isAvailable && boss.id === firstAvailableId}
               hpCurrent={p?.hp ?? boss.hpMax}
               lineColor={solid(act.colorVar)}
+              testMode={testMode}
             />
           )
         })}
@@ -224,7 +234,7 @@ function ActSection({ act, bosses, progress, enabledIds, firstAvailableId }: {
 
 // ── Main map ───────────────────────────────────────────────────────────────────
 export default function BossMap({
-  bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, emptyState,
+  bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, emptyState, testMode,
 }: BossMapProps) {
   const firstAvailableId = useMemo(
     () => bosses.find((b) => enabledIds.has(b.id) && !progress[b.id]?.defeated)?.id,
@@ -303,6 +313,7 @@ export default function BossMap({
             progress={progress}
             enabledIds={enabledIds}
             firstAvailableId={firstAvailableId}
+            testMode={testMode}
           />
         )
       ))}

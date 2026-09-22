@@ -1,15 +1,19 @@
 ﻿'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import BossSprite from './BossSprite'
 import HPBar from './HPBar'
 import CodeEditor from './CodeEditor'
 import MascotGuide from './MascotGuide'
 import MercaderModal from './MercaderModal'
+import ResetBossButton from './ResetBossButton'
+import BossIntro from './BossIntro'
 import { executeChallenge, preloadPyodide, preloadSqlJs } from '@/lib/game/executor'
 import { AMULET_META, getRandomAmuletOffer } from '@/lib/game/amulets'
 import { AmuletIcon } from '@/components/ui/PixelIcons'
+import { sfx } from '@/lib/game/architect/sound'
+import { BOSS_DIALOGUES } from '@/lib/game/dialogues'
 import type { Boss, Challenge, ChallengeTier, Amulet, AmuletType } from '@/types'
 
 const PLAYER_MAX_HP = 100
@@ -19,10 +23,16 @@ interface CombatArenaProps {
   boss: Boss
   challenges: Challenge[]
   initialHp?: number
+  initialDefeated?: boolean
+  persist?: { battleId: string; userId: string; attacksCount: number }
   victoryHref?: string
   localMode?: boolean
   showGuide?: boolean
   tier?: ChallengeTier
+  /** Jefes ya derrotados antes de este (modo Supabase): decide cuándo aparece el Mercader. */
+  defeatedBefore?: number
+  /** Sesión del alumno TEST: muestra herramientas para simular aciertos. */
+  testMode?: boolean
 }
 
 interface AttackResult {
@@ -33,9 +43,32 @@ interface AttackResult {
 }
 
 export default function CombatArena({
-  boss, challenges, initialHp, victoryHref, localMode, showGuide, tier,
+  boss, challenges, initialHp, initialDefeated, persist, victoryHref, localMode, showGuide, tier, defeatedBefore, testMode,
 }: CombatArenaProps) {
   const router = useRouter()
+  const attacksRef = useRef(persist?.attacksCount ?? 0)
+
+  // Intro dialogue — inicializar false para evitar hydration mismatch, luego leer localStorage en useEffect
+  const introLines = BOSS_DIALOGUES[boss.id] ?? []
+  const hasIntro = introLines.length > 0
+  const introKey = `boss-intro-seen-${boss.id}`
+  const [showIntro, setShowIntro] = useState(false)
+
+  useEffect(() => {
+    if (!hasIntro) return
+    try {
+      if (!localStorage.getItem(introKey)) setShowIntro(true)
+    } catch {}
+  }, [hasIntro, introKey])
+
+  const handleIntroDone = useCallback(() => {
+    try { localStorage.setItem(introKey, '1') } catch {}
+    setShowIntro(false)
+  }, [introKey])
+
+  const handleShowIntroAgain = useCallback(() => {
+    setShowIntro(true)
+  }, [])
 
   // Boss state
   const [bossHp, setBossHp]                 = useState(initialHp ?? boss.hpMax)
@@ -43,7 +76,7 @@ export default function CombatArena({
   const [isLoading, setIsLoading]           = useState(false)
   const [lastResult, setLastResult]         = useState<AttackResult | null>(null)
   const [isDamageAnimating, setDamageAnim]  = useState(false)
-  const [isDefeated, setIsDefeated]         = useState(false)
+  const [isDefeated, setIsDefeated]         = useState(initialDefeated ?? false)
   const [log, setLog]                       = useState<string[]>([])
 
   // Player HP — only active in TRAINEE mode
@@ -92,6 +125,34 @@ export default function CombatArena({
 
   const challenge = challenges[currentChallengeIdx]
 
+  // Supabase mode: guarda el ataque y el estado del jefe. Un fallo de red no debe romper el combate.
+  const persistAttack = useCallback(async (
+    code: string, isCorrect: boolean, damage: number, hpAfter: number, defeated: boolean,
+  ) => {
+    if (!persist) return
+    try {
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
+      attacksRef.current += 1
+      await supabase.from('attack_records').insert({
+        battle_id: persist.battleId,
+        user_id: persist.userId,
+        challenge_id: challenge.id,
+        submitted_code: code,
+        is_correct: isCorrect,
+        damage_dealt: damage,
+      })
+      await supabase.from('battle_records').update({
+        hp_current: hpAfter,
+        attacks_count: attacksRef.current,
+        is_completed: defeated,
+        completed_at: defeated ? new Date().toISOString() : null,
+      }).eq('id', persist.battleId)
+    } catch (err) {
+      console.error('No se pudo guardar el progreso', err)
+    }
+  }, [persist, challenge])
+
   // ── Amulet: use health potion ───────────────────────────────────────────────
   const handleUsePotion = useCallback(() => {
     const potion = amulets.find((a) => a.type === 'health-potion')
@@ -137,13 +198,16 @@ export default function CombatArena({
   }, [pendingVictoryHref, refreshAmulets, router])
 
   // ── Main submit handler ────────────────────────────────────────────────────
-  const handleSubmit = useCallback(async (code: string) => {
+  // `simulate` (solo alumno TEST): 'hit' = acierto simulado, 'kill' = derrota al jefe de un golpe.
+  const handleSubmit = useCallback(async (code: string, simulate?: 'hit' | 'kill') => {
     if (!challenge || isLoading || isDefeated || isPlayerDefeated) return
     setIsLoading(true)
     setLastResult(null)
 
     try {
-      const result = await executeChallenge(challenge, code)
+      const result = simulate
+        ? { isCorrect: true, actualOutput: challenge.expectedOutput, expectedOutput: challenge.expectedOutput, error: null }
+        : await executeChallenge(challenge, code)
       const attackResult: AttackResult = {
         isCorrect: result.isCorrect,
         output: result.actualOutput,
@@ -154,10 +218,14 @@ export default function CombatArena({
 
       if (result.isCorrect) {
         // ── Correct answer ───────────────────────────────────────────────
-        const damage = challenge.damage
+        const damage = simulate === 'kill' ? bossHp : challenge.damage
         const newBossHp = Math.max(0, bossHp - damage)
         setBossHp(newBossHp)
         setDamageAnim(true)
+        if (boss.type === 'final') {
+          if (newBossHp <= 0) sfx.powerdown()
+          else sfx.hit()
+        }
         setTimeout(() => setDamageAnim(false), 400)
 
         setLog((prev) => [
@@ -167,31 +235,36 @@ export default function CombatArena({
 
         const bossDefeated = newBossHp <= 0
 
+        persistAttack(code, true, damage, newBossHp, bossDefeated)
+
+        // El Mercader aparece cada 2 jefes derrotados (2, 4, 6…); el jefe final no ofrece Mercader:
+        // el final tiene su propia escena.
+        const onBossDefeated = (totalDefeated: number) => {
+          if (totalDefeated % 2 === 0 && boss.type !== 'final') {
+            setTimeout(() => {
+              setMercaderOffers(getRandomAmuletOffer(2, tier))
+              setShowMercader(true)
+              if (victoryHref) setPendingVHref(victoryHref)
+            }, 1600)
+          } else if (victoryHref) {
+            setTimeout(() => router.push(victoryHref), 2200)
+          }
+        }
+
         if (localMode) {
           import('@/lib/storage/local-store').then(({ saveBossProgress, getAllProgress }) => {
             saveBossProgress(boss.id, newBossHp, bossDefeated)
-
             if (bossDefeated) {
-              // Merchant appears after every 2 bosses defeated (2, 4, 6…)
-              const allProgress = getAllProgress()
-              const totalDefeated = Object.values(allProgress).filter((p) => p.defeated).length
-              if (totalDefeated % 2 === 0) {
-                setTimeout(() => {
-                  setMercaderOffers(getRandomAmuletOffer(2, tier))
-                  setShowMercader(true)
-                  if (victoryHref) setPendingVHref(victoryHref)
-                }, 1600)
-              } else if (victoryHref) {
-                setTimeout(() => router.push(victoryHref), 2200)
-              }
+              const totalDefeated = Object.values(getAllProgress()).filter((p) => p.defeated).length
+              onBossDefeated(totalDefeated)
             }
           })
+        } else if (bossDefeated) {
+          onBossDefeated((defeatedBefore ?? 0) + 1)
         }
 
         if (bossDefeated) {
           setIsDefeated(true)
-          // Non-local mode redirect
-          if (!localMode && victoryHref) setTimeout(() => router.push(victoryHref), 2200)
           return
         }
 
@@ -202,6 +275,7 @@ export default function CombatArena({
 
       } else {
         // ── Wrong answer ─────────────────────────────────────────────────
+        persistAttack(code, false, 0, bossHp, false)
         if (showPlayerHp) {
           const newPlayerHp = Math.max(0, playerHp - PLAYER_WRONG_PENALTY)
           setPlayerHp(newPlayerHp)
@@ -220,7 +294,7 @@ export default function CombatArena({
   }, [
     challenge, isLoading, isDefeated, isPlayerDefeated, bossHp, playerHp,
     currentChallengeIdx, challenges.length, showPlayerHp,
-    localMode, boss.id, victoryHref, router,
+    localMode, boss.id, victoryHref, router, persistAttack, defeatedBefore, tier, boss.type,
   ])
 
   // ── Derived ────────────────────────────────────────────────────────────────
@@ -243,8 +317,26 @@ export default function CombatArena({
         saveBossProgress(boss.id, boss.hpMax, false)
       })
     }
+    if (persist) {
+      import('@/lib/supabase/client').then(({ createClient }) => {
+        createClient().from('battle_records')
+          .update({ hp_current: boss.hpMax, is_completed: false, completed_at: null })
+          .eq('id', persist.battleId)
+      })
+    }
     setBossHp(boss.hpMax)
-  }, [boss.id, boss.hpMax, localMode])
+  }, [boss.id, boss.hpMax, localMode, persist])
+
+  // Si está mostrando la intro, renderizamos solo eso
+  if (showIntro && hasIntro) {
+    return (
+      <div className="flex flex-col gap-4 h-full">
+        <div className="card p-5">
+          <BossIntro boss={boss} lines={introLines} onDone={handleIntroDone} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -261,13 +353,23 @@ export default function CombatArena({
       <div className="card p-5">
         <div className="flex items-center gap-6">
           <div className={isDamageAnimating ? 'animate-damage-flash' : ''}>
-            <BossSprite boss={boss} size="lg" defeated={isDefeated} animated={!isDefeated} />
+            <BossSprite boss={boss} size="lg" defeated={isDefeated} animated={!isDefeated} hpRatio={bossHp / boss.hpMax} />
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-3 mb-1">
               <span className="label-mono">{boss.title}</span>
               <span className="font-mono text-xs" style={{ color: 'hsl(var(--tx3))' }}>{boss.topic}</span>
+              {hasIntro && (
+                <button
+                  onClick={handleShowIntroAgain}
+                  className="font-mono text-[10px] tracking-widest hover:text-tx transition-colors"
+                  style={{ color: 'hsl(var(--tx3))', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                  title="Ver la presentación del jefe"
+                >
+                  ◁ intro
+                </button>
+              )}
             </div>
             <h2 className="font-mono text-lg font-bold text-tx mb-3">{boss.name}</h2>
             <HPBar current={bossHp} max={boss.hpMax} label="HP JEFE" size="lg" color={boss.color} />
@@ -375,9 +477,38 @@ export default function CombatArena({
           <a href="/dashboard" className="btn-primary">
             ← Volver al mapa
           </a>
+          {testMode && <ResetBossButton bossId={boss.id} onDone={() => window.location.reload()} />}
         </div>
       ) : challenge ? (
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 flex flex-col gap-3">
+          {testMode && (
+            <div
+              className="flex flex-wrap items-center gap-2 px-3 py-2 font-mono text-[11px]"
+              style={{ border: '1px dashed hsl(var(--accent) / 0.6)', color: 'hsl(var(--tx2))' }}
+            >
+              <span style={{ color: 'hsl(var(--accent))' }}>MODO TEST</span>
+              <span style={{ color: 'hsl(var(--tx3))' }}>pasa por el mismo flujo real (daño, guardado, Mercader, final)</span>
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => handleSubmit('# TEST: acierto simulado', 'hit')}
+                className="px-2 py-1 pixel-corners-sm border"
+                style={{ borderColor: 'hsl(var(--python) / 0.6)', color: 'hsl(var(--python))', background: 'transparent' }}
+              >
+                ⚡ Simular acierto
+              </button>
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => handleSubmit('# TEST: jefe derrotado', 'kill')}
+                className="px-2 py-1 pixel-corners-sm border"
+                style={{ borderColor: 'hsl(var(--danger) / 0.6)', color: 'hsl(var(--danger))', background: 'transparent' }}
+              >
+                ☠ Derrotar jefe
+              </button>
+              <ResetBossButton bossId={boss.id} onDone={() => window.location.reload()} />
+            </div>
+          )}
           <CodeEditor
             boss={boss}
             challenge={challenge}

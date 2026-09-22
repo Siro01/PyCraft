@@ -1,10 +1,16 @@
 import { notFound, redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { isLocalMode } from '@/lib/local-mode'
 import LocalBattleView from '@/components/game/LocalBattleView'
 import Header from '@/components/layout/Header'
 import CombatArena from '@/components/game/CombatArena'
 import { getBossById } from '@/lib/game/bosses'
 import { getChallengesForBoss } from '@/lib/game/challenges'
+import { getEnabledBossIds } from '@/lib/supabase/enabled-bosses'
+import { getEnabledTiers } from '@/lib/supabase/enabled-tiers'
+import { TIER_COOKIE, pickTier } from '@/lib/game/tiers'
+import TestHud from '@/components/game/TestHud'
+import { isTestUser } from '@/lib/test-student/server'
 
 interface PageProps {
   params: Promise<{ bossId: string }>
@@ -24,7 +30,7 @@ function LocalBattlePage({ bossId }: { bossId: string }) {
   return (
     <LocalBattleView
       boss={boss}
-      victoryHref={boss.classNumber === 14 ? '/demo/victory' : undefined}
+      victoryHref={boss.classNumber === 14 ? '/finale/proyecto' : undefined}
     />
   )
 }
@@ -47,22 +53,26 @@ async function SupabaseBattlePage({ bossId }: { bossId: string }) {
     .single()
 
   const isAdmin = profile?.role === 'admin'
+  const enabledTiers = await getEnabledTiers(supabase, user.id, isAdmin)
+  const tier = pickTier(enabledTiers, (await cookies()).get(TIER_COOKIE)?.value)
+  if (!tier) redirect('/dashboard')
+
   if (!isAdmin) {
-    const { data: bossRow } = await supabase
-      .from('bosses')
-      .select('is_enabled')
-      .eq('id', bossId)
-      .single()
-    if (!bossRow?.is_enabled) redirect('/dashboard')
+    const enabledIds = await getEnabledBossIds(supabase, user.id)
+    if (!enabledIds.has(bossId)) redirect('/dashboard')
   }
 
-  let { data: battle } = await supabase
+  // Reutiliza el registro existente (en curso o completado); solo crea uno si no hay ninguno.
+  const { data: existing } = await supabase
     .from('battle_records')
     .select('*')
     .eq('user_id', user.id)
     .eq('boss_id', bossId)
-    .eq('is_completed', false)
-    .single()
+    .order('is_completed', { ascending: true })
+    .order('started_at', { ascending: false })
+    .limit(1)
+
+  let battle = existing?.[0] ?? null
 
   if (!battle) {
     const { data: newBattle } = await supabase
@@ -79,7 +89,17 @@ async function SupabaseBattlePage({ bossId }: { bossId: string }) {
     battle = newBattle
   }
 
-  const challenges = getChallengesForBoss(bossId)
+  // Jefes ya derrotados (sin contar este): el Mercader aparece cada 2.
+  const { data: doneRows } = await supabase
+    .from('battle_records')
+    .select('boss_id')
+    .eq('user_id', user.id)
+    .eq('is_completed', true)
+    .neq('boss_id', bossId)
+  const defeatedBefore = new Set((doneRows ?? []).map((r: { boss_id: string }) => r.boss_id)).size
+
+  const isTest = await isTestUser(supabase, user.id)
+  const challenges = getChallengesForBoss(bossId, tier)
   const username = profile?.username ?? user.email?.split('@')[0] ?? 'Jugador'
 
   return (
@@ -98,9 +118,17 @@ async function SupabaseBattlePage({ bossId }: { bossId: string }) {
         <CombatArena
           boss={boss}
           challenges={challenges}
+          tier={tier}
+          showGuide={tier !== 'senior'}
           initialHp={battle?.hp_current ?? boss.hpMax}
+          initialDefeated={battle?.is_completed ?? false}
+          victoryHref={boss.classNumber === 14 ? '/finale/proyecto' : undefined}
+          defeatedBefore={defeatedBefore}
+          testMode={isTest}
+          persist={battle ? { battleId: battle.id, userId: user.id, attacksCount: battle.attacks_count } : undefined}
         />
       </main>
+      {isTest && <TestHud />}
     </div>
   )
 }

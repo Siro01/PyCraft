@@ -1,12 +1,23 @@
 import type { Metadata } from 'next'
-import { Jersey_25 } from 'next/font/google'
+import localFont from 'next/font/local'
+import { VT323 } from 'next/font/google'
 import PixelFXProvider from '@/components/ui/PixelFXProvider'
 import './globals.css'
 
-const jersey25 = Jersey_25({
+// Jersey 25 (OFL) servida desde el proyecto: no depende de Google Fonts en desarrollo
+const jersey25 = localFont({
+  src: './fonts/Jersey25-latin.woff2',
+  weight: '400',
+  style: 'normal',
+  variable: '--font-jersey',
+  display: 'swap',
+})
+
+// VT323 — fuente pixel-art terminal para diálogos de jefes
+const vt323 = VT323({
   weight: '400',
   subsets: ['latin'],
-  variable: '--font-jersey',
+  variable: '--font-vt323',
   display: 'swap',
 })
 
@@ -17,7 +28,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" data-theme="dark" suppressHydrationWarning className={jersey25.variable}>
+    <html lang="es" data-theme="dark" suppressHydrationWarning className={`${jersey25.variable} ${vt323.variable}`}>
       <head>
         <script
           dangerouslySetInnerHTML={{

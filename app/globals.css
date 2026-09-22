@@ -518,3 +518,46 @@ body {
     border-style: dashed;
   }
 }
+
+/* ── El Arquitecto: efectos de crash / ASCII ─────────────────────────────── */
+@keyframes ascii-flicker {
+  0%, 90%, 100% { opacity: 1; }
+  92% { opacity: 0.35; }
+  94% { opacity: 1; }
+  97% { opacity: 0.55; }
+}
+.animate-ascii-flicker { animation: ascii-flicker 3.4s steps(1) infinite; }
+
+@keyframes crash-shake {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(-6px, 2px) skewX(2deg); }
+  50%  { transform: translate(5px, -3px); }
+  75%  { transform: translate(-3px, 4px) skewX(-3deg); }
+  100% { transform: translate(2px, -2px); }
+}
+/* Se aplica al contenedor de la landing (no al body: un filter rompe position:fixed) */
+.landing-crashing {
+  animation: crash-shake 0.09s steps(1) infinite;
+  filter: contrast(1.5) saturate(2) hue-rotate(20deg);
+}
+
+@keyframes caret-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.animate-caret { animation: caret-blink 0.9s steps(1) infinite; }
+
+/* Wave de letras al terminar el diálogo de jefe */
+@keyframes dialogue-wave {
+  0%, 100% { transform: translateY(0); }
+  40%       { transform: translateY(-5px); }
+}
+.dialogue-letter {
+  display: inline-block;
+  animation: dialogue-wave 0.6s ease-in-out infinite;
+  animation-delay: calc(var(--li) * 0.04s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ascii-flicker, .animate-caret { animation: none; }
+  .dialogue-letter { animation: none; }
+  /* Se aplica al contenedor de la landing (no al body: un filter rompe position:fixed) */
+.landing-crashing { animation: none; filter: none; }
+}

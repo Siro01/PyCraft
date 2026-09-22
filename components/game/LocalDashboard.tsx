@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/layout/Header'
 import BossMap from '@/components/game/BossMap'
+import { LoadingScreen } from '@/components/ui/LoadingBar'
 import { BOSSES } from '@/lib/game/bosses'
 import {
   getLocalUser,
@@ -73,11 +74,7 @@ export default function LocalDashboard() {
   }
 
   if (!ready) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'hsl(var(--bg))' }}>
-        <span className="font-mono text-xs text-tx3 animate-pulse">Cargando…</span>
-      </div>
-    )
+    return <LoadingScreen label="Cargando mapa de jefes..." estimatedMs={1500} />
   }
 
   const totalDefeated = Object.values(progress).filter((p) => p.defeated).length

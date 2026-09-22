@@ -53,7 +53,7 @@ export default async function DemoBattlePage({ params }: PageProps) {
         <CombatArena
           boss={boss}
           challenges={challenges}
-          victoryHref={boss.classNumber === 14 ? '/demo/victory' : undefined}
+          victoryHref={boss.classNumber === 14 ? '/finale/proyecto' : undefined}
         />
       </main>
     </div>

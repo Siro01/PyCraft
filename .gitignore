@@ -21,3 +21,6 @@ Thumbs.db
 .claude/
 .impeccable/
 .env.local.example
+
+# Planificación docente (privado)
+planificacion/

@@ -15,6 +15,7 @@ import {
 import { getChallengesForBoss } from '@/lib/game/challenges'
 import { AMULET_META } from '@/lib/game/amulets'
 import { IconCrystal, IconLock } from '@/components/ui/PixelIcons'
+import { LoadingScreen } from '@/components/ui/LoadingBar'
 import type { Boss, ChallengeTier, Amulet } from '@/types'
 
 interface Props {
@@ -79,7 +80,7 @@ export default function LocalBattleView({ boss, victoryHref }: Props) {
     router.push('/dashboard')
   }, [amulets, boss.id, boss.name, router])
 
-  if (username === null) return null
+  if (username === null) return <LoadingScreen label="Cargando batalla..." estimatedMs={1500} />
 
   const challenges = getChallengesForBoss(boss.id, tier)
   const skipAmulet = amulets.find((a) => a.type === 'skip-boss')
