@@ -8,6 +8,8 @@ const PROGRESS_KEY = 'pysql:progress'
 const ENABLED_KEY  = 'pysql:enabled'
 const TIER_KEY     = 'pysql:tier'
 const AMULETS_KEY  = 'pysql:amulets'
+const FINALE_KEY   = 'pysql:finale'
+const FINALE_DECO_KEY = 'pysql:finale-deco'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 export interface LocalUser {
@@ -128,4 +130,63 @@ export function removeAmulet(id: string): void {
 export function clearAmulets(): void {
   if (typeof window === 'undefined') return
   localStorage.removeItem(AMULETS_KEY)
+}
+
+// ─── Proyecto final: cofre (guardado de partida) ─────────────────────────────
+// Todo el proyecto corre en sql.js dentro del browser — sin esto, refrescar la
+// página o que se corte la luz borra el cofre entero. Se guarda tal cual lo
+// necesita ProyectoFinal para reconstruir la tabla (incluye el id de cada fila,
+// así el AUTOINCREMENT de sqlite sigue después del máximo restaurado).
+
+export interface FinaleRow {
+  id: number
+  nombre: string
+  cantidad: number
+  material: string | null
+}
+
+export interface FinaleProgress {
+  rows: FinaleRow[]
+  completed: string[]
+  mIdx: number
+}
+
+export function getFinaleProgress(): FinaleProgress | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(FINALE_KEY)
+    return raw ? (JSON.parse(raw) as FinaleProgress) : null
+  } catch { return null }
+}
+
+export function saveFinaleProgress(progress: FinaleProgress): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(FINALE_KEY, JSON.stringify(progress)) } catch { /* ignore quota errors */ }
+}
+
+// Decoración del cofre — separada del progreso de misiones para que
+// "reiniciar cofre" no le borre al alumno el nombre y los grabados que eligió.
+export interface FinaleDecoration {
+  name: string
+  motto: string
+  material: string
+  stickers: Record<string, string>
+}
+
+export function getFinaleDecoration(): FinaleDecoration | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(FINALE_DECO_KEY)
+    return raw ? (JSON.parse(raw) as FinaleDecoration) : null
+  } catch { return null }
+}
+
+export function saveFinaleDecoration(deco: FinaleDecoration): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(FINALE_DECO_KEY, JSON.stringify(deco)) } catch { /* ignore quota errors */ }
+}
+
+export function clearFinaleProgress(): void {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(FINALE_KEY)
 }

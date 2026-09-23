@@ -27,8 +27,8 @@ export default function MercaderModal({ offers, onChoose, onSkip }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="mercader-title"
-        className="card p-6 flex flex-col gap-5 w-full max-w-sm mx-4"
-        style={{ border: '2px solid #FFB800', boxShadow: '0 0 32px rgba(255,184,0,0.2)' }}
+        className="card p-6 flex flex-col gap-5 w-full max-w-sm mx-4 animate-mercader-in"
+        style={{ border: '2px solid #FFB800', boxShadow: '0 0 40px rgba(255,184,0,0.35), 0 0 12px rgba(255,184,0,0.15)' }}
       >
         {/* Header */}
         <div className="text-center">

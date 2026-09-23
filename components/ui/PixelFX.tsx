@@ -5,7 +5,43 @@
 // al hacer click. Mismo lenguaje que PixelIcons (grillas de <rect>, sin
 // círculos), usando siempre los tokens de color del tema activo.
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+
+// Gradiente "en bandas" (cortes duros, no blend suave) — la técnica real
+// detrás del wordmark de omarchy.org: un linearGradient vertical con cada
+// color repetido en dos offsets consecutivos para crear un escalón en vez
+// de una transición. Acá usamos nuestros propios tokens de tema (no los
+// colores de Omarchy) para respetar la paleta del proyecto.
+export const BAND_TOKENS = ['--tx', '--accent', '--accent2', '--tx2', '--tx3']
+
+export function bandedGradient(tokens: readonly string[] = BAND_TOKENS) {
+  const n = tokens.length
+  const stops: string[] = []
+  tokens.forEach((tok, i) => {
+    const start = (i / n) * 100
+    const end = ((i + 1) / n) * 100
+    stops.push(`hsl(var(${tok})) ${start}%`, `hsl(var(${tok})) ${end}%`)
+  })
+  return `linear-gradient(180deg, ${stops.join(', ')})`
+}
+
+// Mismo criterio pero como stops de <linearGradient> SVG (para el cursor y
+// el clúster decorativo, que son <rect> y no texto).
+function useBandedSvgGradient(tokens: readonly string[] = BAND_TOKENS) {
+  const id = useId().replace(/[:]/g, '')
+  const n = tokens.length
+  return {
+    id,
+    node: (
+      <linearGradient id={id} x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+        {tokens.flatMap((tok, i) => [
+          <stop key={`${i}a`} offset={`${(i / n) * 100}%`} stopColor={`hsl(var(${tok}))`} />,
+          <stop key={`${i}b`} offset={`${((i + 1) / n) * 100}%`} stopColor={`hsl(var(${tok}))`} />,
+        ])}
+      </linearGradient>
+    ),
+  }
+}
 
 // PRNG con semilla fija: mismo resultado en server y cliente (sin mismatch de
 // hidratación) y sin depender de Math.random en el render.
@@ -61,9 +97,11 @@ const PIXEL_BLOB_CELLS: [number, number][] = [
   [4, 6], [5, 6],
 ]
 
-export function PixelBlob({ size = 14, color = 'hsl(var(--accent))', opacity = 0.5 }: {
-  size?: number; color?: string; opacity?: number
+export function PixelBlob({ size = 14, color = 'hsl(var(--accent))', opacity = 0.5, gradient = false }: {
+  size?: number; color?: string; opacity?: number; gradient?: boolean
 }) {
+  const band = useBandedSvgGradient()
+  const fill = gradient ? `url(#${band.id})` : color
   return (
     <svg
       width={size * 10}
@@ -72,10 +110,95 @@ export function PixelBlob({ size = 14, color = 'hsl(var(--accent))', opacity = 0
       aria-hidden="true"
       style={{ imageRendering: 'pixelated' }}
     >
+      {gradient && <defs>{band.node}</defs>}
       {PIXEL_BLOB_CELLS.map(([cx, cy], i) => (
-        <rect key={i} x={cx * size} y={cy * size} width={size} height={size} fill={color} opacity={opacity} />
+        <rect key={i} x={cx * size} y={cy * size} width={size} height={size} fill={fill} opacity={opacity} />
       ))}
     </svg>
+  )
+}
+
+// ── Texto con "shatter" por letra ────────────────────────────────────────────
+// Cada carácter es su propio span clickeable: al hacer click, la letra hace
+// un "punch" (se achica/gira/desvanece con timing por steps, no suave) y
+// suelta una lluvia de píxeles + un anillo cuadrado expandiéndose, como si
+// se hiciera pedazos — y vuelve a su lugar. e.stopPropagation() evita que
+// el mismo click dispare también la explosión global de PixelFXProvider.
+function LetterDebris({ color }: { color: string }) {
+  const particles = useRef<{ dx: number; dy: number; size: number; delay: number; duration: number; color: string }[] | null>(null)
+  if (!particles.current) {
+    const count = 12
+    particles.current = Array.from({ length: count }, (_, i) => {
+      const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.6
+      const dist = 12 + Math.random() * 26
+      return {
+        dx: Math.cos(angle) * dist,
+        dy: Math.sin(angle) * dist * 0.7 + 5,
+        size: [2, 2, 3, 3, 4][Math.floor(Math.random() * 5)],
+        delay: Math.random() * 40,
+        duration: 380 + Math.random() * 240,
+        color: Math.random() < 0.65 ? color : 'hsl(var(--tx))',
+      }
+    })
+  }
+  return (
+    <span aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      <span
+        style={{
+          position: 'absolute', left: '50%', top: '50%', width: 8, height: 8,
+          border: `2px solid ${color}`, transform: 'translate(-50%, -50%) scale(1)',
+          animation: 'letter-ring-pulse 0.45s steps(6) forwards',
+        }}
+      />
+      {particles.current.map((p, i) => (
+        <span
+          key={i}
+          style={{
+            position: 'absolute', left: '50%', top: '50%', width: p.size, height: p.size,
+            background: p.color, imageRendering: 'pixelated',
+            animation: `pixel-burst ${p.duration}ms steps(5) ${p.delay}ms forwards`,
+            ['--dx' as string]: `${p.dx}px`,
+            ['--dy' as string]: `${p.dy}px`,
+          } as React.CSSProperties}
+        />
+      ))}
+    </span>
+  )
+}
+
+function ShatterLetter({ ch, color }: { ch: string; color: string }) {
+  const [shatterId, setShatterId] = useState(0)
+
+  useEffect(() => {
+    if (!shatterId) return
+    const t = setTimeout(() => setShatterId(0), 650)
+    return () => clearTimeout(t)
+  }, [shatterId])
+
+  return (
+    <span
+      onClick={(e) => { e.stopPropagation(); setShatterId((id) => id + 1) }}
+      style={{ position: 'relative', display: 'inline-block', cursor: 'pointer' }}
+    >
+      <span key={`ch-${shatterId}`} style={shatterId ? { animation: 'letter-punch 0.6s steps(6) both' } : undefined}>
+        {ch}
+      </span>
+      {shatterId ? <LetterDebris key={`debris-${shatterId}`} color={color} /> : null}
+    </span>
+  )
+}
+
+export function ShatterText({ text, color, className, style }: {
+  text: string; color: string; className?: string; style?: React.CSSProperties
+}) {
+  return (
+    <span className={className} style={style}>
+      {[...text].map((ch, i) => (
+        ch === ' '
+          ? <span key={i}>&nbsp;</span>
+          : <ShatterLetter key={i} ch={ch} color={color} />
+      ))}
+    </span>
   )
 }
 

@@ -8,13 +8,15 @@ import {
   IconDagger, IconSkull, IconWizard, IconPotion,
   IconCrystal, IconBolt, IconPickaxe,
 } from '@/components/ui/PixelIcons'
-import { PixelDust, PixelBlob } from '@/components/ui/PixelFX'
+import { PixelDust, PixelBlob, ShatterText, bandedGradient } from '@/components/ui/PixelFX'
+import { ImageAccordion, type AccordionPanel } from '@/components/ui/ImageAccordion'
 import AsciiQuestion from '@/components/ui/AsciiQuestion'
 import CrashTransition from '@/components/landing/CrashTransition'
+import MascotGuide from '@/components/game/MascotGuide'
 import type { Boss } from '@/types'
 
 // ── Typewriter ────────────────────────────────────────────────────────────────
-function Typewriter({ text, delay = 0 }: { text: string; delay?: number }) {
+function Typewriter({ text, delay = 0, onDone }: { text: string; delay?: number; onDone?: () => void }) {
   const [shown, setShown] = useState('')
   const [go, setGo] = useState(false)
   useEffect(() => { const t = setTimeout(() => setGo(true), delay); return () => clearTimeout(t) }, [delay])
@@ -23,14 +25,24 @@ function Typewriter({ text, delay = 0 }: { text: string; delay?: number }) {
     let i = 0
     const iv = setInterval(() => {
       setShown(text.slice(0, ++i))
-      if (i >= text.length) clearInterval(iv)
+      if (i >= text.length) { clearInterval(iv); onDone?.() }
     }, 55)
     return () => clearInterval(iv)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [go, text])
   return <>{shown}{shown.length < text.length && <span className="opacity-70" style={{ WebkitTextFillColor: 'hsl(var(--tx))', color: 'hsl(var(--tx))' }}>█</span>}</>
 }
 
 // ── Code terminal snippet ─────────────────────────────────────────────────────
+// Las 4 mecánicas del juego — mismos datos que antes, ahora tipados para
+// alimentar tanto el ImageAccordion (desktop) como el grid táctil (mobile).
+const MECHANICS: AccordionPanel[] = [
+  { id: 'mercader', Icon: IconWizard, title: 'Mercader Ambulante', color: '#FFB800', desc: 'Cada 2 jefes derrotados aparece el Mercader Ambulante y te ofrece un amuleto especial para las próximas batallas.' },
+  { id: 'debilidad', Icon: IconSkull, title: 'Amuleto de Debilidad', color: 'hsl(var(--danger))', desc: 'El próximo jefe empieza con el 60% de vida. Estrategia pura.' },
+  { id: 'pocion', Icon: IconPotion, title: 'Poción de Vida', color: 'hsl(var(--python))', desc: 'Restaurá tu barra de vida cuando las cosas se pongan difíciles. (TRAINEE)' },
+  { id: 'teletransportador', Icon: IconCrystal, title: 'Teletransportador', color: '#FFB800', desc: 'Saltate un jefe a elección. ¿Problema con los bucles? Saltá y volvé después.' },
+]
+
 const CODE_LINES = [
   { text: 'import sqlite3',         color: 'hsl(var(--accent))' },
   { text: '',                       color: '' },
@@ -328,6 +340,7 @@ export default function LandingPage() {
   const dialogRef = useRef<HTMLDivElement>(null)
   const [dialogStep, setDialogStep] = useState(0)
   const [crashing, setCrashing] = useState(false)
+  const [bossTyped, setBossTyped] = useState(false)
 
   // Trigger dialogue animation on scroll into view
   useEffect(() => {
@@ -479,21 +492,34 @@ export default function LandingPage() {
               transform: heroReveal.visible ? 'translateY(0)' : 'translateY(20px)',
             }}
           >
-            <span style={{ color: 'hsl(var(--python))' }}>Python</span>
-            <span style={{ color: 'hsl(var(--tx3))' }}> + </span>
-            <span style={{ color: 'hsl(var(--sql))' }}>SQL</span>
-            <span style={{ color: 'hsl(var(--tx3))' }}> = </span>
+            <ShatterText text="Python" color="hsl(var(--python))" style={{ color: 'hsl(var(--python))' }} />
+            <ShatterText text=" + " color="hsl(var(--tx3))" style={{ color: 'hsl(var(--tx3))' }} />
+            <ShatterText text="SQL" color="hsl(var(--sql))" style={{ color: 'hsl(var(--sql))' }} />
+            <ShatterText text=" = " color="hsl(var(--tx3))" style={{ color: 'hsl(var(--tx3))' }} />
             <br />
-            <span
-              style={{
-                backgroundImage: 'linear-gradient(180deg, hsl(var(--tx)) 20%, hsl(var(--tx2)) 100%)',
-                WebkitBackgroundClip: 'text',
-                backgroundClip: 'text',
-                color: 'transparent',
-              }}
-            >
-              <Typewriter text="BOSS RUSH" delay={700} />
-            </span>
+            {bossTyped ? (
+              <ShatterText
+                text="BOSS RUSH"
+                color="hsl(var(--accent))"
+                style={{
+                  backgroundImage: bandedGradient(),
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  color: 'transparent',
+                }}
+              />
+            ) : (
+              <span
+                style={{
+                  backgroundImage: bandedGradient(),
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  color: 'transparent',
+                }}
+              >
+                <Typewriter text="BOSS RUSH" delay={700} onDone={() => setBossTyped(true)} />
+              </span>
+            )}
           </h1>
 
           {/* Subheadline */}
@@ -524,14 +550,18 @@ export default function LandingPage() {
               transform: heroReveal.visible ? 'translateY(0)' : 'translateY(20px)',
             }}
           >
-            <a href="/login" className="btn-primary pixel-corners pixel-shadow font-mono text-sm px-7 py-3 inline-flex items-center gap-2">
-              <IconSword size={14} color="white" />
+            <a
+              href="/login"
+              className="btn-primary pixel-corners pixel-shadow font-jersey text-lg px-7 py-3 inline-flex items-center gap-2"
+              style={{ letterSpacing: '0.03em' }}
+            >
+              <IconSword size={16} color="white" />
               Empezar el taller
             </a>
             <a
               href="#jefes"
-              className="pixel-corners pixel-shadow font-mono text-sm px-7 py-3 border transition-all"
-              style={{ borderColor: 'hsl(var(--border2))', color: 'hsl(var(--tx2))' }}
+              className="pixel-corners pixel-shadow font-jersey text-lg px-7 py-3 border transition-all"
+              style={{ letterSpacing: '0.03em', borderColor: 'hsl(var(--border2))', color: 'hsl(var(--tx2))' }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = 'hsl(var(--accent) / 0.6)'
                 e.currentTarget.style.color = 'hsl(var(--accent))'
@@ -793,19 +823,20 @@ export default function LandingPage() {
               No es solo código. Es estrategia.
             </h2>
           </Reveal>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {([
-              { icon: <IconWizard size={28} color="#FFB800" />, title: 'Mercader Ambulante', color: '#FFB800', desc: 'Cada 2 jefes derrotados aparece el Mercader Ambulante y te ofrece un amuleto especial para las próximas batallas.' },
-              { icon: <IconSkull size={28} color="hsl(var(--danger))" />, title: 'Amuleto de Debilidad', color: 'hsl(var(--danger))', desc: 'El próximo jefe empieza con el 60% de vida. Estrategia pura.' },
-              { icon: <IconPotion size={28} color="hsl(var(--python))" />, title: 'Poción de Vida', color: 'hsl(var(--python))', desc: 'Restaurá tu barra de vida cuando las cosas se pongan difíciles. (TRAINEE)' },
-              { icon: <IconCrystal size={28} color="#FFB800" />, title: 'Teletransportador', color: '#FFB800', desc: 'Saltate un jefe a elección. ¿Problema con los bucles? Saltá y volvé después.' },
-            ] as const).map(({ icon, title, color, desc }, i) => (
-              <Reveal key={title} delay={i * 80} className="h-full">
+          {/* Accordion de imágenes (Bencho, MIT) adaptado a íconos pixel —
+              necesita hover, así que solo se muestra desde md hacia arriba.
+              Mobile ve el grid de tarjetas de siempre, que es táctil. */}
+          <Reveal className="hidden md:block">
+            <ImageAccordion panels={MECHANICS} height={300} />
+          </Reveal>
+          <div className="grid grid-cols-1 gap-4 md:hidden">
+            {MECHANICS.map(({ id, Icon, title, color, desc }, i) => (
+              <Reveal key={id} delay={i * 80} className="h-full">
                 <div
                   className="boss-color-el h-full flex items-start gap-4 p-5 pixel-corners border"
-                  style={{ borderColor: `${color}25`, background: `${color}06` }}
+                  style={{ borderColor: `color-mix(in srgb, ${color} 25%, transparent)`, background: `color-mix(in srgb, ${color} 6%, transparent)` }}
                 >
-                  <span className="shrink-0">{icon}</span>
+                  <span className="shrink-0"><Icon size={28} color={color} /></span>
                   <div>
                     <div className="font-mono text-sm font-bold mb-1" style={{ color }}>{title}</div>
                     <div className="font-mono text-xs leading-relaxed" style={{ color: 'hsl(var(--tx3))' }}>{desc}</div>
@@ -884,6 +915,8 @@ export default function LandingPage() {
       </footer>
 
     </div>
+    {/* Rodolfo también saluda en la landing — mismo componente que en las batallas */}
+    <MascotGuide tip="¡Hola! Soy Rodolfo 🐷 Te voy a acompañar en cada batalla del taller." />
     {/* Fuera del contenedor con filtro: un filter rompe el position:fixed de sus hijos */}
     {crashing && <CrashTransition href="/login" />}
     </>

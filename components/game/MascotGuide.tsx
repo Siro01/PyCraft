@@ -5,13 +5,17 @@ import { IconBulb } from '@/components/ui/PixelIcons'
 
 interface Props {
   tip?: string
+  /** 'gif' = Rodolfo (público en todas las batallas). 'pixel' = cerdito SVG original,
+   * reservado para el jefe final para no romper su estética ASCII/terminal. */
+  variant?: 'gif' | 'pixel'
 }
 
 type MascotState = 'peeking' | 'open'
 
-export default function MascotGuide({ tip }: Props) {
+export default function MascotGuide({ tip, variant = 'gif' }: Props) {
   const [state, setState] = useState<MascotState>('peeking')
   const [wiggling, setWiggling] = useState(false)
+  const [reactKey, setReactKey] = useState(0)
 
   // Reset to peeking whenever the tip changes (new challenge)
   useEffect(() => {
@@ -24,6 +28,7 @@ export default function MascotGuide({ tip }: Props) {
     if (state === 'peeking') {
       setState('open')
       setWiggling(true)
+      setReactKey((k) => k + 1) // reinicia el GIF para que Rodolfo "reaccione" al clic
       setTimeout(() => setWiggling(false), 600)
     } else {
       setState('peeking')
@@ -101,9 +106,28 @@ export default function MascotGuide({ tip }: Props) {
           transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        <PigSVG />
+        {variant === 'gif' ? <RodolfoGif reactKey={reactKey} /> : <PigSVG />}
       </button>
     </div>
+  )
+}
+
+function RodolfoGif({ reactKey }: { reactKey: number }) {
+  return (
+    <img
+      key={reactKey}
+      src="/rodolfo/rodolfo.gif"
+      width={104}
+      height={104}
+      alt="Rodolfo, el cerdito guía"
+      className="pixel-corners-sm"
+      style={{
+        imageRendering: 'pixelated',
+        display: 'block',
+        border: '2px solid hsl(var(--accent) / 0.5)',
+        boxShadow: '0 4px 16px hsl(0 0% 0% / 0.35)',
+      }}
+    />
   )
 }
 

@@ -4,6 +4,12 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import type { SqlJsStatic, Database } from 'sql.js'
 import { sfx } from '@/lib/game/architect/sound'
 import CrashTransition from '@/components/landing/CrashTransition'
+import MascotGuide from '@/components/game/MascotGuide'
+import ArchitectCanvas from '@/components/game/architect/ArchitectCanvas'
+import {
+  getFinaleProgress, saveFinaleProgress, clearFinaleProgress, type FinaleRow,
+  getFinaleDecoration, saveFinaleDecoration,
+} from '@/lib/storage/local-store'
 
 // ── sql.js lazy load ─────────────────────────────────────────────────────────
 
@@ -37,6 +43,7 @@ type MissionCheck = 'pre' | 'insert' | 'select' | 'update' | 'delete'
 interface Mission {
   id: string
   label: string
+  verb: string
   instruction: string
   hint?: string
   defaultCode: string
@@ -47,6 +54,7 @@ const MISSIONS: Mission[] = [
   {
     id: 'create',
     label: 'Crear la tabla',
+    verb: 'CRT',
     instruction: 'El Arquitecto ya armó la estructura. Esta es la tabla que vas a usar:',
     defaultCode:
       'CREATE TABLE IF NOT EXISTS cofre (\n' +
@@ -60,6 +68,7 @@ const MISSIONS: Mission[] = [
   {
     id: 'insert',
     label: 'Cargar ítems',
+    verb: 'INS',
     instruction: 'Llenás el cofre con ítems de Minecraft. Ejecutá el INSERT al menos dos veces con ítems distintos.',
     hint: 'Podés cambiar los valores y ejecutar de nuevo.',
     defaultCode: "INSERT INTO cofre (nombre, cantidad, material)\nVALUES ('Espada de diamante', 5, 'diamante');",
@@ -68,6 +77,7 @@ const MISSIONS: Mission[] = [
   {
     id: 'select',
     label: 'Consultar inventario',
+    verb: 'SEL',
     instruction: '¿Qué tiene el cofre? Mostrá todos los ítems con SELECT.',
     defaultCode: 'SELECT * FROM cofre;',
     check: 'select',
@@ -75,6 +85,7 @@ const MISSIONS: Mission[] = [
   {
     id: 'update',
     label: 'Actualizar cantidad',
+    verb: 'UPD',
     instruction: 'Encontraste más materiales. Actualizá la cantidad de un ítem con UPDATE.',
     hint: 'Siempre usá WHERE o vas a modificar todos los ítems a la vez.',
     defaultCode: 'UPDATE cofre\nSET cantidad = 10\nWHERE id = 1;',
@@ -83,6 +94,7 @@ const MISSIONS: Mission[] = [
   {
     id: 'delete',
     label: 'Eliminar un ítem',
+    verb: 'DEL',
     instruction: 'Usaste todo el material. Borrá un ítem del cofre con DELETE.',
     hint: 'Sin WHERE, DELETE borra todo. Siempre filtrá.',
     defaultCode: 'DELETE FROM cofre WHERE id = 1;',
@@ -90,15 +102,68 @@ const MISSIONS: Mission[] = [
   },
 ]
 
-// ── ASCII Crash Overlay ───────────────────────────────────────────────────────
+const MISSION_ORDER = MISSIONS.map(m => m.id)
+const GRID_LAYOUT = [...MISSION_ORDER, 'deco1', 'deco2', 'deco3', 'deco4']
+
+// Rodolfo acompaña cada paso con la mirada "de qué va esto", distinta del
+// hint técnico que ya muestra la misión (sintaxis vs. sentido del paso).
+const RODOLFO_TIPS: Record<string, string> = {
+  create: 'Yo ya dejé la tabla armada. Vos concentrate en llenar el cofre.',
+  insert: 'Cargá al menos 2 ítems distintos. Podés ejecutar el INSERT las veces que quieras.',
+  select: 'Un SELECT * te muestra todo lo que hay adentro del cofre.',
+  update: 'Fijate el id en la tabla de abajo antes de armar el WHERE.',
+  delete: 'Último paso: después de borrar un ítem no hay vuelta atrás.',
+}
+
+const STICKERS = ['▲', '●', '■', '◆', '✦', '✕', '▮', '░']
+
+const MATERIALS: { id: string; name: string }[] = [
+  { id: 'solid', name: 'Roble' },
+  { id: 'stripes', name: 'Forjado' },
+  { id: 'dots', name: 'Grabado' },
+  { id: 'cross', name: 'Encantado' },
+  { id: 'frame', name: 'Reforzado' },
+]
+
+function materialOverlayStyle(id: string, tint: string): React.CSSProperties {
+  const base: React.CSSProperties = { position: 'absolute', left: 6, right: 6, top: 8, bottom: '34%', pointerEvents: 'none', opacity: 0.5 }
+  switch (id) {
+    case 'stripes': return { ...base, backgroundImage: `repeating-linear-gradient(45deg, ${tint} 0 2px, transparent 2px 7px)` }
+    case 'dots': return { ...base, backgroundImage: `radial-gradient(${tint} 1.4px, transparent 1.4px)`, backgroundSize: '8px 8px' }
+    case 'cross': return { ...base, backgroundImage: `repeating-linear-gradient(45deg, ${tint} 0 1.5px, transparent 1.5px 7px), repeating-linear-gradient(-45deg, ${tint} 0 1.5px, transparent 1.5px 7px)` }
+    case 'frame': return { ...base, outline: `2px solid ${tint}`, outlineOffset: -4 }
+    default: return { display: 'none' }
+  }
+}
+
+// ── CSS vars → colores reales para <canvas> (fillStyle no resuelve var()) ────
+
+function useAccentTriplet(): string {
+  const [triplet, setTriplet] = useState('190 90% 84%')
+  useEffect(() => {
+    const read = () => {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
+      if (raw) setTriplet(raw)
+    }
+    read()
+    const obs = new MutationObserver(read)
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
+  return triplet
+}
+
+// ── ASCII Crash Overlay — recolorea con el acento del tema activo ────────────
 
 const CRASH_CHARS = '░▒▓█│─┼@#%^&*+=[]{};:,.<>?/~'
 
-function CrashOverlay({ intensity }: { intensity: number }) {
+function CrashOverlay({ intensity, accentTriplet }: { intensity: number; accentTriplet: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef(0)
   const intRef = useRef(intensity)
   intRef.current = intensity
+  const colorRef = useRef(accentTriplet)
+  colorRef.current = accentTriplet
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -124,7 +189,7 @@ function CrashOverlay({ intensity }: { intensity: number }) {
       lastDraw = now
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       ctx.font = `${CELL}px monospace`
-      ctx.fillStyle = `rgba(191,233,255,${(k * 0.75).toFixed(2)})`
+      ctx.fillStyle = `hsl(${colorRef.current} / ${(k * 0.75).toFixed(2)})`
       const cols = Math.ceil(canvas.width / CELL)
       const rows = Math.ceil(canvas.height / CELL)
       const density = k * 0.55
@@ -165,67 +230,40 @@ function CrashOverlay({ intensity }: { intensity: number }) {
   )
 }
 
-// ── Minecraft Chest ───────────────────────────────────────────────────────────
+// ── Cofre — tokenizado con las variables del tema activo, no colores fijos ──
 
-function MinecraftChest({ open }: { open: boolean }) {
+function Chest({ open, materialId }: { open: boolean; materialId: string }) {
   return (
-    <svg
-      viewBox="0 0 32 32" width={120} height={120}
-      style={{ imageRendering: 'pixelated', display: 'block', transition: 'filter 0.4s' }}
-      aria-label={open ? 'Cofre abierto' : 'Cofre cerrado'}
-    >
-      {/* ── Body ── */}
-      <rect x="1" y="17" width="30" height="14" fill="#5A3820" />
-      <rect x="2" y="18" width="28" height="12" fill="#9B6035" />
-      <rect x="2" y="18" width="28" height="2"  fill="#7C4E2D" />
-      {/* Gold latch body */}
-      <rect x="13" y="22" width="6" height="5" fill="#D4A017" />
-      <rect x="14" y="23" width="4" height="3" fill="#F5C518" />
-
-      {!open ? (
-        /* ── Closed lid ── */
-        <g>
-          <rect x="1"  y="7"  width="30" height="11" fill="#5A3820" />
-          <rect x="2"  y="8"  width="28" height="9"  fill="#9B6035" />
-          <rect x="2"  y="8"  width="28" height="2"  fill="#B07840" />
-          {/* Latch lid */}
-          <rect x="13" y="14" width="6" height="4" fill="#D4A017" />
-          <rect x="14" y="15" width="4" height="2" fill="#F5C518" />
-        </g>
-      ) : (
-        /* ── Open lid (flipped back) ── */
-        <g>
-          <rect x="1" y="1" width="30" height="8" fill="#5A3820" />
-          <rect x="2" y="2" width="28" height="6" fill="#9B6035" />
-          <rect x="2" y="7" width="28" height="1" fill="#B07840" />
-          {/* Dark inside */}
-          <rect x="2" y="18" width="28" height="12" fill="#1E0D03" />
-          <rect x="3" y="19" width="26" height="10" fill="#2D1508" />
-        </g>
-      )}
-    </svg>
-  )
-}
-
-// ── Segmented HP Bar ──────────────────────────────────────────────────────────
-
-const ICE = '#BFE9FF'
-
-function SegmentedHP({ total, remaining, flash }: { total: number; remaining: number; flash: boolean }) {
-  return (
-    <div className={flash ? 'animate-damage-flash' : ''} style={{ display: 'flex', gap: 3 }}>
-      {Array.from({ length: total }, (_, i) => (
-        <div
-          key={i}
-          style={{
-            width: 34, height: 16,
-            background: i < remaining ? ICE : '#111820',
-            border: `1px solid ${ICE}33`,
-            boxShadow: i < remaining ? `0 0 5px ${ICE}66` : 'none',
-            transition: 'background 0.35s, box-shadow 0.35s',
-          }}
-        />
-      ))}
+    <div style={{ position: 'relative' }}>
+      <svg
+        viewBox="0 0 32 32" width={104} height={104}
+        style={{ imageRendering: 'pixelated', display: 'block', transition: 'filter 0.4s' }}
+        aria-label={open ? 'Cofre abierto' : 'Cofre cerrado'}
+      >
+        <rect x="1" y="17" width="30" height="14" fill="hsl(var(--border2))" />
+        <rect x="2" y="18" width="28" height="12" fill="hsl(var(--surface2))" />
+        <rect x="2" y="18" width="28" height="2" fill="hsl(var(--border2))" />
+        <rect x="13" y="22" width="6" height="5" fill="hsl(var(--accent))" />
+        <rect x="14" y="23" width="4" height="3" fill="hsl(var(--accent2))" />
+        {!open ? (
+          <g>
+            <rect x="1" y="7" width="30" height="11" fill="hsl(var(--border2))" />
+            <rect x="2" y="8" width="28" height="9" fill="hsl(var(--surface2))" />
+            <rect x="2" y="8" width="28" height="2" fill="hsl(var(--border))" />
+            <rect x="13" y="14" width="6" height="4" fill="hsl(var(--accent))" />
+            <rect x="14" y="15" width="4" height="2" fill="hsl(var(--accent2))" />
+          </g>
+        ) : (
+          <g>
+            <rect x="1" y="1" width="30" height="8" fill="hsl(var(--border2))" />
+            <rect x="2" y="2" width="28" height="6" fill="hsl(var(--surface2))" />
+            <rect x="2" y="7" width="28" height="1" fill="hsl(var(--border))" />
+            <rect x="2" y="18" width="28" height="12" fill="hsl(var(--bg))" />
+            <rect x="3" y="19" width="26" height="10" fill="hsl(var(--surface))" />
+          </g>
+        )}
+      </svg>
+      <div style={materialOverlayStyle(materialId, 'hsl(var(--tx) / 0.35)')} />
     </div>
   )
 }
@@ -235,12 +273,12 @@ function SegmentedHP({ total, remaining, flash }: { total: number; remaining: nu
 function ResultTable({ cols, rows }: { cols: string[]; rows: (string | number | null)[][] }) {
   if (rows.length === 0) return null
   return (
-    <div style={{ overflowX: 'auto', border: '1px solid #1a2030' }}>
+    <div style={{ overflowX: 'auto', border: '1px solid hsl(var(--border))' }}>
       <table style={{ borderCollapse: 'collapse', width: '100%', fontFamily: 'var(--font-vt323), monospace', fontSize: 18 }}>
         <thead>
           <tr>
             {cols.map(c => (
-              <th key={c} style={{ padding: '4px 10px', color: ICE, textAlign: 'left', borderBottom: `1px solid ${ICE}22`, letterSpacing: '0.05em' }}>
+              <th key={c} style={{ padding: '4px 10px', color: 'hsl(var(--tx))', textAlign: 'left', borderBottom: '1px solid hsl(var(--border2))', letterSpacing: '0.05em' }}>
                 {c}
               </th>
             ))}
@@ -248,9 +286,9 @@ function ResultTable({ cols, rows }: { cols: string[]; rows: (string | number | 
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i} style={{ borderBottom: '1px solid #111' }}>
+            <tr key={i} style={{ borderBottom: '1px solid hsl(var(--border))' }}>
               {row.map((cell, j) => (
-                <td key={j} style={{ padding: '4px 10px', color: '#ccc' }}>
+                <td key={j} style={{ padding: '4px 10px', color: 'hsl(var(--tx2))' }}>
                   {cell ?? 'NULL'}
                 </td>
               ))}
@@ -266,7 +304,9 @@ function ResultTable({ cols, rows }: { cols: string[]; rows: (string | number | 
 
 export default function ProyectoFinal() {
   const dbRef   = useRef<Database | null>(null)
+  const workbenchRef = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
+  const accentTriplet = useAccentTriplet()
 
   // Mission progress
   const [mIdx, setMIdx] = useState(1) // start at INSERT (0=CREATE pre-done)
@@ -286,15 +326,61 @@ export default function ProyectoFinal() {
   const [flash, setFlash] = useState(false)
   const [allDone, setAllDone] = useState(false)
   const [crash, setCrash] = useState(false)
+  const [restored, setRestored] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [stickerSlot, setStickerSlot] = useState<string | null>(null)
+
+  // Decoración del cofre — nombre, lema, material, grabados. Persiste aparte
+  // del progreso de misiones (reiniciar el cofre no borra la identidad del alumno).
+  const [chestName, setChestName] = useState('')
+  const [chestMotto, setChestMotto] = useState('')
+  const [material, setMaterial] = useState('solid')
+  const [stickers, setStickers] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    const deco = getFinaleDecoration()
+    if (deco) {
+      setChestName(deco.name ?? '')
+      setChestMotto(deco.motto ?? '')
+      setMaterial(deco.material ?? 'solid')
+      setStickers(deco.stickers ?? {})
+    }
+  }, [])
+
+  // El efecto de guardado y el de lectura de arriba corren los dos al montar;
+  // sin este guard, el guardado se dispara primero con los valores por
+  // defecto (antes de que el setState de la lectura se aplique) y pisa la
+  // decoración ya guardada. Se salta solo esa primera pasada espuria.
+  const skipFirstDecoSave = useRef(true)
+  useEffect(() => {
+    if (skipFirstDecoSave.current) { skipFirstDecoSave.current = false; return }
+    saveFinaleDecoration({ name: chestName, motto: chestMotto, material, stickers })
+  }, [chestName, chestMotto, material, stickers])
 
   const intensity = (completed.size - 1) / (MISSIONS.length - 1) // 0 when only create done, 1 when all done
   const remaining = MISSIONS.length - completed.size
 
-  // ── Load sql.js ──────────────────────────────────────────────────────────────
+  // ── Load sql.js — y retomar el cofre guardado si el alumno ya venía jugando ──
   useEffect(() => {
     getSql().then(SQL => {
       const db = new SQL.Database()
       db.run(INIT_SQL)
+
+      const saved = getFinaleProgress()
+      if (saved && saved.rows.length > 0) {
+        for (const row of saved.rows) {
+          db.run('INSERT INTO cofre (id, nombre, cantidad, material) VALUES (?, ?, ?, ?)', [row.id, row.nombre, row.cantidad, row.material])
+        }
+        // sqlite AUTOINCREMENT sigue solo desde el máximo id explícito insertado.
+        setChestOpen(true)
+        setCompleted(new Set(saved.completed))
+        setAllDone(saved.completed.length >= MISSIONS.length)
+        const idx = Math.min(saved.mIdx, MISSIONS.length - 1)
+        setMIdx(idx)
+        setCode(MISSIONS[idx].defaultCode)
+        setRestored(true)
+      }
+
       dbRef.current = db
       setReady(true)
     })
@@ -311,6 +397,50 @@ export default function ProyectoFinal() {
       setInventoryRows([])
     }
   }, [])
+
+  // La tabla recién existe cuando sql.js terminó de cargar (y, si había un
+  // cofre guardado, de restaurarlo) — reflejarla en la mini-tabla en ese momento.
+  useEffect(() => {
+    if (ready) refreshInventory()
+  }, [ready, refreshInventory])
+
+  // ── Guardado de partida — cada cambio de estado relevante se persiste solo ──
+  // Corre client-side (sql.js, sin servidor): si se corta la luz o el wifi del
+  // aula, el localStorage del navegador sigue intacto y el alumno retoma igual.
+  useEffect(() => {
+    if (!ready) return
+    saveFinaleProgress({
+      rows: inventoryRows.map((r): FinaleRow => ({
+        id: Number(r[0]),
+        nombre: String(r[1] ?? ''),
+        cantidad: Number(r[2] ?? 1),
+        material: r[3] == null ? null : String(r[3]),
+      })),
+      completed: Array.from(completed),
+      mIdx,
+    })
+  }, [ready, inventoryRows, completed, mIdx])
+
+  // ── Reiniciar el cofre (borra el guardado local, no toca Supabase) ──────────
+  const resetProject = useCallback(() => {
+    clearFinaleProgress()
+    const db = dbRef.current
+    if (db) {
+      db.run('DELETE FROM cofre;')
+      refreshInventory()
+    }
+    setCompleted(new Set(['create']))
+    setMIdx(1)
+    setCode(MISSIONS[1].defaultCode)
+    setChestOpen(false)
+    setAllDone(false)
+    setFeedback(null)
+    setResultRows([])
+    setResultCols([])
+    setResultError(null)
+    setConfirmReset(false)
+    setRestored(false)
+  }, [refreshInventory])
 
   // ── Mission completion ────────────────────────────────────────────────────────
   const triggerFlash = useCallback(() => {
@@ -442,112 +572,356 @@ export default function ProyectoFinal() {
 
   const mission = MISSIONS[mIdx]
   const glitch = intensity > 0.3 ? `hue-rotate(${(intensity * 22).toFixed(0)}deg)` : undefined
+  const GOLD = 'hsl(38 92% 60%)'
 
   return (
-    <main style={{ minHeight: '100vh', background: '#04060a', color: '#e0e0e0', position: 'relative' }}>
+    <main style={{ minHeight: '100vh', background: 'hsl(var(--bg))', color: 'hsl(var(--tx))', position: 'relative', overflow: 'hidden' }}>
 
-      <CrashOverlay intensity={intensity * 0.8} />
+      {/* El Arquitecto observa de fondo — decorativo, nunca tapa la interfaz */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          width: 'min(80vw, 760px)', opacity: 0.06, pointerEvents: 'none', zIndex: 0,
+        }}
+      >
+        <ArchitectCanvas mode="ascii" integrity={1} color={`hsl(${accentTriplet})`} bg="transparent" glitchy={false} label="" />
+      </div>
 
-      <div style={{ maxWidth: 920, margin: '0 auto', padding: '20px 16px', position: 'relative', zIndex: 10, filter: glitch }}>
+      <CrashOverlay intensity={intensity * 0.8} accentTriplet={accentTriplet} />
+
+      <div style={{ maxWidth: 1040, margin: '0 auto', padding: '20px 16px', position: 'relative', zIndex: 10, filter: glitch }}>
 
         {/* ── Header ── */}
         <div style={{ marginBottom: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 4 }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#445566', letterSpacing: '0.18em' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 4, flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'hsl(var(--tx3))', letterSpacing: '0.18em' }}>
               EL ARQUITECTO
             </span>
-            <SegmentedHP total={MISSIONS.length} remaining={remaining} flash={flash} />
-            <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#445566' }}>
+            <div style={{ display: 'flex', gap: 3 }} className={flash ? 'animate-damage-flash' : ''}>
+              {Array.from({ length: MISSIONS.length }, (_, i) => (
+                <div key={i} style={{
+                  width: 30, height: 14,
+                  background: i < remaining ? 'hsl(var(--accent))' : 'hsl(var(--border2))',
+                  boxShadow: i < remaining ? '0 0 5px hsl(var(--accent) / 0.6)' : 'none',
+                  transition: 'background 0.35s, box-shadow 0.35s',
+                }} />
+              ))}
+            </div>
+            <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'hsl(var(--tx3))' }}>
               {remaining}/{MISSIONS.length}
+            </span>
+            {restored && (
+              <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'hsl(var(--accent))', letterSpacing: '0.1em' }}>
+                ▮ RETOMASTE TU COFRE
+              </span>
+            )}
+            <span style={{ marginLeft: 'auto' }}>
+              {confirmReset ? (
+                <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'hsl(var(--tx3))' }}>¿Borrar todo el cofre?</span>
+                  <button
+                    onClick={resetProject}
+                    style={{ fontFamily: 'monospace', fontSize: 9, color: 'hsl(var(--danger))', background: 'none', border: '1px solid hsl(var(--danger) / 0.3)', padding: '2px 6px', cursor: 'pointer' }}
+                  >sí, reiniciar</button>
+                  <button
+                    onClick={() => setConfirmReset(false)}
+                    style={{ fontFamily: 'monospace', fontSize: 9, color: 'hsl(var(--tx3))', background: 'none', border: 'none', cursor: 'pointer' }}
+                  >cancelar</button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => setConfirmReset(true)}
+                  style={{ fontFamily: 'monospace', fontSize: 9, color: 'hsl(var(--tx3))', letterSpacing: '0.1em', background: 'none', border: 'none', cursor: 'pointer' }}
+                >↺ reiniciar cofre</button>
+              )}
             </span>
           </div>
           <div style={{
             fontFamily: 'var(--font-jersey), monospace',
             fontSize: allDone ? 13 : 10,
             letterSpacing: '0.18em',
-            color: allDone ? ICE : '#33445588',
-            textShadow: allDone ? `0 0 12px ${ICE}66` : 'none',
+            color: allDone ? 'hsl(var(--accent))' : 'hsl(var(--tx3) / 0.7)',
+            textShadow: allDone ? '0 0 12px hsl(var(--accent) / 0.4)' : 'none',
             transition: 'color 0.4s',
           }}>
-            {allDone ? '⚠  SISTEMA COMPROMETIDO' : 'PROYECTO FINAL · INVENTARIO MINECRAFT'}
+            {allDone ? '⚠  SISTEMA COMPROMETIDO' : 'PROYECTO FINAL · MESA DE CRAFTEO'}
           </div>
         </div>
 
-        {/* ── Two-column layout ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '168px 1fr', gap: 20, alignItems: 'start' }}>
+        {/* ── Three-column layout: cofre | receta 3×3 | banco de trabajo ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '210px minmax(0,1fr) minmax(0,1.05fr)', gap: 16, alignItems: 'start' }}>
 
-          {/* Left: chest + checklist */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-            <MinecraftChest open={chestOpen} />
-            <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.15em', color: '#445' }}>
-              {chestOpen ? 'ABIERTO' : 'CERRADO'}
+          {/* ── Rail: cofre + personalización ── */}
+          <div
+            className="pixel-corners"
+            style={{ border: '1px solid hsl(var(--border))', background: 'hsl(var(--surface))', padding: 14, display: 'flex', flexDirection: 'column', gap: 14 }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <Chest open={chestOpen} materialId={material} />
+              <div style={{
+                fontFamily: 'var(--font-jersey), monospace', fontSize: 17, letterSpacing: '0.02em',
+                color: 'hsl(var(--tx))', textAlign: 'center', maxWidth: 180, overflowWrap: 'break-word', lineHeight: 1.15,
+              }}>
+                {chestName ? `EL COFRE DE ${chestName.toUpperCase()}` : 'EL COFRE DE ___'}
+              </div>
+              {chestMotto && (
+                <div style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 14, color: 'hsl(var(--tx3))', textAlign: 'center', maxWidth: 180 }}>
+                  {chestMotto}
+                </div>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.15em', color: 'hsl(var(--tx3))' }}>
+                <span className={`status-dot ${chestOpen ? 'active' : 'locked'}`} />
+                {chestOpen ? 'ABIERTO' : 'CERRADO'}
+              </div>
             </div>
 
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 3, marginTop: 8 }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em', color: 'hsl(var(--tx3))', textTransform: 'uppercase' }}>Nombre en la placa</span>
+              <input
+                value={chestName}
+                onChange={e => setChestName(e.target.value.slice(0, 18))}
+                placeholder="Tu nombre"
+                className="input"
+                style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 17 }}
+              />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em', color: 'hsl(var(--tx3))', textTransform: 'uppercase' }}>Lema (opcional)</span>
+              <input
+                value={chestMotto}
+                onChange={e => setChestMotto(e.target.value.slice(0, 30))}
+                placeholder="ej: nadie toca mi cofre"
+                className="input"
+                style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 17 }}
+              />
+            </label>
+
+            <div>
+              <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.12em', color: 'hsl(var(--tx3))', marginBottom: 6, textTransform: 'uppercase' }}>
+                Material del cofre
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+                {MATERIALS.map(mat => (
+                  <button
+                    key={mat.id}
+                    title={mat.name}
+                    onClick={() => setMaterial(mat.id)}
+                    className="pixel-corners-sm"
+                    style={{
+                      aspectRatio: '1', position: 'relative', overflow: 'hidden', cursor: 'pointer',
+                      background: 'hsl(var(--surface2))',
+                      border: material === mat.id ? '1px solid hsl(var(--accent))' : '1px solid hsl(var(--border))',
+                      boxShadow: material === mat.id ? '0 0 0 1px hsl(var(--accent) / 0.4)' : 'none',
+                    }}
+                  >
+                    <span style={{ position: 'absolute', inset: 0, ...(mat.id === 'solid' ? { background: 'hsl(var(--tx2))' } : materialOverlayStyle(mat.id, 'hsl(var(--tx2))')), opacity: 1, top: 0, bottom: 0, left: 0, right: 0 }} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Pasos secuenciales: 1 → 2 → 3 → 4 → 5, uno a la vez, sin saltos */}
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
               {MISSIONS.map((m, i) => {
                 const done   = completed.has(m.id)
                 const active = i === mIdx && !allDone
+                const locked = !done && !active
+                const isLast = i === MISSIONS.length - 1
                 return (
-                  <div
-                    key={m.id}
-                    style={{
-                      display: 'flex', gap: 6, alignItems: 'center',
-                      fontFamily: 'var(--font-vt323), monospace', fontSize: 16,
-                      color: done ? ICE : active ? '#fff' : '#334',
-                    }}
-                  >
-                    <span style={{ width: 14 }}>{done ? '✓' : active ? '▶' : '○'}</span>
-                    <span>{m.label}</span>
+                  <div key={m.id} style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 20 }}>
+                      <span style={{
+                        width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontFamily: 'monospace', fontSize: 10, fontWeight: 700,
+                        border: `1px solid hsl(var(${done ? '--accent' : active ? '--tx' : '--border2'}))`,
+                        color: done ? 'hsl(var(--bg))' : active ? 'hsl(var(--tx))' : 'hsl(var(--tx3))',
+                        background: done ? 'hsl(var(--accent))' : 'transparent',
+                        boxShadow: active ? '0 0 8px hsl(var(--accent) / 0.5)' : 'none',
+                      }}>
+                        {done ? '✓' : i + 1}
+                      </span>
+                      {!isLast && (
+                        <span style={{ width: 1, flex: 1, minHeight: 10, background: done ? 'hsl(var(--accent))' : 'hsl(var(--border2))', opacity: done ? 0.6 : 0.5 }} />
+                      )}
+                    </div>
+                    <div style={{ paddingBottom: isLast ? 0 : 10 }}>
+                      <div style={{
+                        fontFamily: 'var(--font-vt323), monospace', fontSize: 17, lineHeight: 1,
+                        color: done ? 'hsl(var(--accent))' : active ? 'hsl(var(--tx))' : 'hsl(var(--tx3))',
+                      }}>
+                        {m.label}
+                      </div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.1em', color: 'hsl(var(--tx3))', marginTop: 2 }}>
+                        {done ? 'HECHO' : active ? 'AHORA' : locked ? 'DESPUÉS' : ''}
+                      </div>
+                    </div>
                   </div>
                 )
               })}
             </div>
+          </div>
+
+          {/* ── Receta 3×3: misiones + slots decorativos ── */}
+          <div
+            className="pixel-corners"
+            style={{ border: '1px solid hsl(var(--border))', background: 'hsl(var(--surface))', padding: 14 }}
+          >
+            <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.18em', color: 'hsl(var(--tx3))', textTransform: 'uppercase', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+              Receta · 3×3
+              <span className="badge badge-sql">SQL</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(3, 60px)', gridTemplateRows: 'repeat(3, 60px)', gap: 5,
+                background: 'hsl(var(--bg))', padding: 7, border: '1px solid hsl(var(--border))',
+              }}>
+                {GRID_LAYOUT.map(id => {
+                  const m = MISSIONS.find(mm => mm.id === id)
+                  if (m) {
+                    const idx = MISSION_ORDER.indexOf(id)
+                    const done = completed.has(id)
+                    const active = idx === mIdx && !allDone
+                    const status = done ? 'done' : active ? 'active' : 'locked'
+                    return (
+                      <button
+                        key={id}
+                        disabled={status === 'locked'}
+                        onClick={() => { if (status !== 'locked') { setMIdx(idx); setCode(MISSIONS[idx].defaultCode) } }}
+                        title={m.label}
+                        style={{
+                          width: 60, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+                          fontFamily: 'monospace', fontSize: 13, fontWeight: 700, letterSpacing: '0.03em',
+                          background: 'hsl(var(--surface2))',
+                          border: `1px solid hsl(var(${status === 'done' || status === 'active' ? '--accent' : '--border'}))`,
+                          color: status === 'done' ? 'hsl(var(--accent))' : status === 'active' ? 'hsl(var(--tx))' : 'hsl(var(--tx3))',
+                          opacity: status === 'locked' ? 0.4 : 1,
+                          cursor: status === 'locked' ? 'default' : 'pointer',
+                          boxShadow: status === 'done' ? '0 0 8px hsl(var(--accent) / 0.35)' : status === 'active' ? '0 0 0 1px hsl(var(--accent) / 0.3)' : 'none',
+                        }}
+                      >
+                        {status === 'locked' ? '···' : m.verb}
+                        {status === 'done' && <span className="status-dot active" style={{ position: 'absolute', top: 3, right: 3 }} />}
+                      </button>
+                    )
+                  }
+                  const glyph = stickers[id]
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => setStickerSlot(id)}
+                      title="Grabar un símbolo"
+                      style={{
+                        width: 60, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontFamily: 'monospace', fontSize: 20, cursor: 'pointer',
+                        background: 'hsl(var(--surface2))', border: '1px solid hsl(var(--border))',
+                        color: 'hsl(var(--accent))', opacity: glyph ? 1 : 0.35,
+                      }}
+                    >
+                      {glyph || '+'}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div style={{ fontFamily: 'monospace', fontSize: 20, color: 'hsl(var(--tx3))' }}>→</div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <div
+                  onClick={() => { if (allDone) workbenchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }}
+                  style={{
+                    width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: 'monospace', fontSize: 22,
+                    background: 'hsl(var(--surface2))',
+                    border: `2px solid hsl(var(${allDone ? '--accent' : '--border'}))`,
+                    color: allDone ? 'hsl(var(--accent))' : 'hsl(var(--tx3))',
+                    boxShadow: allDone ? '0 0 16px hsl(var(--accent) / 0.4)' : 'none',
+                    cursor: allDone ? 'pointer' : 'default',
+                  }}
+                >
+                  {allDone ? '★' : '···'}
+                </div>
+                <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.12em', color: 'hsl(var(--tx3))', textAlign: 'center' }}>ITEM FINAL</div>
+              </div>
+            </div>
+
+            {stickerSlot && (
+              <div style={{
+                marginTop: 12, display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center',
+                background: 'hsl(var(--surface2))', border: '1px solid hsl(var(--border))', padding: 8, maxWidth: 300, marginInline: 'auto',
+              }}>
+                {STICKERS.map(s => (
+                  <button
+                    key={s}
+                    onClick={() => { setStickers(prev => ({ ...prev, [stickerSlot]: s })); setStickerSlot(null) }}
+                    style={{ width: 28, height: 28, background: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', fontFamily: 'monospace', fontSize: 15, cursor: 'pointer', color: 'hsl(var(--tx))' }}
+                  >{s}</button>
+                ))}
+                <button
+                  onClick={() => { setStickers(prev => { const n = { ...prev }; delete n[stickerSlot]; return n }); setStickerSlot(null) }}
+                  title="Quitar"
+                  style={{ width: 28, height: 28, background: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', fontFamily: 'monospace', fontSize: 15, cursor: 'pointer', color: 'hsl(var(--danger))' }}
+                >✕</button>
+              </div>
+            )}
 
             {/* Live inventory */}
-            {inventoryRows.length > 0 && (
-              <div style={{ width: '100%', marginTop: 12 }}>
-                <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#33445566', letterSpacing: '0.12em', marginBottom: 4 }}>
-                  COFRE
-                </div>
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'hsl(var(--tx3))', letterSpacing: '0.12em', marginBottom: 6, textTransform: 'uppercase' }}>
+                Contenido del cofre
+              </div>
+              {inventoryRows.length === 0 ? (
+                <div style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 16, color: 'hsl(var(--tx3))' }}>vacío por ahora</div>
+              ) : (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ borderCollapse: 'collapse', width: '100%', fontFamily: 'var(--font-vt323), monospace', fontSize: 14 }}>
                     <thead>
                       <tr>
-                        {['id','nombre','cant.'].map(h => (
-                          <th key={h} style={{ padding: '2px 6px', color: ICE, textAlign: 'left', borderBottom: `1px solid ${ICE}22`, fontSize: 12 }}>{h}</th>
+                        {['id', 'nombre', 'cant.'].map(h => (
+                          <th key={h} style={{ padding: '2px 6px', color: 'hsl(var(--tx))', textAlign: 'left', borderBottom: '1px solid hsl(var(--border2))', fontSize: 12 }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {inventoryRows.map((row, i) => (
                         <tr key={i}>
-                          <td style={{ padding: '2px 6px', color: '#889' }}>{row[0]}</td>
-                          <td style={{ padding: '2px 6px', color: '#ccc', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row[1]}</td>
-                          <td style={{ padding: '2px 6px', color: '#ccc' }}>{row[2]}</td>
+                          <td style={{ padding: '2px 6px', color: 'hsl(var(--tx3))' }}>{row[0]}</td>
+                          <td style={{ padding: '2px 6px', color: 'hsl(var(--tx2))', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row[1]}</td>
+                          <td style={{ padding: '2px 6px', color: 'hsl(var(--tx2))' }}>{row[2]}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* Right: mission / finale panel */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* ── Banco de trabajo ── */}
+          <div
+            ref={workbenchRef}
+            className="pixel-corners"
+            style={{ border: '1px solid hsl(var(--border))', background: 'hsl(var(--surface))', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}
+          >
+            <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.18em', color: 'hsl(var(--tx3))', textTransform: 'uppercase' }}>
+              Banco de trabajo
+            </div>
 
             {!allDone ? (
               <>
                 {/* Mission card */}
-                <div style={{ border: `2px solid ${ICE}22`, padding: '12px 14px', background: '#070b12' }}>
-                  <div style={{ fontFamily: 'monospace', fontSize: 10, color: ICE, letterSpacing: '0.18em', marginBottom: 5 }}>
+                <div style={{ border: '1px solid hsl(var(--border))', padding: '12px 14px', background: 'hsl(var(--surface2))' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'monospace', fontSize: 10, color: 'hsl(var(--tx3))', letterSpacing: '0.14em', marginBottom: 6, textTransform: 'uppercase' }}>
+                    <span className="badge badge-sql">SQL</span>
                     MISIÓN {mIdx + 1} / {MISSIONS.length} · {mission.label.toUpperCase()}
                   </div>
-                  <div style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 20, color: '#e0e0e0', lineHeight: 1.3 }}>
+                  <div style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 20, color: 'hsl(var(--tx))', lineHeight: 1.3 }}>
                     {mission.instruction}
                   </div>
                   {mission.hint && (
-                    <div style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 16, color: '#556', marginTop: 5 }}>
+                    <div style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 16, color: 'hsl(var(--tx3))', marginTop: 5 }}>
                       💡 {mission.hint}
                     </div>
                   )}
@@ -557,8 +931,8 @@ export default function ProyectoFinal() {
                 {mission.check === 'pre' && (
                   <pre style={{
                     fontFamily: 'var(--font-vt323), "Courier New", monospace', fontSize: 18,
-                    padding: '10px 12px', background: '#060a10', color: '#a8c8e8',
-                    border: `2px solid ${ICE}22`, margin: 0, overflowX: 'auto',
+                    padding: '10px 12px', background: 'hsl(var(--bg))', color: 'hsl(var(--tx2))',
+                    border: '1px solid hsl(var(--border))', margin: 0, overflowX: 'auto',
                   }}>
                     {mission.defaultCode}
                   </pre>
@@ -588,8 +962,8 @@ export default function ProyectoFinal() {
                       aria-label="Editor SQL"
                       style={{
                         width: '100%', boxSizing: 'border-box',
-                        background: '#060a10', color: '#a8e6cf',
-                        border: `2px solid ${ICE}22`,
+                        background: 'hsl(var(--bg))', color: 'hsl(var(--tx))',
+                        border: '1px solid hsl(var(--border))',
                         fontFamily: 'var(--font-vt323), "Courier New", monospace',
                         fontSize: 20, padding: '10px 12px', outline: 'none',
                         resize: 'vertical', lineHeight: 1.4,
@@ -599,17 +973,18 @@ export default function ProyectoFinal() {
                       <button
                         onClick={() => void execute()}
                         disabled={running || !ready}
+                        className="pixel-corners pixel-shadow"
                         style={{
                           fontFamily: 'var(--font-jersey), monospace', fontSize: 20,
-                          padding: '8px 22px', background: ICE, color: '#000',
+                          padding: '8px 22px', background: 'hsl(var(--accent))', color: 'hsl(var(--bg))',
                           border: 'none', cursor: running ? 'wait' : 'pointer',
-                          letterSpacing: '0.04em', boxShadow: `4px 4px 0 ${ICE}44`,
+                          letterSpacing: '0.04em',
                           opacity: running || !ready ? 0.55 : 1,
                         }}
                       >
                         {ready ? (running ? '…' : '⚔ Ejecutar') : 'Cargando…'}
                       </button>
-                      <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#334' }}>Ctrl+Enter</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'hsl(var(--tx3))' }}>Ctrl+Enter</span>
                     </div>
                   </>
                 )}
@@ -618,9 +993,9 @@ export default function ProyectoFinal() {
                 {feedback && (
                   <div style={{
                     fontFamily: 'var(--font-vt323), monospace', fontSize: 20, padding: '8px 12px',
-                    color: feedback.ok ? '#a8e6cf' : '#ff9999',
-                    border: `2px solid ${feedback.ok ? '#a8e6cf22' : '#ff999922'}`,
-                    background: '#06080e',
+                    color: feedback.ok ? 'hsl(var(--accent))' : 'hsl(var(--danger))',
+                    border: `1px solid hsl(var(${feedback.ok ? '--accent' : '--danger'}) / 0.3)`,
+                    background: 'hsl(var(--surface2))',
                   }}>
                     {feedback.ok ? '✓ ' : '✗ '}{feedback.msg}
                   </div>
@@ -629,7 +1004,7 @@ export default function ProyectoFinal() {
                 {/* SQL result */}
                 {resultRows.length > 0 && <ResultTable cols={resultCols} rows={resultRows} />}
                 {resultError && (
-                  <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#ff6b6b', padding: '8px 10px', background: '#1a0505', border: '1px solid #ff6b6b22' }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 12, color: 'hsl(var(--danger))', padding: '8px 10px', background: 'hsl(var(--surface2))', border: '1px solid hsl(var(--danger) / 0.3)' }}>
                     {resultError}
                   </div>
                 )}
@@ -638,15 +1013,15 @@ export default function ProyectoFinal() {
               /* ── All-done panel ── */
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{
-                  fontFamily: 'var(--font-jersey), monospace', fontSize: 28,
-                  color: ICE, letterSpacing: '0.05em',
-                  textShadow: `0 0 24px ${ICE}88`,
+                  fontFamily: 'var(--font-jersey), monospace', fontSize: 26,
+                  color: 'hsl(var(--accent))', letterSpacing: '0.05em',
+                  textShadow: '0 0 20px hsl(var(--accent) / 0.4)',
                   animation: 'caret-blink 1.4s steps(1) infinite',
                 }}>
                   ⚠ SISTEMA COMPROMETIDO
                 </div>
 
-                <div style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 20, color: '#c0d0e0', lineHeight: 1.5 }}>
+                <div style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 20, color: 'hsl(var(--tx2))', lineHeight: 1.5 }}>
                   Completaste el inventario. Descargá tu archivo SQL y guardalo en tu compu.<br />
                   Después podés abrirlo en VS Code o en DB Browser y el cofre va a estar ahí.
                 </div>
@@ -654,7 +1029,7 @@ export default function ProyectoFinal() {
                 {/* Full inventory table */}
                 {inventoryRows.length > 0 && (
                   <div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#445', letterSpacing: '0.15em', marginBottom: 6 }}>
+                    <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'hsl(var(--tx3))', letterSpacing: '0.15em', marginBottom: 6 }}>
                       TU INVENTARIO FINAL
                     </div>
                     <ResultTable
@@ -667,22 +1042,22 @@ export default function ProyectoFinal() {
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
                   <button
                     onClick={exportSQL}
+                    className="pixel-corners pixel-shadow"
                     style={{
                       fontFamily: 'var(--font-jersey), monospace', fontSize: 20,
-                      padding: '10px 22px', background: '#F5C518', color: '#000',
+                      padding: '10px 22px', background: GOLD, color: '#000',
                       border: 'none', cursor: 'pointer', letterSpacing: '0.04em',
-                      boxShadow: '4px 4px 0 #D4A01766',
                     }}
                   >
                     📥 Descargar mi_inventario.sql
                   </button>
                   <button
                     onClick={() => setCrash(true)}
+                    className="pixel-corners pixel-shadow"
                     style={{
                       fontFamily: 'var(--font-jersey), monospace', fontSize: 20,
-                      padding: '10px 22px', background: ICE, color: '#000',
+                      padding: '10px 22px', background: 'hsl(var(--accent))', color: 'hsl(var(--bg))',
                       border: 'none', cursor: 'pointer', letterSpacing: '0.04em',
-                      boxShadow: `4px 4px 0 ${ICE}44`,
                     }}
                   >
                     ⚔ Enfrentar al Arquitecto
@@ -693,6 +1068,8 @@ export default function ProyectoFinal() {
           </div>
         </div>
       </div>
+
+      <MascotGuide tip={!allDone ? RODOLFO_TIPS[mission.id] : undefined} variant="pixel" />
     </main>
   )
 }

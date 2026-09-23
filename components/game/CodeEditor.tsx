@@ -5,6 +5,7 @@ import CodeMirrorEditor from './CodeMirrorEditor'
 import { isPyodideLoaded } from '@/lib/game/executor'
 import { IconSnake, IconDatabase, IconCheck, IconX, IconSword } from '@/components/ui/PixelIcons'
 import { LoadingBar } from '@/components/ui/LoadingBar'
+import { sfx } from '@/lib/game/architect/sound'
 import type { Boss, Challenge } from '@/types'
 
 interface CodeEditorProps {
@@ -51,7 +52,10 @@ export default function CodeEditor({
   }, [challenge.id, challenge.initialCode, challenge.type])
 
   const handleSubmit = () => {
-    if (!isLoading && engineReady) onSubmit(code)
+    if (!isLoading && engineReady) {
+      sfx.attack()
+      onSubmit(code)
+    }
   }
 
   const isPython = challenge.type === 'python'
@@ -153,7 +157,7 @@ export default function CodeEditor({
 
       {/* Attack button */}
       <button
-        className="btn-primary w-full justify-center font-mono shrink-0"
+        className="btn-primary w-full justify-center font-mono shrink-0 active:scale-95 transition-transform duration-75"
         onClick={handleSubmit}
         disabled={isLoading || !engineReady}
       >

@@ -84,6 +84,13 @@ export default function CombatArena({
   const [playerHp, setPlayerHp]             = useState(PLAYER_MAX_HP)
   const [isPlayerDefeated, setPlayerDefeated] = useState(false)
 
+  // Visual feedback
+  const [damageNumbers, setDamageNumbers]   = useState<{id: number; value: number; x: number}[]>([])
+  const [playerFlash, setPlayerFlash]       = useState(false)
+  const [hpShake, setHpShake]              = useState(false)
+  const [victoryVisible, setVictoryVisible] = useState(false)
+  const [defeatVisible, setDefeatVisible]   = useState(false)
+
   // Merchant — appears after every 2 bosses defeated
   const [showMercader, setShowMercader]     = useState(false)
   const [mercaderOffers, setMercaderOffers] = useState<AmuletType[]>([])
@@ -158,6 +165,7 @@ export default function CombatArena({
     const potion = amulets.find((a) => a.type === 'health-potion')
     if (!potion) return
     setPlayerHp((prev) => Math.min(PLAYER_MAX_HP, prev + 50))
+    sfx.potion()
     import('@/lib/storage/local-store').then(({ removeAmulet }) => {
       removeAmulet(potion.id)
       refreshAmulets()
@@ -222,11 +230,19 @@ export default function CombatArena({
         const newBossHp = Math.max(0, bossHp - damage)
         setBossHp(newBossHp)
         setDamageAnim(true)
-        if (boss.type === 'final') {
-          if (newBossHp <= 0) sfx.powerdown()
-          else sfx.hit()
+        if (newBossHp <= 0) {
+          if (boss.type === 'final') sfx.powerdown()
+          else sfx.victory()
+          setVictoryVisible(true)
+        } else {
+          sfx.hit()
         }
-        setTimeout(() => setDamageAnim(false), 400)
+        // Floating damage number
+        const numId = Date.now()
+        const xOffset = 40 + Math.random() * 20
+        setDamageNumbers(prev => [...prev, { id: numId, value: damage, x: xOffset }])
+        setTimeout(() => setDamageNumbers(prev => prev.filter(n => n.id !== numId)), 1200)
+        setTimeout(() => setDamageAnim(false), 420)
 
         setLog((prev) => [
           `[${new Date().toLocaleTimeString()}] [ATK] ${challenge.title}: -${damage} HP → ${newBossHp} restante`,
@@ -244,6 +260,7 @@ export default function CombatArena({
             setTimeout(() => {
               setMercaderOffers(getRandomAmuletOffer(2, tier))
               setShowMercader(true)
+              sfx.mercader()
               if (victoryHref) setPendingVHref(victoryHref)
             }, 1600)
           } else if (victoryHref) {
@@ -275,15 +292,22 @@ export default function CombatArena({
 
       } else {
         // ── Wrong answer ─────────────────────────────────────────────────
+        sfx.miss()
         persistAttack(code, false, 0, bossHp, false)
         if (showPlayerHp) {
           const newPlayerHp = Math.max(0, playerHp - PLAYER_WRONG_PENALTY)
           setPlayerHp(newPlayerHp)
+          sfx.damage()
+          setPlayerFlash(true)
+          setHpShake(true)
+          setTimeout(() => setPlayerFlash(false), 500)
+          setTimeout(() => setHpShake(false), 280)
           setLog((prev) => [
             `[${new Date().toLocaleTimeString()}] [-HP] Respuesta incorrecta: -${PLAYER_WRONG_PENALTY} HP`,
             ...prev,
           ])
           if (newPlayerHp <= 0) {
+            setDefeatVisible(true)
             setPlayerDefeated(true)
           }
         }
@@ -349,11 +373,37 @@ export default function CombatArena({
         />
       )}
 
+      {/* Player damage vignette overlay */}
+      {playerFlash && (
+        <div
+          className="fixed inset-0 pointer-events-none z-40 animate-player-damage"
+          style={{ background: 'radial-gradient(ellipse at center, transparent 35%, rgba(220,38,38,0.65) 100%)' }}
+        />
+      )}
+
       {/* Boss panel */}
       <div className="card p-5">
         <div className="flex items-center gap-6">
-          <div className={isDamageAnimating ? 'animate-damage-flash' : ''}>
-            <BossSprite boss={boss} size="lg" defeated={isDefeated} animated={!isDefeated} hpRatio={bossHp / boss.hpMax} />
+          <div className="relative">
+            <div className={isDamageAnimating ? 'animate-damage-flash-v2' : ''}>
+              <BossSprite boss={boss} size="lg" defeated={isDefeated} animated={!isDefeated} hpRatio={bossHp / boss.hpMax} />
+            </div>
+            {/* Floating damage numbers */}
+            {damageNumbers.map(n => (
+              <div
+                key={n.id}
+                className="absolute top-0 pointer-events-none animate-float-dmg font-mono font-bold select-none"
+                style={{
+                  left: `${n.x}%`,
+                  fontSize: 20,
+                  color: boss.color,
+                  textShadow: `0 0 10px ${boss.color}, 0 0 4px #000`,
+                  zIndex: 10,
+                }}
+              >
+                -{n.value}
+              </div>
+            ))}
           </div>
 
           <div className="flex-1 min-w-0">
@@ -402,13 +452,15 @@ export default function CombatArena({
         {/* Player HP bar — TRAINEE only */}
         {showPlayerHp && !isDefeated && (
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid hsl(var(--border))' }}>
-            <HPBar
-              current={playerHp}
-              max={PLAYER_MAX_HP}
-              label="HP JUGADOR"
-              size="sm"
-              color={playerHp <= 30 ? 'hsl(var(--danger))' : 'hsl(var(--python))'}
-            />
+            <div className={hpShake ? 'animate-hp-shake' : ''}>
+              <HPBar
+                current={playerHp}
+                max={PLAYER_MAX_HP}
+                label="HP JUGADOR"
+                size="sm"
+                color={playerHp <= 30 ? 'hsl(var(--danger))' : 'hsl(var(--python))'}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -455,7 +507,10 @@ export default function CombatArena({
       {/* Player defeated screen */}
       {isPlayerDefeated ? (
         <div className="card p-8 flex flex-col items-center gap-4 text-center">
-          <div className="font-mono text-4xl font-bold" style={{ color: 'hsl(var(--danger))' }}>
+          <div
+            className={`font-mono text-4xl font-bold ${defeatVisible ? 'animate-defeat' : ''}`}
+            style={{ color: 'hsl(var(--danger))' }}
+          >
             ¡DERROTA!
           </div>
           <p className="text-tx2 font-mono text-sm">
@@ -470,7 +525,10 @@ export default function CombatArena({
         </div>
       ) : isDefeated ? (
         <div className="card p-8 flex flex-col items-center gap-4 text-center">
-          <div className="font-mono text-4xl font-bold" style={{ color: boss.color }}>
+          <div
+            className={`font-mono text-4xl font-bold ${victoryVisible ? 'animate-victory' : ''}`}
+            style={{ color: boss.color, textShadow: `0 0 24px ${boss.color}88` }}
+          >
             VICTORIA
           </div>
           <p className="text-tx2">Derrotaste a <strong>{boss.name}</strong>.</p>

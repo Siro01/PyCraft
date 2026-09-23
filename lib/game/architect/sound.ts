@@ -111,4 +111,34 @@ export const sfx = {
   jingle() {
     ;[523, 659, 784, 1047].forEach((f, i) => tone(f, 0.12, 'square', 0.05, { at: i * 0.09 }))
   },
+  /** El jugador presiona Atacar — golpe de espada. */
+  attack() {
+    tone(880, 0.06, 'square', 0.07, { to: 440 })
+    noise(0.05, 0.07, { highpass: 2000, at: 0.01 })
+  },
+  /** Respuesta incorrecta — buzz descendente. */
+  miss() {
+    tone(280, 0.28, 'sawtooth', 0.06, { to: 110 })
+    noise(0.08, 0.04, { highpass: 500, at: 0.0 })
+  },
+  /** El jugador recibe daño (TRAINEE). */
+  damage() {
+    noise(0.18, 0.13, { highpass: 700 })
+    tone(200, 0.22, 'sawtooth', 0.07, { to: 70 })
+  },
+  /** Jefe derrotado — fanfare ascendente. */
+  victory() {
+    ;[523, 659, 784, 880, 1047].forEach((f, i) => tone(f, 0.14, 'square', 0.06, { at: i * 0.08 }))
+    tone(1047, 0.45, 'triangle', 0.05, { at: 0.45 })
+  },
+  /** El Mercader aparece — tintineo de monedas. */
+  mercader() {
+    ;[1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.10, 'triangle', 0.06, { at: i * 0.055 }))
+    noise(0.06, 0.03, { highpass: 3500, at: 0.01 })
+  },
+  /** Poción de vida usada — tono suave ascendente. */
+  potion() {
+    ;[523, 659, 784].forEach((f, i) => tone(f, 0.14, 'triangle', 0.06, { at: i * 0.1 }))
+    tone(1047, 0.25, 'triangle', 0.04, { at: 0.3 })
+  },
 }
