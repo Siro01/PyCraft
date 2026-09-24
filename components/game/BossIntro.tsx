@@ -8,6 +8,8 @@ interface Props {
   boss: Boss
   lines: DialogueLine[]
   onDone: () => void
+  /** Apuntes con ejemplos paso a paso de este jefe (si existen). */
+  onOpenLesson?: () => void
 }
 
 // ── Sonido de tipeo ──────────────────────────────────────────────────────────
@@ -41,7 +43,7 @@ function WaveText({ text, bossColor }: { text: string; bossColor: string }) {
         <span
           key={i}
           className="dialogue-letter"
-          style={{ '--li': i, color: ch === '¡' || ch === '!' ? bossColor : undefined } as React.CSSProperties}
+          style={{ '--li': i, color: ch === '¡' || ch === '!' ? 'hsl(var(--accent))' : undefined } as React.CSSProperties}
         >
           {ch === ' ' ? ' ' : ch}
         </span>
@@ -51,7 +53,7 @@ function WaveText({ text, bossColor }: { text: string; bossColor: string }) {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function BossIntro({ boss, lines, onDone }: Props) {
+export default function BossIntro({ boss, lines, onDone, onOpenLesson }: Props) {
   const [idx, setIdx] = useState(0)
   const [shown, setShown] = useState('')
   const [done, setDone] = useState(false)
@@ -144,8 +146,8 @@ export default function BossIntro({ boss, lines, onDone }: Props) {
       >
         {/* Label speaker */}
         <div
-          className="inline-block font-mono text-[11px] font-bold tracking-widest px-2 py-0.5 mb-0"
-          style={{ background: boss.color, color: '#000' }}
+          className="inline-block px-2 py-0.5 mb-0"
+          style={{ background: 'hsl(var(--tx))', color: 'hsl(var(--bg))', fontFamily: 'var(--font-jersey), monospace', fontSize: 15, letterSpacing: '0.08em' }}
         >
           {currentLine?.speaker ?? boss.name.toUpperCase()}
         </div>
@@ -153,8 +155,8 @@ export default function BossIntro({ boss, lines, onDone }: Props) {
         {/* Texto con typewriter / wave */}
         <div
           style={{
-            border: `3px solid ${boss.color}`,
-            boxShadow: `5px 5px 0 ${boss.color}33`,
+            border: '2px solid hsl(var(--tx))',
+            boxShadow: '5px 5px 0 hsl(var(--tx) / 0.2)',
             background: 'hsl(var(--surface))',
             padding: '18px 20px 16px',
             fontFamily: 'var(--font-vt323), "Courier New", monospace',
@@ -177,7 +179,7 @@ export default function BossIntro({ boss, lines, onDone }: Props) {
               ? <WaveText text={shown} bossColor={boss.color} />
               : <>
                   {shown}
-                  <span style={{ color: boss.color }} className="animate-caret">█</span>
+                  <span style={{ color: 'hsl(var(--accent))' }} className="animate-caret">█</span>
                 </>
             }
           </span>
@@ -186,7 +188,7 @@ export default function BossIntro({ boss, lines, onDone }: Props) {
           {done && !isLast && (
             <span
               className="animate-caret"
-              style={{ position: 'absolute', right: 12, bottom: 6, color: boss.color, fontSize: 16 }}
+              style={{ position: 'absolute', right: 12, bottom: 6, color: 'hsl(var(--accent))', fontSize: 16 }}
             >▼</span>
           )}
         </div>
@@ -199,7 +201,7 @@ export default function BossIntro({ boss, lines, onDone }: Props) {
                 key={i}
                 style={{
                   width: 8, height: 8,
-                  background: i === idx ? boss.color : 'hsl(var(--border2))',
+                  background: i === idx ? 'hsl(var(--accent))' : 'hsl(var(--border2))',
                   transition: 'background 0.2s',
                 }}
               />
@@ -217,18 +219,29 @@ export default function BossIntro({ boss, lines, onDone }: Props) {
       {/* Botones de acción */}
       <div className="flex gap-3">
         {isLast && done ? (
-          <button
-            onClick={onDone}
-            className="btn-primary font-mono text-sm px-6 py-2"
-          >
-            ⚔ ¡A combatir!
-          </button>
+          <>
+            <button
+              onClick={onDone}
+              className="btn-primary text-sm px-6 py-2"
+            >
+              ¡A combatir!
+            </button>
+            {onOpenLesson && (
+              <button
+                onClick={onOpenLesson}
+                className="text-sm px-5 py-2"
+                style={{ fontFamily: 'var(--font-jersey), monospace', letterSpacing: '0.04em', border: '2px solid hsl(var(--tx))', background: 'transparent', color: 'hsl(var(--tx))', cursor: 'pointer' }}
+              >
+                Ver ejemplos paso a paso
+              </button>
+            )}
+          </>
         ) : (
           <button
             onClick={skipOrAdvance}
-            className="font-mono text-xs px-4 py-2 border border-border text-tx2 hover:text-tx hover:border-border2 transition-all"
+            style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 16, letterSpacing: '0.04em', padding: '6px 16px', border: '2px solid hsl(var(--tx))', background: 'transparent', color: 'hsl(var(--tx))', cursor: 'pointer' }}
           >
-            {done ? 'Siguiente ▼' : 'Saltar intro ▷▷'}
+            {done ? 'Siguiente' : 'Saltar intro'}
           </button>
         )}
         {!(isLast && done) && (

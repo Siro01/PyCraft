@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import BossSprite from './BossSprite'
 import HPBar from './HPBar'
+import Win from '@/components/ui/Win'
 import type { Boss } from '@/types'
 
 interface BossCardProps {
@@ -16,13 +17,6 @@ interface BossCardProps {
   animated?: boolean
 }
 
-const TYPE_BADGE: Record<string, string> = {
-  python: 'badge-python',
-  sql:    'badge-sql',
-  mixed:  'badge-mixed',
-  final:  'badge-final',
-}
-
 const TYPE_LABEL: Record<string, string> = {
   python: 'Python',
   sql:    'SQL',
@@ -30,58 +24,58 @@ const TYPE_LABEL: Record<string, string> = {
   final:  'Final',
 }
 
+const vt = 'var(--font-vt323), monospace'
+
+// Cada jefe es una ventana del escritorio: barra sólida = disponible para combatir,
+// barra rayada = ya derrotado o todavía bloqueado.
 export default function BossCard({ boss, hpCurrent, isEnabled = false, isDefeated = false, href, animated = false }: BossCardProps) {
   const hp = hpCurrent ?? boss.hpMax
+  const playable = isEnabled && !isDefeated
 
   const content = (
-    <div
-      className={`card group flex flex-col gap-3 p-4 transition-all duration-150 ${
-        isEnabled && !isDefeated
-          ? 'hover:border-border2 hover:shadow-lg cursor-pointer'
-          : isDefeated
-          ? 'opacity-60'
-          : 'opacity-40 cursor-not-allowed grayscale'
+    <Win
+      title={boss.name}
+      active={playable}
+      right={
+        <span
+          style={{
+            fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', marginRight: 2,
+            color: playable ? 'hsl(var(--bg))' : 'hsl(var(--tx2))',
+            background: playable ? 'transparent' : 'hsl(var(--surface))', padding: playable ? 0 : '1px 5px',
+          }}
+        >
+          {isDefeated ? 'Derrotado' : !isEnabled ? 'Bloqueado' : TYPE_LABEL[boss.type]}
+        </span>
+      }
+      className={`group transition-transform duration-100 ${
+        playable ? 'hover:-translate-x-0.5 hover:-translate-y-0.5 cursor-pointer' : isDefeated ? 'opacity-70' : 'opacity-45 cursor-not-allowed grayscale'
       }`}
+      bodyStyle={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}
     >
-      {/* Header row */}
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="label-mono mb-0.5">{boss.title}</div>
-          <h3 className="font-mono text-sm font-bold leading-snug text-tx">{boss.name}</h3>
-        </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className={`badge ${TYPE_BADGE[boss.type]}`}>{TYPE_LABEL[boss.type]}</span>
-          {isDefeated && <span className="badge badge-python text-[10px]">Derrotado</span>}
-          {!isEnabled && !isDefeated && <span className="badge badge-sql text-[10px] opacity-60">Bloqueado</span>}
-        </div>
-      </div>
-
-      {/* Sprite + info */}
       <div className="flex items-center gap-4">
         <BossSprite boss={boss} size="sm" defeated={isDefeated} animated={animated && !isDefeated} hpRatio={hp / boss.hpMax} />
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-tx3 leading-relaxed line-clamp-2">{boss.description}</p>
-          <p className="label-mono mt-2 truncate" style={{ color: boss.color }}>
+          <div className="label-mono mb-0.5">{boss.title} · {TYPE_LABEL[boss.type]}</div>
+          <p style={{ fontFamily: vt, fontSize: 18, lineHeight: 1.1, color: 'hsl(var(--tx2))' }} className="line-clamp-2">{boss.description}</p>
+          <p className="label-mono mt-1.5 truncate" style={{ color: playable ? 'hsl(var(--accent))' : 'hsl(var(--tx3))' }}>
             {boss.topic}
           </p>
         </div>
       </div>
 
-      {/* HP */}
-      <HPBar current={hp} max={boss.hpMax} size="sm" showNumbers={false} color={boss.color} />
+      <HPBar current={hp} max={boss.hpMax} size="sm" showNumbers={false} color={playable ? 'hsl(var(--accent))' : 'hsl(var(--border2))'} />
 
-      {/* Status indicator */}
       <div className="flex items-center gap-1.5">
         <span className={`status-dot ${isDefeated ? 'defeated' : isEnabled ? 'active' : 'locked'}`} />
-        <span className="text-xs text-tx3">
+        <span style={{ fontFamily: vt, fontSize: 17, color: 'hsl(var(--tx3))' }}>
           {isDefeated ? 'Completado' : isEnabled ? 'Disponible' : 'Clase ' + boss.classNumber}
         </span>
       </div>
-    </div>
+    </Win>
   )
 
-  if (isEnabled && !isDefeated) {
-    return <Link href={href ?? `/battle/${boss.id}`}>{content}</Link>
+  if (playable) {
+    return <Link href={href ?? `/battle/${boss.id}`} className="block">{content}</Link>
   }
 
   return content

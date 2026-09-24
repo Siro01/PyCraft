@@ -80,7 +80,7 @@ export default function LocalDashboard() {
   const totalDefeated = Object.values(progress).filter((p) => p.defeated).length
 
   return (
-    <div className="min-h-screen" style={{ background: 'hsl(var(--bg))' }}>
+    <div className="min-h-screen desk-theme">
       <Header username={user?.name} role={user?.role} />
 
       <BossMap

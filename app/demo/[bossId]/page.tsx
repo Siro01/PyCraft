@@ -24,14 +24,14 @@ export default async function DemoBattlePage({ params }: PageProps) {
   const challenges = getChallengesForBoss(bossId)
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'hsl(var(--bg))' }}>
+    <div className="min-h-screen flex flex-col desk-theme">
       <Header />
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 mb-4 font-mono text-xs text-tx3 flex-wrap">
-          <Link href="/demo" className="hover:text-tx transition-colors">← Demo</Link>
+          <Link href="/demo" className="hover:text-tx transition-colors inline-block py-1.5">← Demo</Link>
           <span>/</span>
           <span className="text-tx2">{boss.title}</span>
           <span>/</span>
@@ -53,6 +53,7 @@ export default async function DemoBattlePage({ params }: PageProps) {
         <CombatArena
           boss={boss}
           challenges={challenges}
+          showGuide
           victoryHref={boss.classNumber === 14 ? '/finale/proyecto' : undefined}
         />
       </main>

@@ -1,26 +1,59 @@
-# Dependencies
+# Dependencias
 node_modules/
 .pnpm-store/
 
 # Next.js
 .next/
 out/
+next-env.d.ts
 
-# Environment — NEVER commit real keys
-.env.local
-.env.*.local
+# TypeScript (caché de compilación incremental)
+*.tsbuildinfo
 
-# OS
+# Variables de entorno — NUNCA subir claves reales
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Tests y cobertura
+coverage/
+
+# Sistema operativo
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Editores
+.idea/
+.vscode/
+*.swp
 
 # Vercel
 .vercel
 
-# Tooling configs (local only)
+# Herramientas locales (Claude Code, Impeccable)
 .claude/
 .impeccable/
-.env.local.example
 
-# Planificación docente (privado)
+# Planificación docente (privada)
 planificacion/
+
+# Archivos temporales y de trabajo
+tmp/
+*.tmp
+*.bak
+*.pem
+
+#MD
+DESIGN.MD
+PRODUCT.MD
+
+#ENV PLACEHOLDERS
+.env.example

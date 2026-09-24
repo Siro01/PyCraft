@@ -2,17 +2,20 @@
 
 import { useState, useEffect } from 'react'
 import { IconBulb } from '@/components/ui/PixelIcons'
+import { sfx } from '@/lib/game/architect/sound'
 
 interface Props {
   tip?: string
   /** 'gif' = Rodolfo (público en todas las batallas). 'pixel' = cerdito SVG original,
    * reservado para el jefe final para no romper su estética ASCII/terminal. */
   variant?: 'gif' | 'pixel'
+  /** Si hay apuntes con ejemplos para este jefe: abre la ventana de Rodolfo. */
+  onOpenLesson?: () => void
 }
 
 type MascotState = 'peeking' | 'open'
 
-export default function MascotGuide({ tip, variant = 'gif' }: Props) {
+export default function MascotGuide({ tip, variant = 'gif', onOpenLesson }: Props) {
   const [state, setState] = useState<MascotState>('peeking')
   const [wiggling, setWiggling] = useState(false)
   const [reactKey, setReactKey] = useState(0)
@@ -22,7 +25,7 @@ export default function MascotGuide({ tip, variant = 'gif' }: Props) {
     setState('peeking')
   }, [tip])
 
-  if (!tip) return null
+  if (!tip && !onOpenLesson) return null
 
   const handleClick = () => {
     if (state === 'peeking') {
@@ -35,61 +38,70 @@ export default function MascotGuide({ tip, variant = 'gif' }: Props) {
     }
   }
 
+  const openLesson = () => {
+    setState('peeking')
+    sfx.confirm()
+    onOpenLesson?.()
+  }
+
   return (
     <div
       className="fixed bottom-6 right-0 z-50 flex items-end select-none"
       style={{ pointerEvents: 'none' }}
     >
-      {/* Speech bubble — only visible when open */}
+      {/* Globo de Rodolfo — solo visible cuando está abierto */}
       {state === 'open' && (
-        <div
-          className="mb-3 mr-2 max-w-[220px]"
-          style={{ pointerEvents: 'auto' }}
-        >
-          {/* Bubble body */}
+        <div className="mb-3 mr-3 max-w-[250px]" style={{ pointerEvents: 'auto' }}>
           <div
-            className="relative pixel-corners-sm px-3 py-2 font-mono text-[11px] leading-relaxed shadow-lg"
-            style={{
-              background: 'hsl(var(--surface))',
-              border: '2px solid hsl(var(--accent))',
-              color: 'hsl(var(--tx2))',
-              imageRendering: 'pixelated',
-            }}
+            className="relative"
+            style={{ background: 'hsl(var(--surface))', border: '2px solid hsl(var(--accent))', boxShadow: '4px 4px 0 hsl(var(--tx) / 0.2)' }}
           >
-            <span
-              className="flex items-center gap-1 mb-1 font-bold text-[10px] tracking-widest"
-              style={{ color: 'hsl(var(--accent))' }}
-            >
-              <IconBulb size={12} color="hsl(var(--accent))" />
-              PISTA
-            </span>
-            {tip}
-            {/* Tail pointing right */}
-            <span
-              className="absolute right-[-10px] bottom-4"
-              style={{
-                width: 0,
-                height: 0,
-                borderTop: '6px solid transparent',
-                borderBottom: '6px solid transparent',
-                borderLeft: '10px solid hsl(var(--accent))',
-                display: 'block',
-              }}
-            />
-            <span
-              className="absolute right-[-7px] bottom-[17px]"
-              style={{
-                width: 0,
-                height: 0,
-                borderTop: '5px solid transparent',
-                borderBottom: '5px solid transparent',
-                borderLeft: '9px solid hsl(var(--surface))',
-                display: 'block',
-              }}
-            />
+            <div className="flex items-center gap-1.5 px-2" style={{ background: 'hsl(var(--accent))', color: 'var(--on-accent)', minHeight: 22 }}>
+              <IconBulb size={12} color="var(--on-accent)" />
+              <span style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 15, letterSpacing: '0.08em' }}>RODOLFO</span>
+            </div>
+            {tip && (
+              <div className="px-3 py-2" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, lineHeight: 1.15, color: 'hsl(var(--tx))' }}>
+                {tip}
+              </div>
+            )}
+            {onOpenLesson && (
+              <div className="px-3 pb-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={openLesson}
+                  className="cta-btn cta-btn--primary"
+                  style={{ fontSize: 12, padding: '6px 12px', 
+                    
+                    cursor: 'pointer', 
+                  }}
+                >
+                  Ver ejemplos paso a paso
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
+
+      <div className="flex flex-col items-end" style={{ gap: 4 }}>
+        {/* Acceso directo a los apuntes, siempre visible junto a Rodolfo */}
+        {onOpenLesson && state === 'peeking' && (
+          <button
+            type="button"
+            onClick={openLesson}
+            title="Abrir los apuntes de Rodolfo"
+            className="animate-mascot-wiggle"
+            style={{
+              pointerEvents: 'auto', marginRight: 8, cursor: 'pointer',
+              fontFamily: 'var(--font-jersey), monospace', fontSize: 15, letterSpacing: '0.06em', textTransform: 'uppercase',
+              padding: '2px 10px', background: 'hsl(var(--surface))', color: 'hsl(var(--tx))',
+              border: '2px solid hsl(var(--tx))', boxShadow: '3px 3px 0 hsl(var(--tx) / 0.2)',
+            }}
+          >
+            Apuntes
+          </button>
+        )}
 
       {/* Mascot pig — always rendered, peeking from right edge */}
       <button
@@ -108,6 +120,7 @@ export default function MascotGuide({ tip, variant = 'gif' }: Props) {
       >
         {variant === 'gif' ? <RodolfoGif reactKey={reactKey} /> : <PigSVG />}
       </button>
+      </div>
     </div>
   )
 }

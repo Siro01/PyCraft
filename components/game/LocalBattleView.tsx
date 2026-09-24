@@ -86,7 +86,7 @@ export default function LocalBattleView({ boss, victoryHref }: Props) {
   const skipAmulet = amulets.find((a) => a.type === 'skip-boss')
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'hsl(var(--bg))' }}>
+    <div className="min-h-screen flex flex-col desk-theme">
       <Header username={username} role={role} />
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">

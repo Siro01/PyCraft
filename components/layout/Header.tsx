@@ -3,12 +3,17 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { sfx, isMuted, setMuted } from '@/lib/game/architect/sound'
 
 interface HeaderProps {
   username?: string
   role?: string
 }
 
+const jersey = 'var(--font-jersey), monospace'
+
+// Barra de menú del escritorio del alumno. "RUSH" sigue siendo el interruptor
+// escondido de tema (BN → rojo → blanco), igual que el botón BN/RD/WH.
 export default function Header({ username, role }: HeaderProps) {
   const pathname = usePathname()
   const THEMES = ['dark', 'red', 'light'] as const
@@ -22,11 +27,20 @@ export default function Header({ username, role }: HeaderProps) {
     document.documentElement.setAttribute('data-theme', initial)
   }, [])
 
+  const [muted, setMutedState] = useState(false)
+  useEffect(() => setMutedState(isMuted()), [])
+  const toggleSound = () => {
+    const next = !muted
+    setMuted(next); setMutedState(next)
+    if (!next) sfx.toggle(true)
+  }
+
   const cycleTheme = () => {
     const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]
     setTheme(next)
     localStorage.setItem('theme', next)
     document.documentElement.setAttribute('data-theme', next)
+    sfx.theme()
   }
 
   const navLinks = [
@@ -36,71 +50,87 @@ export default function Header({ username, role }: HeaderProps) {
 
   return (
     <header
-      className="nav-grid sticky top-0 z-50 border-b border-border"
-      onMouseMove={(e) => {
-        const r = e.currentTarget.getBoundingClientRect()
-        e.currentTarget.style.setProperty('--gx', `${e.clientX - r.left}px`)
-        e.currentTarget.style.setProperty('--gy', `${e.clientY - r.top}px`)
-        e.currentTarget.classList.add('nav-glow-active')
-      }}
-      onMouseLeave={(e) => e.currentTarget.classList.remove('nav-glow-active')}
+      className="sticky top-0 z-50"
+      style={{ background: 'hsl(var(--surface))', borderBottom: '2px solid hsl(var(--tx))' }}
     >
-      <div className="max-w-6xl mx-auto px-4 h-12 flex items-center gap-6 relative z-10">
+      <div className="max-w-6xl mx-auto px-4 flex flex-wrap items-center gap-x-4 gap-y-1 py-1 sm:gap-x-5" style={{ minHeight: 40 }}>
 
         {/* Logo — "RUSH" es el switch de tema escondido */}
-        <Link href="/dashboard" className="font-mono text-sm font-bold tracking-tight shrink-0">
-          <span className="text-python">PY</span>
-          <span className="text-tx2">SQL</span>
-          <span className="text-accent">BOSS</span>
+        <Link href="/dashboard" className="shrink-0" style={{ fontFamily: jersey, fontSize: 20, letterSpacing: '0.06em', lineHeight: 1 }}>
+          <span style={{ color: 'hsl(var(--python))' }}>PY</span>
+          <span style={{ color: 'hsl(var(--tx2))' }}>SQL</span>
+          <span style={{ color: 'hsl(var(--accent))' }}>BOSS</span>
           <button
             onClick={(e) => { e.preventDefault(); cycleTheme() }}
-            className="text-tx3 hover:text-tx3"
-            style={{ background: 'none', border: 'none', padding: 0, cursor: 'default', font: 'inherit', letterSpacing: 'inherit' }}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'default', font: 'inherit', letterSpacing: 'inherit', color: 'hsl(var(--tx3))' }}
             title={`Tema: ${theme}`}
+            data-sfx="none"
           >RUSH</button>
         </Link>
 
         {/* Nav */}
-        <nav className="flex items-center gap-1 flex-1">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`px-3 py-1 text-xs font-mono pixel-corners-sm transition-all ${
-                pathname.startsWith(link.href)
-                  ? 'bg-surface2 text-tx border border-border'
-                  : 'text-tx2 hover:text-tx hover:bg-surface2'
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+        <nav className="flex items-center gap-1 order-3 basis-full sm:order-none sm:basis-auto sm:flex-1">
+          {navLinks.map((link) => {
+            const active = pathname.startsWith(link.href)
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                style={{
+                  fontFamily: jersey, fontSize: 16, letterSpacing: '0.05em', textTransform: 'uppercase', lineHeight: 1, padding: '7px 10px', whiteSpace: 'nowrap',
+                  background: active ? 'hsl(var(--tx))' : 'transparent',
+                  color: active ? 'hsl(var(--bg))' : 'hsl(var(--tx2))',
+                  border: `2px solid ${active ? 'hsl(var(--tx))' : 'transparent'}`,
+                }}
+                className={active ? undefined : 'hover:text-tx'}
+              >
+                {link.label}
+              </Link>
+            )
+          })}
         </nav>
 
         {/* Right side */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
           {username && (
-            <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2">
               <span className="status-dot active" />
-              <span className="font-mono text-xs text-tx2">{username}</span>
+              <span style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, color: 'hsl(var(--tx2))' }}>{username}</span>
             </div>
           )}
 
-          {/* Theme indicator — visible toggle */}
+          <button
+            onClick={toggleSound}
+            data-sfx="none"
+            aria-pressed={!muted}
+            title={muted ? 'Sonido apagado — clic para activar' : 'Sonido activado — clic para silenciar'}
+            style={{
+              fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.16em', padding: '7px 10px', cursor: 'pointer',
+              background: 'transparent', color: muted ? 'hsl(var(--tx3))' : 'hsl(var(--tx2))', border: '2px solid hsl(var(--border2))',
+              textDecoration: muted ? 'line-through' : 'none',
+            }}
+          >
+            SFX
+          </button>
+
           <button
             onClick={cycleTheme}
-            className="font-mono text-[10px] px-2 py-1 border border-border pixel-corners-sm text-tx3 hover:text-tx hover:border-border2 transition-all tracking-widest"
             title={`Tema actual: ${theme} — clic para cambiar`}
+            data-sfx="none"
+            style={{
+              fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.16em', padding: '7px 10px', cursor: 'pointer',
+              background: 'transparent', color: 'hsl(var(--tx2))', border: '2px solid hsl(var(--border2))',
+            }}
           >
             {theme === 'dark' ? 'BN' : theme === 'light' ? 'WH' : 'RD'}
           </button>
 
-          {/* Logout placeholder */}
           {username && (
             <form action="/api/auth/logout" method="POST">
               <button
                 type="submit"
-                className="font-mono text-xs text-tx3 hover:text-danger transition-colors"
+                className="hover:text-danger transition-colors"
+                style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, color: 'hsl(var(--tx3))', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px' }}
               >
                 Salir
               </button>

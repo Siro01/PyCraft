@@ -2,10 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { setLocalUser, clearAmulets, clearAllProgress } from '@/lib/storage/local-store'
 import { PixelDust } from '@/components/ui/PixelFX'
 import { LoadingBar } from '@/components/ui/LoadingBar'
 import { usernameToEmail } from '@/lib/auth/username-email'
+import Win from '@/components/ui/Win'
+import { PixelBitmap, CHEST_CLOSED, ICON_ARROW_RIGHT } from '@/components/game/architect/desktop/PixelBitmap'
 
 const LOCAL_MODE =
   process.env.NEXT_PUBLIC_LOCAL_MODE === 'true' ||
@@ -25,9 +28,9 @@ const BOSS_MAP = [
 ]
 const BOSS_CELL: Record<number, string> = {
   0: 'transparent',
-  1: 'rgba(245,158,11,0.75)',
-  2: 'rgba(161,100,0,0.75)',
-  3: 'rgba(255,200,60,0.75)',
+  1: 'hsl(var(--accent))',
+  2: 'hsl(var(--tx3))',
+  3: 'hsl(var(--tx2))',
 }
 const CELL_PX = 22
 const CELL_GAP = 2
@@ -110,7 +113,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{
+    <div className="desk-theme" style={{
       minHeight: '100vh',
       background: 'hsl(var(--bg))',
       display: 'flex',
@@ -164,16 +167,18 @@ export default function LoginPage() {
       {/* Form container */}
       <div style={{
         position: 'relative', zIndex: 10,
-        width: '100%', maxWidth: '336px', padding: '0 24px',
+        width: '100%', maxWidth: '420px', padding: '24px',
       }}>
 
         {/* Logo — mismo wordmark y lógica de color que el nav de la landing */}
-        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+          <span className="chest-bob" style={{ display: 'inline-block', marginBottom: 10 }}><PixelBitmap rows={CHEST_CLOSED} scale={4} /></span>
           <div
             className="font-jersey"
             style={{
-              fontSize: '22px', fontWeight: 700,
+              fontSize: '26px', fontWeight: 700,
               letterSpacing: '0.04em', lineHeight: 1, marginBottom: '14px',
+              textShadow: '3px 3px 0 hsl(var(--tx) / 0.16)',
             }}
           >
             <span style={{ color: 'hsl(var(--tx))' }}>PYCRAFT + SQL </span>
@@ -188,6 +193,12 @@ export default function LoginPage() {
           </div>
         </div>
 
+        <Win
+          active
+          title={LOCAL_MODE ? 'MODO_LOCAL.EXE' : testMode ? 'CODIGO_PRUEBA.EXE' : 'INICIAR_SESION.EXE'}
+          bodyStyle={{ padding: '20px 20px 22px' }}
+          style={{ boxShadow: '6px 6px 0 hsl(var(--tx) / 0.2)' }}
+        >
         {/* Heading — hereda font-jersey del h1 global, igual que la landing */}
         <h1 style={{
           margin: '0 0 6px', fontSize: '20px',
@@ -235,12 +246,11 @@ export default function LoginPage() {
                     type="button"
                     aria-pressed={role === r}
                     onClick={() => setRole(r)}
-                    className="pixel-corners-sm"
                     style={{
                       flex: 1, padding: '8px 0',
                       fontFamily: "'Courier New', monospace", fontSize: '11px',
                       letterSpacing: '0.06em',
-                      border: `1px solid ${role === r ? 'hsl(var(--accent) / 0.65)' : 'hsl(var(--border))'}`,
+                      border: `2px solid ${role === r ? 'hsl(var(--accent))' : 'hsl(var(--border2))'}`,
                       background: role === r ? 'hsl(var(--accent) / 0.12)' : 'hsl(var(--surface))',
                       color: role === r ? 'hsl(var(--accent))' : 'hsl(var(--tx3))',
                       cursor: 'pointer',
@@ -254,18 +264,19 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div role="alert" className="pixel-corners-sm" style={{
+              <div role="alert" style={{
                 padding: '10px 12px',
                 background: 'hsl(var(--danger) / 0.08)',
-                border: '1px solid hsl(var(--danger) / 0.22)',
+                border: '2px solid hsl(var(--danger))',
+                boxShadow: '3px 3px 0 hsl(var(--danger) / 0.35)',
                 fontFamily: "'Courier New', monospace", fontSize: '12px', color: 'hsl(var(--danger))',
               }}>
                 {error}
               </div>
             )}
 
-            <button type="submit" className="login-btn" disabled={loading} style={{ marginTop: '2px' }}>
-              {loading ? <LoadingBar label="Entrando" size="xs" tone="current" estimatedMs={2000} /> : 'Entrar al combate →'}
+            <button type="submit" className="cta-btn cta-btn--primary" disabled={loading} style={{ marginTop: '4px', justifyContent: 'center', width: '100%' }}>
+              {loading ? <LoadingBar label="Entrando" size="xs" tone="current" estimatedMs={2000} /> : <>Entrar al combate <PixelBitmap rows={ICON_ARROW_RIGHT} scale={3} ink="currentColor" /></>}
             </button>
           </form>
 
@@ -294,18 +305,19 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div role="alert" className="pixel-corners-sm" style={{
+              <div role="alert" style={{
                 padding: '10px 12px',
                 background: 'hsl(var(--danger) / 0.08)',
-                border: '1px solid hsl(var(--danger) / 0.22)',
+                border: '2px solid hsl(var(--danger))',
+                boxShadow: '3px 3px 0 hsl(var(--danger) / 0.35)',
                 fontFamily: "'Courier New', monospace", fontSize: '12px', color: 'hsl(var(--danger))',
               }}>
                 {error}
               </div>
             )}
 
-            <button type="submit" className="login-btn" disabled={loading} style={{ marginTop: '2px' }}>
-              {loading ? <LoadingBar label="Conectando" size="xs" tone="current" estimatedMs={3000} /> : 'Entrar como alumno TEST →'}
+            <button type="submit" className="cta-btn cta-btn--primary" disabled={loading} style={{ marginTop: '4px', justifyContent: 'center', width: '100%' }}>
+              {loading ? <LoadingBar label="Conectando" size="xs" tone="current" estimatedMs={3000} /> : <>Entrar como alumno TEST <PixelBitmap rows={ICON_ARROW_RIGHT} scale={3} ink="currentColor" /></>}
             </button>
           </form>
 
@@ -347,18 +359,19 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div role="alert" className="pixel-corners-sm" style={{
+              <div role="alert" style={{
                 padding: '10px 12px',
                 background: 'hsl(var(--danger) / 0.08)',
-                border: '1px solid hsl(var(--danger) / 0.22)',
+                border: '2px solid hsl(var(--danger))',
+                boxShadow: '3px 3px 0 hsl(var(--danger) / 0.35)',
                 fontFamily: "'Courier New', monospace", fontSize: '12px', color: 'hsl(var(--danger))',
               }}>
                 {error}
               </div>
             )}
 
-            <button type="submit" className="login-btn" disabled={loading} style={{ marginTop: '2px' }}>
-              {loading ? <LoadingBar label="Conectando" size="xs" tone="current" estimatedMs={3000} /> : 'Entrar al combate →'}
+            <button type="submit" className="cta-btn cta-btn--primary" disabled={loading} style={{ marginTop: '4px', justifyContent: 'center', width: '100%' }}>
+              {loading ? <LoadingBar label="Conectando" size="xs" tone="current" estimatedMs={3000} /> : <>Entrar al combate <PixelBitmap rows={ICON_ARROW_RIGHT} scale={3} ink="currentColor" /></>}
             </button>
           </form>
         )}
@@ -377,10 +390,11 @@ export default function LoginPage() {
           </button>
         )}
 
+        </Win>
+
         {/* Footer */}
         <div style={{
-          marginTop: '32px', paddingTop: '20px',
-          borderTop: '1px solid hsl(var(--border))',
+          marginTop: '24px',
           display: 'flex', justifyContent: 'center', gap: '16px',
         }}>
           {[
@@ -395,6 +409,11 @@ export default function LoginPage() {
             </span>
           ))}
         </div>
+        <p className="font-mono" style={{ marginTop: 14, textAlign: 'center', fontSize: 11, color: 'hsl(var(--tx3))' }}>
+          <Link href="/privacidad" style={{ textDecoration: 'underline', padding: '6px 4px' }}>Privacidad</Link>
+          {' · '}
+          <Link href="/cookies" style={{ textDecoration: 'underline', padding: '6px 4px' }}>Cookies</Link>
+        </p>
       </div>
     </div>
   )

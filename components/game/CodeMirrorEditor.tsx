@@ -71,22 +71,21 @@ function buildEditorTheme(accentColor: string) {
 }
 
 // ─── Syntax colours ───────────────────────────────────────────────────────────
-// Paleta fija y legible para los distintos tipos de token (no puede depender de
-// un solo color de acento); solo keyword/bool heredan el color del jefe, igual
-// que hacía la paleta indigo original.
-function buildHighlight(accentColor: string) {
+// Todo por tokens del tema activo (BN / rojo / blanco): con colores fijos el
+// texto quedaba casi invisible sobre el fondo blanco.
+function buildHighlight(_accentColor: string) {
   return HighlightStyle.define([
-    { tag: [t.keyword, t.controlKeyword, t.definitionKeyword, t.operatorKeyword], color: accentColor, fontWeight: 'bold' },
-    { tag: [t.string, t.special(t.string)], color: '#28C26A' },
-    { tag: t.number, color: '#F59E0B' },
-    { tag: [t.bool, t.null], color: accentColor },
-    { tag: t.comment, color: '#767686', fontStyle: 'italic' },
-    { tag: [t.function(t.variableName), t.function(t.name), t.name], color: '#3AACF5' },
-    { tag: t.definition(t.variableName), color: '#ECEEF8' },
-    { tag: [t.className, t.typeName], color: '#7D8EE0' },
-    { tag: [t.operator, t.punctuation], color: '#9494A6' },
-    { tag: t.variableName, color: '#ECEEF8' },
-    { tag: t.propertyName, color: '#3AACF5' },
+    { tag: [t.keyword, t.controlKeyword, t.definitionKeyword, t.operatorKeyword], color: 'hsl(var(--accent))', fontWeight: 'bold' },
+    { tag: [t.string, t.special(t.string)], color: 'hsl(var(--python))' },
+    { tag: t.number, color: 'hsl(var(--accent2))' },
+    { tag: [t.bool, t.null], color: 'hsl(var(--accent))' },
+    { tag: t.comment, color: 'hsl(var(--tx3))', fontStyle: 'italic' },
+    { tag: [t.function(t.variableName), t.function(t.name), t.name], color: 'hsl(var(--tx))' },
+    { tag: t.definition(t.variableName), color: 'hsl(var(--tx))' },
+    { tag: [t.className, t.typeName], color: 'hsl(var(--tx2))' },
+    { tag: [t.operator, t.punctuation], color: 'hsl(var(--tx2))' },
+    { tag: t.variableName, color: 'hsl(var(--tx))' },
+    { tag: t.propertyName, color: 'hsl(var(--tx))' },
   ])
 }
 

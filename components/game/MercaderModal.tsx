@@ -3,12 +3,78 @@
 import { useEffect } from 'react'
 import { AMULET_META } from '@/lib/game/amulets'
 import { IconWizard, AmuletIcon } from '@/components/ui/PixelIcons'
+import Win from '@/components/ui/Win'
+import { sfx } from '@/lib/game/architect/sound'
 import type { AmuletType } from '@/types'
 
 interface Props {
   offers: AmuletType[]
   onChoose: (type: AmuletType) => void
   onSkip: () => void
+}
+
+const jersey = 'var(--font-jersey), monospace'
+const vt = 'var(--font-vt323), monospace'
+
+// Carta de amuleto: franja de nombre, marco rayado con el ícono, efecto y pie.
+export function AmuletCard({ type, onClick, disabled, compact = false, footer }: {
+  type: AmuletType
+  onClick?: () => void
+  disabled?: boolean
+  compact?: boolean
+  footer?: string
+}) {
+  const meta = AMULET_META[type]
+  const w = compact ? 118 : 168
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={meta.description}
+      className={onClick && !disabled ? 'amulet-card' : undefined}
+      style={{
+        width: w, display: 'flex', flexDirection: 'column', textAlign: 'left', padding: 0,
+        background: 'hsl(var(--surface))', border: '2px solid hsl(var(--tx))',
+        boxShadow: '4px 4px 0 hsl(var(--tx) / 0.2)',
+        cursor: onClick && !disabled ? 'pointer' : 'default',
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      <span
+        style={{
+          fontFamily: jersey, fontSize: compact ? 14 : 16, letterSpacing: '0.05em', textTransform: 'uppercase', lineHeight: 1.05,
+          background: 'hsl(var(--tx))', color: 'hsl(var(--bg))', padding: '4px 8px', minHeight: compact ? 0 : 40,
+          display: 'flex', alignItems: 'center',
+        }}
+      >
+        {meta.name}
+      </span>
+      <span
+        className="hatch"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 6, border: '2px solid hsl(var(--tx))', padding: compact ? 6 : 12 }}
+      >
+        <span style={{ background: 'hsl(var(--surface))', padding: 6, display: 'flex' }}>
+          <AmuletIcon type={type} size={compact ? 28 : 44} color="hsl(var(--tx))" />
+        </span>
+      </span>
+      {!compact && (
+        <span style={{ fontFamily: vt, fontSize: 18, lineHeight: 1.08, color: 'hsl(var(--tx2))', padding: '0 8px 8px', flex: 1 }}>
+          {meta.description}
+        </span>
+      )}
+      <span
+        style={{
+          fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase',
+          borderTop: '2px solid hsl(var(--tx))', padding: '3px 8px', color: 'hsl(var(--tx3))',
+          display: 'flex', justifyContent: 'space-between', gap: 6,
+        }}
+      >
+        <span>{footer ?? 'Uso único'}</span>
+        {onClick && !disabled && !compact && <span style={{ color: 'hsl(var(--accent))' }}>Elegir</span>}
+      </span>
+    </button>
+  )
 }
 
 export default function MercaderModal({ offers, onChoose, onSkip }: Props) {
@@ -20,85 +86,48 @@ export default function MercaderModal({ offers, onChoose, onSkip }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(2px)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3"
+      style={{ background: 'hsl(var(--bg) / 0.78)' }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="mercader-title"
-        className="card p-6 flex flex-col gap-5 w-full max-w-sm mx-4 animate-mercader-in"
-        style={{ border: '2px solid #FFB800', boxShadow: '0 0 40px rgba(255,184,0,0.35), 0 0 12px rgba(255,184,0,0.15)' }}
+        className="animate-mercader-in w-full"
+        style={{ maxWidth: 460 }}
       >
-        {/* Header */}
-        <div className="text-center">
-          <div className="mb-2 flex justify-center">
-            <IconWizard size={48} color="#FFB800" />
+        <Win title="MERCADER_AMBULANTE.EXE" active onClose={onSkip} bodyStyle={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="flex items-center gap-3">
+            <span style={{ border: '2px solid hsl(var(--tx))', padding: 6, display: 'flex' }} className="hatch">
+              <span style={{ background: 'hsl(var(--surface))', display: 'flex', padding: 4 }}>
+                <IconWizard size={40} color="hsl(var(--tx))" />
+              </span>
+            </span>
+            <div>
+              <h2 id="mercader-title" style={{ fontFamily: jersey, fontSize: 26, lineHeight: 1, color: 'hsl(var(--tx))', margin: 0 }}>
+                ¡El Mercader Ambulante!
+              </h2>
+              <p style={{ fontFamily: vt, fontSize: 20, color: 'hsl(var(--tx2))', margin: '2px 0 0' }}>
+                Elegí una carta: te acompaña en tus próximas batallas.
+              </p>
+            </div>
           </div>
-          <h2 id="mercader-title" className="font-mono text-base font-bold" style={{ color: '#FFB800' }}>
-            ¡El Mercader Ambulante!
-          </h2>
-          <p className="font-mono text-xs mt-1" style={{ color: 'hsl(var(--tx3))' }}>
-            Elegí un amuleto para tu aventura
-          </p>
-        </div>
 
-        {/* Divider */}
-        <div style={{ height: 1, background: 'hsl(var(--border))' }} />
+          <div className="flex flex-wrap justify-center gap-4">
+            {offers.map((type) => (
+              <AmuletCard key={type} type={type} onClick={() => { sfx.confirm(); onChoose(type) }} />
+            ))}
+          </div>
 
-        {/* Amulet offers */}
-        <div className="flex flex-col gap-2">
-          {offers.map((type) => {
-            const meta = AMULET_META[type]
-            return (
-              <button
-                key={type}
-                onClick={() => onChoose(type)}
-                className="text-left p-3 pixel-corners border transition-all"
-                style={{
-                  background: 'hsl(var(--surface2))',
-                  borderColor: 'hsl(var(--border))',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = meta.color
-                  e.currentTarget.style.background = 'hsl(var(--surface))'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'hsl(var(--border))'
-                  e.currentTarget.style.background = 'hsl(var(--surface2))'
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="shrink-0">
-                    <AmuletIcon type={type} size={24} color={meta.color} />
-                  </span>
-                  <div className="min-w-0">
-                    <div
-                      className="font-mono text-sm font-bold leading-tight"
-                      style={{ color: meta.color }}
-                    >
-                      {meta.name}
-                    </div>
-                    <div className="font-mono text-xs mt-0.5" style={{ color: 'hsl(var(--tx3))' }}>
-                      {meta.description}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Skip */}
-        <button
-          onClick={onSkip}
-          className="font-mono text-xs text-center transition-colors"
-          style={{ color: 'hsl(var(--tx3))' }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = 'hsl(var(--tx))' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'hsl(var(--tx3))' }}
-        >
-          Continuar sin amuleto →
-        </button>
+          <button
+            type="button"
+            onClick={onSkip}
+            style={{ alignSelf: 'center', fontFamily: vt, fontSize: 20, color: 'hsl(var(--tx3))', background: 'none', border: 'none', cursor: 'pointer' }}
+            className="hover:text-tx transition-colors"
+          >
+            Continuar sin amuleto →
+          </button>
+        </Win>
       </div>
     </div>
   )

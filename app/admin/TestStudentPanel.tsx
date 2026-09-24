@@ -1,5 +1,6 @@
 'use client'
 
+import { StatusMark } from '@/components/ui/StatusMark'
 import { useCallback, useEffect, useState } from 'react'
 
 interface TestCode {
@@ -126,7 +127,7 @@ export default function TestStudentPanel() {
             Reiniciar progreso del alumno TEST
           </button>
           {status && (
-            <span className={`font-mono text-xs ${status.startsWith('Error') ? 'text-danger' : 'text-python'}`}>{status}</span>
+            <span className={`font-mono text-xs ${status.startsWith('Error') ? 'text-danger' : 'text-python'}`}>{status && <StatusMark ok={!status.startsWith('Error')} />}{status.replace(/^✓\s*/, '')}</span>
           )}
         </div>
       </div>
@@ -145,7 +146,7 @@ export default function TestStudentPanel() {
               Vence {fmtDate(c.expires_at)} · {c.uses} uso{c.uses === 1 ? '' : 's'}
               {c.last_used_at && ` · último ${fmtDate(c.last_used_at)}`}
             </div>
-            <span className="font-mono text-xs text-python">{copied === c.code ? '✓ Copiado' : ''}</span>
+            <span className="font-mono text-xs text-python">{copied === c.code ? <><StatusMark ok />Copiado</> : ''}</span>
             <button
               onClick={() => revoke(c.code)}
               className="font-mono text-xs px-3 py-1.5 pixel-corners-sm border border-border text-tx3 hover:border-danger/50 hover:text-danger transition-all"

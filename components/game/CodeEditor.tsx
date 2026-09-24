@@ -1,10 +1,24 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import CodeMirrorEditor from './CodeMirrorEditor'
+import dynamic from 'next/dynamic'
+
+// CodeMirror (con Python y SQL) es lo más pesado de la batalla: se baja recién al
+// montar el editor, así el resto de la pantalla del jefe aparece antes.
+const CodeMirrorEditor = dynamic(() => import('./CodeMirrorEditor'), {
+  ssr: false,
+  loading: () => (
+    <div
+      style={{ minHeight: 190, padding: 14, background: 'hsl(var(--bg))', color: 'hsl(var(--tx3))', fontFamily: 'var(--font-vt323), monospace', fontSize: 20 }}
+    >
+      Cargando editor<span className="animate-caret" style={{ color: 'hsl(var(--accent))' }}>█</span>
+    </div>
+  ),
+})
 import { isPyodideLoaded } from '@/lib/game/executor'
 import { IconSnake, IconDatabase, IconCheck, IconX, IconSword } from '@/components/ui/PixelIcons'
 import { LoadingBar } from '@/components/ui/LoadingBar'
+import Win from '@/components/ui/Win'
 import { sfx } from '@/lib/game/architect/sound'
 import type { Boss, Challenge } from '@/types'
 
@@ -61,103 +75,97 @@ export default function CodeEditor({
   const isPython = challenge.type === 'python'
   const typeColor = `hsl(var(--${isPython ? 'python' : 'sql'}))`
 
+  const vt = 'var(--font-vt323), monospace'
+  const jersey = 'var(--font-jersey), monospace'
+
   return (
     <div className="flex flex-col gap-3 h-full">
 
-      {/* Challenge header */}
-      <div className="card p-4 shrink-0">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <span className={`badge ${isPython ? 'badge-python' : 'badge-sql'} mb-2`}>
-              {challenge.type.toUpperCase()} · {challenge.tier.toUpperCase()}
-            </span>
-            <h3 className="font-mono text-sm font-bold text-tx">{challenge.title}</h3>
-          </div>
-          <div className="font-mono text-xs shrink-0" style={{ color: typeColor }}>
-            -{challenge.damage} HP
-          </div>
-        </div>
-        <p className="mt-2 text-sm text-tx2 leading-relaxed">{challenge.description}</p>
-      </div>
+      {/* Consigna del desafío */}
+      <Win
+        title="DESAFIO.TXT"
+        right={
+          <span style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.12em', color: 'hsl(var(--tx2))' }}>
+            {challenge.type.toUpperCase()} · {challenge.tier.toUpperCase()} · -{challenge.damage} HP
+          </span>
+        }
+        bodyStyle={{ padding: 14 }}
+        className="shrink-0"
+      >
+        <h3 style={{ fontFamily: jersey, fontSize: 24, lineHeight: 1.05, color: 'hsl(var(--tx))', margin: 0 }}>{challenge.title}</h3>
+        <p className="mt-1.5" style={{ fontFamily: vt, fontSize: 21, lineHeight: 1.22, color: 'hsl(var(--tx2))', maxWidth: '78ch' }}>{challenge.description}</p>
+      </Win>
 
       {/* Editor */}
-      <div className="flex-1 flex flex-col min-h-0">
-        {/* Tab bar */}
-        <div
-          className="flex items-center gap-2 px-3 py-2 bg-surface2 border border-border text-xs font-mono text-tx3 shrink-0"
-          style={{ borderBottom: 'none' }}
-        >
-          <span className="inline-flex items-center gap-1.5" style={{ color: typeColor }}>
-            {isPython ? <IconSnake size={12} color={typeColor} /> : <IconDatabase size={12} color={typeColor} />}
-            {isPython ? 'script.py' : 'query.sql'}
-          </span>
-          <span className="ml-auto opacity-50">Ctrl+Enter para atacar</span>
-        </div>
-
-        {/* CodeMirror */}
+      <Win
+        title={isPython ? 'SCRIPT.PY' : 'QUERY.SQL'}
+        active
+        className="flex-1 min-h-0"
+        right={<span className="hidden sm:inline" style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.1em', color: 'hsl(var(--bg))' }}>Ctrl+Enter para atacar</span>}
+        bodyStyle={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}
+      >
         <CodeMirrorEditor
           value={code}
           onChange={setCode}
           language={challenge.type}
           onCtrlEnter={handleSubmit}
-          className="flex-1 border border-border overflow-hidden"
+          className="flex-1 overflow-hidden"
           accentColor={boss.color}
         />
-      </div>
+      </Win>
 
       {/* Result panel */}
       {lastResult && (
-        <div
-          className={`card p-3 font-mono text-xs shrink-0 ${
-            lastResult.error
-              ? 'border-danger/40 bg-danger/5'
-              : lastResult.isCorrect
-              ? 'border-python/40 bg-python/5'
-              : 'border-danger/40 bg-danger/5'
-          }`}
+        <Win
+          title={lastResult.error ? 'ERROR.EXE' : lastResult.isCorrect ? 'CORRECTO.EXE' : 'INCORRECTO.EXE'}
+          tone={lastResult.isCorrect && !lastResult.error ? 'safe' : 'danger'}
+          active
+          className="shrink-0"
+          bodyStyle={{ padding: 12, fontFamily: vt, fontSize: 19 }}
         >
           {lastResult.error ? (
             <>
-              <div className="flex items-center gap-1.5 font-bold mb-1.5 text-danger">
+              <div className="flex items-center gap-1.5 mb-1.5" style={{ color: 'hsl(var(--danger))', fontFamily: jersey, fontSize: 18 }}>
                 <IconX size={11} color="hsl(var(--danger))" /> Error de ejecución
               </div>
-              <pre className="text-danger/80 whitespace-pre-wrap break-all text-[11px] leading-relaxed">
+              <pre className="whitespace-pre-wrap break-all" style={{ color: 'hsl(var(--danger))', fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 11, lineHeight: 1.5 }}>
                 {lastResult.error}
               </pre>
             </>
           ) : lastResult.isCorrect ? (
             <>
-              <div className="flex items-center gap-1.5 font-bold mb-1.5 text-python">
-                <IconCheck size={11} color="hsl(var(--python))" /> ¡Correcto! Daño aplicado.
+              <div className="flex items-center gap-1.5 mb-1.5" style={{ color: 'hsl(var(--accent))', fontFamily: jersey, fontSize: 18 }}>
+                <IconCheck size={11} color="hsl(var(--accent))" /> ¡Correcto! Daño aplicado.
               </div>
-              <div className="text-tx3 mb-1">Output:</div>
-              <pre className="text-tx whitespace-pre-wrap break-all">{lastResult.output || '(vacío)'}</pre>
+              <div style={{ color: 'hsl(var(--tx3))' }} className="mb-1">Salida:</div>
+              <pre className="whitespace-pre-wrap break-all" style={{ color: 'hsl(var(--tx))', fontFamily: vt, fontSize: 20 }}>{lastResult.output || '(vacío)'}</pre>
             </>
           ) : (
             <>
-              <div className="flex items-center gap-1.5 font-bold mb-1.5 text-danger">
-                <IconX size={11} color="hsl(var(--danger))" /> Output incorrecto
+              <div className="flex items-center gap-1.5 mb-1.5" style={{ color: 'hsl(var(--danger))', fontFamily: jersey, fontSize: 18 }}>
+                <IconX size={11} color="hsl(var(--danger))" /> La salida no coincide
               </div>
-              <div className="text-tx3 mb-1">Tu output:</div>
-              <pre className="text-tx whitespace-pre-wrap break-all">{lastResult.output || '(vacío)'}</pre>
-              <div className="text-tx3 mt-2 mb-1">Esperado:</div>
-              <pre className="text-tx2 whitespace-pre-wrap break-all">{lastResult.expected}</pre>
+              <div style={{ color: 'hsl(var(--tx3))' }} className="mb-1">Tu salida:</div>
+              <pre className="whitespace-pre-wrap break-all" style={{ color: 'hsl(var(--tx))', fontFamily: vt, fontSize: 20 }}>{lastResult.output || '(vacío)'}</pre>
+              <div style={{ color: 'hsl(var(--tx3))' }} className="mt-2 mb-1">Esperada:</div>
+              <pre className="whitespace-pre-wrap break-all" style={{ color: 'hsl(var(--tx2))', fontFamily: vt, fontSize: 20 }}>{lastResult.expected}</pre>
             </>
           )}
-        </div>
+        </Win>
       )}
 
       {/* Pyodide loading notice (Python challenges, first visit) */}
       {!engineReady && challenge.type === 'python' && (
-        <div className="card p-3 shrink-0 border-accent/30 bg-accent/5">
+        <Win title="MOTOR_PYTHON.EXE" className="shrink-0" bodyStyle={{ padding: 12 }}>
           <LoadingBar label="Cargando motor Python (Pyodide)..." size="sm" estimatedMs={10000} />
-          <p className="mt-2 font-mono text-[11px] text-tx3">La primera vez tarda ~10 s. Después queda listo.</p>
-        </div>
+          <p className="mt-2" style={{ fontFamily: vt, fontSize: 18, color: 'hsl(var(--tx3))' }}>La primera vez tarda ~10 s. Después queda listo.</p>
+        </Win>
       )}
 
       {/* Attack button */}
       <button
-        className="btn-primary w-full justify-center font-mono shrink-0 active:scale-95 transition-transform duration-75"
+        className="btn-primary w-full justify-center shrink-0 active:scale-95 transition-transform duration-75"
+        style={{ fontSize: 20, padding: '10px 16px' }}
         onClick={handleSubmit}
         disabled={isLoading || !engineReady}
       >
@@ -166,7 +174,7 @@ export default function CodeEditor({
         ) : !engineReady ? (
           <LoadingBar label="Motor cargando" size="xs" tone="current" estimatedMs={10000} />
         ) : (
-          <><IconSword size={13} color="white" /> Atacar</>
+          <><IconSword size={14} color="hsl(var(--bg))" /> Atacar</>
         )}
       </button>
     </div>

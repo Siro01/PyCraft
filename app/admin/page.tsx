@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
+import Win from '@/components/ui/Win'
 import { BOSSES } from '@/lib/game/bosses'
 import AdminPanel from './AdminPanel'
 import type { BattleRow, AttackRow } from '@/lib/admin/stats'
@@ -115,14 +116,14 @@ export default async function AdminPage() {
   })
 
   return (
-    <div className="min-h-screen" style={{ background: 'hsl(var(--bg))' }}>
+    <div className="min-h-screen desk-theme" style={{ background: 'hsl(var(--bg))' }}>
       <Header username={profile.username} role="admin" />
 
       <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <div className="label-mono mb-1">Panel de docente</div>
-          <h1 className="text-3xl font-bold text-tx tracking-wide">Admin</h1>
-        </div>
+        <Win active title="PANEL_DOCENTE.EXE" style={{ marginBottom: 24, maxWidth: 420 }} bodyStyle={{ padding: '12px 16px' }}>
+          <h1 className="text-3xl tracking-wide" style={{ color: 'hsl(var(--tx))', lineHeight: 1 }}>Admin</h1>
+          <div className="label-mono mt-2">Aulas, alumnos, jefes y estadísticas</div>
+        </Win>
 
         <AdminPanel
           bosses={BOSSES}

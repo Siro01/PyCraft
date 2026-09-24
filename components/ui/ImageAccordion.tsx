@@ -73,7 +73,7 @@ const N = 4
    el resto del proyecto usa esquinas escalonadas de 3-8px, no
    redondeadas — este número mantiene el truco pero se queda
    cerca de esa escala. */
-const RMAX = 5
+const RMAX = 0
 
 /* ── cuánto toma el que está abierto ───────────────────────
    Como proporción de lo que tiene un panel en reposo. 1.8

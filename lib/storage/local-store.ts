@@ -171,6 +171,7 @@ export interface FinaleDecoration {
   motto: string
   material: string
   stickers: Record<string, string>
+  wall?: string
 }
 
 export function getFinaleDecoration(): FinaleDecoration | null {

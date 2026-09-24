@@ -6,9 +6,12 @@ import BossSprite from './BossSprite'
 import HPBar from './HPBar'
 import CodeEditor from './CodeEditor'
 import MascotGuide from './MascotGuide'
-import MercaderModal from './MercaderModal'
+import MercaderModal, { AmuletCard } from './MercaderModal'
 import ResetBossButton from './ResetBossButton'
 import BossIntro from './BossIntro'
+import LessonWindow from './LessonWindow'
+import Win from '@/components/ui/Win'
+import { getLesson } from '@/lib/game/lessons'
 import { executeChallenge, preloadPyodide, preloadSqlJs } from '@/lib/game/executor'
 import { AMULET_META, getRandomAmuletOffer } from '@/lib/game/amulets'
 import { AmuletIcon } from '@/components/ui/PixelIcons'
@@ -69,6 +72,11 @@ export default function CombatArena({
   const handleShowIntroAgain = useCallback(() => {
     setShowIntro(true)
   }, [])
+
+  // Apuntes con ejemplos paso a paso (se abren desde Rodolfo o desde el panel del jefe)
+  const lesson = getLesson(boss.id)
+  const [showLesson, setShowLesson] = useState(false)
+  const openLesson = useCallback(() => setShowLesson(true), [])
 
   // Boss state
   const [bossHp, setBossHp]                 = useState(initialHp ?? boss.hpMax)
@@ -355,16 +363,18 @@ export default function CombatArena({
   if (showIntro && hasIntro) {
     return (
       <div className="flex flex-col gap-4 h-full">
-        <div className="card p-5">
-          <BossIntro boss={boss} lines={introLines} onDone={handleIntroDone} />
-        </div>
+        <Win title={`${boss.title}_INTRO.EXE`} active bodyStyle={{ padding: 20 }}>
+          <BossIntro boss={boss} lines={introLines} onDone={handleIntroDone} onOpenLesson={lesson ? openLesson : undefined} />
+        </Win>
+        {showLesson && lesson && <LessonWindow lesson={lesson} bossName={boss.name} onClose={() => setShowLesson(false)} />}
       </div>
     )
   }
 
   return (
     <div className="flex flex-col gap-4 h-full">
-      {showGuide && <MascotGuide tip={challenge?.tip} />}
+      {showGuide && <MascotGuide tip={challenge?.tip} onOpenLesson={lesson ? openLesson : undefined} />}
+      {showLesson && lesson && <LessonWindow lesson={lesson} bossName={boss.name} onClose={() => setShowLesson(false)} />}
       {showMercader && (
         <MercaderModal
           offers={mercaderOffers}
@@ -382,7 +392,16 @@ export default function CombatArena({
       )}
 
       {/* Boss panel */}
-      <div className="card p-5">
+      <Win
+        title={`${boss.title}_${boss.name.replace(/\s+/g, '_').toUpperCase()}.EXE`}
+        active
+        right={
+          <span style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.12em', color: 'hsl(var(--bg))', textTransform: 'uppercase' }}>
+            {boss.topic}
+          </span>
+        }
+        bodyStyle={{ padding: 20 }}
+      >
         <div className="flex items-center gap-6">
           <div className="relative">
             <div className={isDamageAnimating ? 'animate-damage-flash-v2' : ''}>
@@ -396,8 +415,8 @@ export default function CombatArena({
                 style={{
                   left: `${n.x}%`,
                   fontSize: 20,
-                  color: boss.color,
-                  textShadow: `0 0 10px ${boss.color}, 0 0 4px #000`,
+                  color: 'hsl(var(--accent))',
+                  textShadow: '2px 2px 0 hsl(var(--bg))',
                   zIndex: 10,
                 }}
               >
@@ -407,24 +426,33 @@ export default function CombatArena({
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-3 mb-1">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="label-mono">{boss.title}</span>
-              <span className="font-mono text-xs" style={{ color: 'hsl(var(--tx3))' }}>{boss.topic}</span>
               {hasIntro && (
                 <button
                   onClick={handleShowIntroAgain}
-                  className="font-mono text-[10px] tracking-widest hover:text-tx transition-colors"
-                  style={{ color: 'hsl(var(--tx3))', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                  className="hover:opacity-80 transition-opacity"
+                  style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 14, letterSpacing: '0.05em', textTransform: 'uppercase', padding: '1px 8px', border: '2px solid hsl(var(--border2))', background: 'transparent', color: 'hsl(var(--tx2))', cursor: 'pointer' }}
                   title="Ver la presentación del jefe"
                 >
-                  ◁ intro
+                  Intro
+                </button>
+              )}
+              {lesson && (
+                <button
+                  onClick={openLesson}
+                  className="hover:opacity-80 transition-opacity"
+                  style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 14, letterSpacing: '0.05em', textTransform: 'uppercase', padding: '1px 8px', border: '2px solid hsl(var(--accent))', background: 'transparent', color: 'hsl(var(--accent))', cursor: 'pointer' }}
+                  title="Ejemplos paso a paso de Rodolfo"
+                >
+                  Apuntes
                 </button>
               )}
             </div>
-            <h2 className="font-mono text-lg font-bold text-tx mb-3">{boss.name}</h2>
-            <HPBar current={bossHp} max={boss.hpMax} label="HP JEFE" size="lg" color={boss.color} />
+            <h2 className="text-2xl mb-3" style={{ color: 'hsl(var(--tx))', lineHeight: 1.05 }}>{boss.name}</h2>
+            <HPBar current={bossHp} max={boss.hpMax} label="HP JEFE" size="lg" color="hsl(var(--accent))" />
             {isDefeated && (
-              <p className="mt-2 font-mono text-sm" style={{ color: boss.color }}>
+              <p className="mt-2" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, color: 'hsl(var(--accent))' }}>
                 ¡DERROTADO! — Clase {boss.classNumber} completada.
               </p>
             )}
@@ -463,80 +491,69 @@ export default function CombatArena({
             </div>
           </div>
         )}
-      </div>
+      </Win>
 
-      {/* Amulet bar */}
+      {/* Amuletos — cartas */}
       {hasAmuletBar && !isDefeated && !isPlayerDefeated && (
-        <div
-          className="flex items-center gap-2 flex-wrap px-3 py-2 pixel-corners"
-          style={{ background: 'hsl(var(--surface2))', border: '1px solid hsl(var(--border))' }}
-        >
-          <span className="font-mono text-[10px] tracking-widest" style={{ color: 'hsl(var(--tx3))' }}>
-            AMULETOS
-          </span>
-          {amulets.map((a) => {
-            const meta = AMULET_META[a.type]
-            const isPotion  = a.type === 'health-potion'
-            const isEscape  = a.type === 'escape'
-            const usable    = (isPotion && showPlayerHp) || (isEscape && canEscape)
-            return (
-              <button
-                key={a.id}
-                onClick={isPotion ? handleUsePotion : isEscape ? handleEscape : undefined}
-                disabled={!usable && (isPotion || isEscape)}
-                title={meta.description}
-                className="flex items-center gap-1 px-2 py-1 pixel-corners-sm border font-mono text-[11px] transition-all"
-                style={{
-                  borderColor: usable ? meta.color : 'hsl(var(--border))',
-                  color: usable ? meta.color : 'hsl(var(--tx3))',
-                  background: 'transparent',
-                  cursor: usable ? 'pointer' : 'default',
-                  opacity: (!isPotion && !isEscape) ? 0.7 : usable ? 1 : 0.45,
-                }}
-              >
-                <AmuletIcon type={a.type} size={16} color={usable ? meta.color : undefined} />
-                <span>{meta.name}</span>
-                {isPotion  && showPlayerHp && <span style={{ color: 'hsl(var(--python))' }}> [usar]</span>}
-                {isEscape  && canEscape    && <span style={{ color: 'hsl(var(--accent))' }}> [escapar]</span>}
-              </button>
-            )
-          })}
-        </div>
+        <Win title="AMULETOS.SYS" bodyStyle={{ padding: 12 }}>
+          <div className="flex items-stretch gap-3 flex-wrap">
+            {amulets.map((a) => {
+              const isPotion  = a.type === 'health-potion'
+              const isEscape  = a.type === 'escape'
+              const usable    = (isPotion && showPlayerHp) || (isEscape && canEscape)
+              return (
+                <AmuletCard
+                  key={a.id}
+                  type={a.type}
+                  compact
+                  onClick={usable ? (isPotion ? handleUsePotion : handleEscape) : undefined}
+                  footer={isPotion ? (showPlayerHp ? 'Usar' : 'Solo trainee') : isEscape ? (canEscape ? 'Escapar' : 'Vida ≤ 30') : 'Pasivo'}
+                />
+              )
+            })}
+          </div>
+        </Win>
       )}
 
       {/* Player defeated screen */}
       {isPlayerDefeated ? (
-        <div className="card p-8 flex flex-col items-center gap-4 text-center">
-          <div
-            className={`font-mono text-4xl font-bold ${defeatVisible ? 'animate-defeat' : ''}`}
-            style={{ color: 'hsl(var(--danger))' }}
-          >
-            ¡DERROTA!
+        <Win title="DERROTA.EXE" tone="danger" active bodyStyle={{ padding: 32 }}>
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div
+              className={`text-5xl ${defeatVisible ? 'animate-defeat' : ''}`}
+              style={{ color: 'hsl(var(--danger))', fontFamily: 'var(--font-jersey), monospace' }}
+            >
+              ¡DERROTA!
+            </div>
+            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 22, color: 'hsl(var(--tx2))' }}>
+              Tu vida llegó a 0. Tenés que empezar la batalla de nuevo.
+            </p>
+            <button onClick={handleRestart} className="btn-primary">
+              Reintentar batalla
+            </button>
+            <a href="/dashboard" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, color: 'hsl(var(--tx3))' }}>
+              ← Volver al mapa
+            </a>
           </div>
-          <p className="text-tx2 font-mono text-sm">
-            Tu vida llegó a 0. Tenés que empezar la batalla de nuevo.
-          </p>
-          <button onClick={handleRestart} className="btn-primary">
-            ↺ Reintentar batalla
-          </button>
-          <a href="/dashboard" className="font-mono text-xs" style={{ color: 'hsl(var(--tx3))' }}>
-            ← Volver al mapa
-          </a>
-        </div>
+        </Win>
       ) : isDefeated ? (
-        <div className="card p-8 flex flex-col items-center gap-4 text-center">
-          <div
-            className={`font-mono text-4xl font-bold ${victoryVisible ? 'animate-victory' : ''}`}
-            style={{ color: boss.color, textShadow: `0 0 24px ${boss.color}88` }}
-          >
-            VICTORIA
+        <Win title="VICTORIA.EXE" tone="safe" active bodyStyle={{ padding: 32 }}>
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div
+              className={`text-5xl ${victoryVisible ? 'animate-victory' : ''}`}
+              style={{ color: 'hsl(var(--accent))', fontFamily: 'var(--font-jersey), monospace' }}
+            >
+              VICTORIA
+            </div>
+            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 22, color: 'hsl(var(--tx2))' }}>
+              Derrotaste a <strong style={{ color: 'hsl(var(--tx))' }}>{boss.name}</strong>.
+            </p>
+            <a href="/dashboard" className="btn-primary">
+              ← Volver al mapa
+            </a>
+            {testMode && <ResetBossButton bossId={boss.id} onDone={() => window.location.reload()} />}
           </div>
-          <p className="text-tx2">Derrotaste a <strong>{boss.name}</strong>.</p>
-          <a href="/dashboard" className="btn-primary">
-            ← Volver al mapa
-          </a>
-          {testMode && <ResetBossButton bossId={boss.id} onDone={() => window.location.reload()} />}
-        </div>
+        </Win>
       ) : challenge ? (
         <div className="flex-1 min-h-0 flex flex-col gap-3">
           {testMode && (
@@ -576,21 +593,20 @@ export default function CombatArena({
           />
         </div>
       ) : (
-        <div className="card p-6 text-center font-mono" style={{ color: 'hsl(var(--tx3))' }}>
-          No hay challenges disponibles para este jefe.
-        </div>
+        <Win title="SIN_DESAFIOS.TXT" bodyStyle={{ padding: 24, textAlign: 'center', fontFamily: 'var(--font-vt323), monospace', fontSize: 20, color: 'hsl(var(--tx3))' }}>
+          No hay desafíos disponibles para este jefe.
+        </Win>
       )}
 
       {/* Combat log */}
       {log.length > 0 && (
-        <div className="card p-3 max-h-32 overflow-y-auto no-scrollbar">
-          <div className="label-mono mb-1.5">Log de combate</div>
+        <Win title="LOG_DE_COMBATE.TXT" bodyStyle={{ padding: 10, maxHeight: 128, overflowY: 'auto' }}>
           {log.map((entry, i) => (
             <div key={i} className="font-mono text-xs leading-relaxed" style={{ color: 'hsl(var(--tx3))' }}>
               {entry}
             </div>
           ))}
-        </div>
+        </Win>
       )}
     </div>
   )

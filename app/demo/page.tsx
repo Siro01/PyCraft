@@ -7,7 +7,7 @@ export const metadata = { title: 'Demo · PySQLBossRush' }
 
 export default function DemoPage() {
   return (
-    <div className="min-h-screen" style={{ background: 'hsl(var(--bg))' }}>
+    <div className="min-h-screen desk-theme">
       <Header />
 
       <main className="max-w-6xl mx-auto px-4 py-8">

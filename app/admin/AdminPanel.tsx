@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { SquareDot, StatusMark } from '@/components/ui/StatusMark'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import BossSprite from '@/components/game/BossSprite'
@@ -224,21 +225,26 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
 
       {/* Activos */}
       <div className="flex items-center gap-2 font-mono text-xs text-tx2">
-        <span className="inline-block w-2 h-2 rounded-full" style={{ background: totalActive > 0 ? 'hsl(var(--python))' : 'hsl(var(--tx3))' }} />
+        <span className="inline-block w-2 h-2" style={{ background: totalActive > 0 ? 'hsl(var(--python))' : 'hsl(var(--tx3))' }} />
         {totalActive} alumno{totalActive === 1 ? '' : 's'} activo{totalActive === 1 ? '' : 's'} (últimos 10 min)
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 border-b border-border pb-0 overflow-x-auto">
+      <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" style={{ borderBottom: '2px solid hsl(var(--tx))' }}>
         {tabs.map((t) => (
           <button
             key={t.key}
+            role="tab"
+            aria-selected={tab === t.key}
             onClick={() => setTab(t.key)}
-            className={`font-mono text-xs px-4 py-2 border-b-2 transition-all -mb-px whitespace-nowrap ${
-              tab === t.key
-                ? 'border-accent text-accent'
-                : 'border-transparent text-tx3 hover:text-tx'
-            }`}
+            className="whitespace-nowrap"
+            style={{
+              fontFamily: 'var(--font-pixel), monospace', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+              padding: '8px 14px', marginBottom: -3,
+              border: '2px solid hsl(var(--tx))', borderBottom: tab === t.key ? '2px solid hsl(var(--accent))' : '2px solid hsl(var(--tx))',
+              background: tab === t.key ? 'hsl(var(--accent))' : 'hsl(var(--surface))',
+              color: tab === t.key ? 'var(--on-accent, hsl(var(--bg)))' : 'hsl(var(--tx2))',
+            }}
           >
             {t.label}
           </button>
@@ -285,7 +291,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
                         : 'border-border text-tx3 hover:border-border2 hover:text-tx'
                     }`}
                   >
-                    {isEnabled ? '● Habilitado' : '○ Bloqueado'}
+                    <SquareDot on={isEnabled} />{isEnabled ? 'Habilitado' : 'Bloqueado'}
                   </button>
                 </div>
               )
@@ -353,7 +359,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
                 </button>
                 {aulaStatus && (
                   <span className={`font-mono text-xs ${aulaStatus.startsWith('✓') ? 'text-python' : 'text-danger'}`}>
-                    {aulaStatus}
+                    <StatusMark ok={aulaStatus.startsWith('✓')} />{aulaStatus.replace(/^✓\s*/, '')}
                   </span>
                 )}
               </div>
@@ -390,7 +396,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
                             background: on ? 'hsl(var(--surface2))' : 'transparent',
                           }}
                         >
-                          {on ? '●' : '○'} {TIER_META[t].label}
+                          <SquareDot on={on} />{TIER_META[t].label}
                         </button>
                       )
                     })}
@@ -464,7 +470,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
                 </button>
                 {createStatus && (
                   <span className={`font-mono text-xs ${createStatus.startsWith('✓') ? 'text-python' : 'text-danger'}`}>
-                    {createStatus}
+                    <StatusMark ok={createStatus.startsWith('✓')} />{createStatus.replace(/^✓\s*/, '')}
                   </span>
                 )}
               </div>
@@ -589,7 +595,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
                 </button>
                 {resetStatus && (
                   <span className={`font-mono text-xs ${resetStatus.startsWith('✓') ? 'text-python' : 'text-danger'}`}>
-                    {resetStatus}
+                    <StatusMark ok={resetStatus.startsWith('✓')} />{resetStatus.replace(/^✓\s*/, '')}
                   </span>
                 )}
               </div>

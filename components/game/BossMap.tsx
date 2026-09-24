@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useReveal } from '@/lib/hooks/useReveal'
 import BossCard from './BossCard'
 import ResetBossButton from './ResetBossButton'
+import Win from '@/components/ui/Win'
 import { IconCheck, IconLock } from '@/components/ui/PixelIcons'
 import type { Boss } from '@/types'
 
@@ -67,52 +68,40 @@ const ACTS: {
 const solid = (colorVar: string) => `hsl(var(${colorVar}))`
 const alpha = (colorVar: string, a: number) => `hsl(var(${colorVar}) / ${a})`
 
-// ── Waypoint marker — sits on the connecting line ─────────────────────────────
+// ── Waypoint marker — cuadrado pixel sobre la línea de conexión ──────────────
 function Waypoint({ isDefeated, isCurrent, isLocked, color }: {
   isDefeated: boolean; isCurrent: boolean; isLocked: boolean; color: string
 }) {
   return (
-    <span className="relative flex items-center justify-center shrink-0" style={{ width: 16, height: 16, marginTop: 6 }}>
-      {isCurrent && (
-        <span
-          aria-hidden="true"
-          className="absolute rounded-full animate-glow"
-          style={{ inset: -6, background: color, opacity: 0.28, filter: 'blur(3px)' }}
-        />
-      )}
+    <span className="relative flex items-center justify-center shrink-0" style={{ width: 18, height: 18, marginTop: 6 }}>
       <span
-        className="relative rounded-full flex items-center justify-center"
+        className={isCurrent ? 'chest-bob' : undefined}
         style={{
-          width: 14, height: 14,
-          background: isLocked ? 'transparent' : color,
+          width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: isLocked ? 'hsl(var(--surface))' : color,
           border: `2px solid ${isLocked ? 'hsl(var(--border2))' : color}`,
+          boxShadow: isCurrent ? `0 0 0 2px hsl(var(--bg)), 0 0 0 4px ${color}` : 'none',
         }}
       >
-        {isDefeated && <IconCheck size={8} color="hsl(var(--bg))" />}
-        {isLocked && <IconLock size={7} color="hsl(var(--tx3))" />}
+        {isDefeated && <IconCheck size={9} color="hsl(var(--bg))" />}
+        {isLocked && <IconLock size={8} color="hsl(var(--tx3))" />}
       </span>
     </span>
   )
 }
 
-// ── Compact entry — defeated / locked bosses, low visual weight on purpose ───
+// ── Compact entry — jefes derrotados / bloqueados: poco peso visual ──────────
 function CompactEntry({ boss, isDefeated }: { boss: Boss; isDefeated: boolean }) {
   return (
     <div
-      className="flex items-center gap-3 px-3.5 py-2.5 pixel-corners border"
-      style={{
-        borderColor: isDefeated ? `${boss.color}25` : 'hsl(var(--border))',
-        background: isDefeated ? `${boss.color}07` : 'hsl(var(--surface) / 0.5)',
-      }}
+      className="flex items-center gap-3 px-3.5 py-2"
+      style={{ border: '2px solid hsl(var(--border2))', background: 'hsl(var(--surface) / 0.7)', opacity: isDefeated ? 0.85 : 0.6 }}
     >
       <span className="label-mono shrink-0">{boss.title}</span>
-      <span
-        className="font-mono text-xs font-bold truncate flex-1"
-        style={{ color: isDefeated ? 'hsl(var(--tx2))' : 'hsl(var(--tx3))' }}
-      >
+      <span className="truncate flex-1" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, color: isDefeated ? 'hsl(var(--tx2))' : 'hsl(var(--tx3))' }}>
         {boss.name}
       </span>
-      <span className="font-mono text-[10px] shrink-0" style={{ color: 'hsl(var(--tx3))' }}>
+      <span className="shrink-0" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 17, color: 'hsl(var(--tx3))' }}>
         {isDefeated ? 'Completado' : `Clase ${boss.classNumber}`}
       </span>
     </div>
@@ -146,19 +135,13 @@ function PathNode({ boss, isDefeated, isAvailable, isCurrent, hpCurrent, lineCol
           <>
             {isCurrent && (
               <div
-                className="mb-2 inline-flex items-center gap-1.5 font-mono text-[10px] tracking-widest px-2 py-1 pixel-corners-sm"
-                style={{ background: `${boss.color}18`, color: boss.color }}
+                className="mb-2 inline-flex items-center gap-1.5 px-2 py-0.5 animate-caret-line"
+                style={{ background: 'hsl(var(--accent))', color: 'var(--on-accent)', fontFamily: 'var(--font-jersey), monospace', fontSize: 14, letterSpacing: '0.1em' }}
               >
-                <span className="w-1 h-1 rounded-full bg-current animate-glow" />
                 SIGUIENTE JEFE
               </div>
             )}
-            <div
-              className={isCurrent ? 'pixel-corners' : undefined}
-              style={isCurrent ? { boxShadow: `0 0 0 1px ${boss.color}55, 0 0 32px ${boss.color}18` } : undefined}
-            >
-              <BossCard boss={boss} isEnabled hpCurrent={hpCurrent} animated={isCurrent} />
-            </div>
+            <BossCard boss={boss} isEnabled hpCurrent={hpCurrent} animated={isCurrent} />
           </>
         ) : (
           <CompactEntry boss={boss} isDefeated={isDefeated} />
@@ -187,14 +170,17 @@ function ActSection({ act, bosses, progress, enabledIds, firstAvailableId, testM
 
   return (
     <section id={`act-${act.key}`} className="mb-16 scroll-mt-20 last:mb-0">
-      <div className="flex items-baseline justify-between gap-4 mb-7">
-        <div>
-          <div className="label-mono mb-1" style={{ color: solid(act.colorVar) }}>
+      <div
+        className="flex items-center justify-between gap-4 mb-6 px-3 py-1.5"
+        style={{ background: 'hsl(var(--tx))', color: 'hsl(var(--bg))' }}
+      >
+        <div className="flex items-baseline gap-3 min-w-0">
+          <span style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 20, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
             {act.roman} · {act.title}
-          </div>
-          <p className="font-mono text-xs" style={{ color: 'hsl(var(--tx3))' }}>{act.subtitle}</p>
+          </span>
+          <span className="truncate hidden sm:inline" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 17, opacity: 0.75 }}>{act.subtitle}</span>
         </div>
-        <span className="font-mono text-xs tabular shrink-0" style={{ color: solid(act.colorVar) }}>
+        <span className="tabular shrink-0" style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 20 }}>
           {defeatedCount}/{bosses.length}
         </span>
       </div>
@@ -204,8 +190,9 @@ function ActSection({ act, bosses, progress, enabledIds, firstAvailableId, testM
           aria-hidden="true"
           className={visible ? 'absolute top-1 bottom-1 animate-path-draw' : 'absolute top-1 bottom-1'}
           style={{
-            left: 13, width: 2,
-            background: `linear-gradient(to bottom, ${alpha(act.colorVar, 0.5)}, ${alpha(act.colorVar, 0.1)})`,
+            left: 12, width: 4,
+            background: `repeating-linear-gradient(to bottom, ${solid(act.colorVar)} 0 6px, transparent 6px 12px)`,
+            opacity: 0.55,
             transformOrigin: 'top',
             transform: visible ? undefined : 'scaleY(0)',
           }}
@@ -250,34 +237,38 @@ export default function BossMap({
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-8">
-      {/* Page header */}
-      <div className="mb-8 flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <div className="label-mono mb-1">Mapa de jefes</div>
-          <h1 className="text-3xl font-bold text-tx tracking-wide">
-            Bienvenido, <span className="text-accent">{username}</span>
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: 'hsl(var(--tx3))' }}>
-            {totalDefeated} / {bosses.length} jefes derrotados
-          </p>
-        </div>
+      {/* Page header — ventana de bienvenida */}
+      <Win
+        title="MAPA_DE_JEFES.EXE"
+        active
+        className="mb-8"
+        right={<span className="tabular" style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.12em', color: 'hsl(var(--bg))' }}>{pct}%</span>}
+        bodyStyle={{ padding: 16 }}
+      >
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-3xl tracking-wide" style={{ color: 'hsl(var(--tx))', lineHeight: 1.05 }}>
+              Bienvenido, <span style={{ color: 'hsl(var(--accent))' }}>{username}</span>
+            </h1>
+            <p className="mt-1" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, color: 'hsl(var(--tx2))' }}>
+              {totalDefeated} / {bosses.length} jefes derrotados
+            </p>
+          </div>
 
-        <div className="flex flex-col items-end gap-2 w-full max-w-xs">
-          {headerExtra}
-          <div className="w-full">
-            <div className="flex justify-between label-mono mb-1.5">
-              <span>Progreso total</span>
-              <span className="text-accent">{pct}%</span>
-            </div>
-            <div className="hp-track h-2">
-              <div
-                className="h-full transition-all duration-700"
-                style={{ width: `${pct}%`, background: 'hsl(var(--accent))' }}
-              />
+          <div className="flex flex-col items-end gap-2 w-full max-w-xs">
+            {headerExtra}
+            <div className="w-full">
+              <div className="flex justify-between label-mono mb-1.5">
+                <span>Progreso total</span>
+                <span style={{ color: 'hsl(var(--accent))' }}>{pct}%</span>
+              </div>
+              <div className="hp-track h-3">
+                <div className="h-full transition-all duration-700" style={{ width: `${pct}%`, background: 'hsl(var(--accent))' }} />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </Win>
 
       {notice}
 
@@ -289,11 +280,12 @@ export default function BossMap({
             <a
               key={act.key}
               href={`#act-${act.key}`}
-              className="font-mono text-xs px-3 py-1.5 pixel-corners-sm border transition-all hover:opacity-80"
+              className="px-3 py-1 transition-all hover:opacity-80"
               style={{
-                borderColor: alpha(act.colorVar, 0.3),
-                color: solid(act.colorVar),
-                background: alpha(act.colorVar, 0.08),
+                border: '2px solid hsl(var(--tx))',
+                color: 'hsl(var(--tx))',
+                background: 'transparent',
+                fontFamily: 'var(--font-jersey), monospace', fontSize: 16, letterSpacing: '0.05em', textTransform: 'uppercase',
               }}
             >
               {act.title} <span className="opacity-60 ml-1 tabular">{defeatedCount}/{act.bosses.length}</span>

@@ -141,4 +141,59 @@ export const sfx = {
     ;[523, 659, 784].forEach((f, i) => tone(f, 0.14, 'triangle', 0.06, { at: i * 0.1 }))
     tone(1047, 0.25, 'triangle', 0.04, { at: 0.3 })
   },
+  // ── Interfaz del escritorio (retro 8-bit) ─────────────────────────────────
+  /** Click del cursor: tic seco y corto. */
+  click() {
+    tone(jitter(920, 60), 0.03, 'square', 0.035, { to: 640 })
+    noise(0.012, 0.02, { highpass: 4000 })
+  },
+  /** Pasar el cursor por encima de algo clickeable: casi imperceptible. */
+  hover() { tone(1320, 0.014, 'triangle', 0.012) },
+  /** Se abre una ventana: tres notas ascendentes rápidas. */
+  open() {
+    ;[392, 523, 659].forEach((f, i) => tone(f, 0.05, 'square', 0.04, { at: i * 0.04 }))
+  },
+  /** Se cierra una ventana: dos notas descendentes. */
+  close() {
+    tone(659, 0.05, 'triangle', 0.05)
+    tone(392, 0.09, 'triangle', 0.05, { at: 0.05, to: 330 })
+  },
+  /** Error de sistema: dos zumbidos graves. */
+  error() {
+    tone(196, 0.11, 'square', 0.07)
+    tone(147, 0.18, 'square', 0.07, { at: 0.13 })
+    noise(0.06, 0.04, { highpass: 800 })
+  },
+  /** Aviso no grave: dos pitidos iguales. */
+  warn() {
+    tone(440, 0.07, 'square', 0.05)
+    tone(440, 0.07, 'square', 0.05, { at: 0.11 })
+  },
+  /** Acción no disponible (botón desactivado). */
+  denied() { tone(150, 0.08, 'square', 0.05, { to: 110 }) },
+  /** Interruptor: encender (agudo) o apagar (grave). */
+  toggle(on: boolean) { tone(on ? 740 : 494, 0.05, 'square', 0.045, { to: on ? 988 : 370 }) },
+  /** Cambiar de pestaña. */
+  tab() { tone(587, 0.04, 'triangle', 0.05) },
+  /** Agarrar una ventana para arrastrarla. */
+  pick() { tone(300, 0.04, 'square', 0.035, { to: 480 }) },
+  /** Soltar la ventana: golpecito. */
+  drop() {
+    tone(140, 0.06, 'triangle', 0.06, { to: 90 })
+    noise(0.02, 0.03, { highpass: 1200 })
+  },
+  /** Tirar algo a la papelera: papel arrugado. */
+  trash() {
+    for (let i = 0; i < 4; i++) noise(0.03, 0.06, { at: i * 0.035, highpass: 1800 + i * 500 })
+    tone(220, 0.14, 'triangle', 0.04, { to: 110, at: 0.12 })
+  },
+  /** Cambio de tema: barrido de cuatro notas. */
+  theme() {
+    ;[440, 587, 740, 988].forEach((f, i) => tone(f, 0.045, 'square', 0.04, { at: i * 0.035 }))
+  },
+  /** Campanita de aviso (Rodolfo, mensaje nuevo). */
+  notify() {
+    tone(1568, 0.09, 'triangle', 0.06)
+    tone(2093, 0.16, 'triangle', 0.05, { at: 0.09 })
+  },
 }

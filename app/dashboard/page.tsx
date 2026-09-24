@@ -59,7 +59,7 @@ async function SupabaseDashboard() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'hsl(var(--bg))' }}>
+    <div className="min-h-screen desk-theme">
       <Header username={username} role={role} />
 
       <BossMap

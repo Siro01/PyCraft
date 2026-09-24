@@ -103,7 +103,7 @@ async function SupabaseBattlePage({ bossId }: { bossId: string }) {
   const username = profile?.username ?? user.email?.split('@')[0] ?? 'Jugador'
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'hsl(var(--bg))' }}>
+    <div className="min-h-screen flex flex-col desk-theme">
       <Header username={username} role={profile?.role} />
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">

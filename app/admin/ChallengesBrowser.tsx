@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { SquareDot } from '@/components/ui/StatusMark'
 import BossSprite from '@/components/game/BossSprite'
 import { CHALLENGES } from '@/lib/game/challenges'
 import { DEFAULT_TIER_ENABLED, TIER_META, TIER_ORDER } from '@/lib/game/tiers'
@@ -80,7 +81,7 @@ export default function ChallengesBrowser({ bosses, aulas, students, aulaTierMap
                 }}
                 title={on === null ? 'Elegí un aula para ver qué dificultades tiene habilitadas' : undefined}
               >
-                {on === false ? '○' : '●'} {TIER_META[t].label}
+                <SquareDot on={on !== false} />{TIER_META[t].label}
               </span>
             )
           })}

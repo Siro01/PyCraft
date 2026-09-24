@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Boss } from '@/types'
 import ArchitectCanvas from './architect/ArchitectCanvas'
 
@@ -14,8 +14,9 @@ interface BossSpriteProps {
 }
 
 // ─── Display sizes (matches the old CSS-grid sizes) ──────────────────────────
-// Source sprites are 16×16 or 32×32 px; CSS scales up with image-rendering: pixelated
-const DISPLAY_PX = { sm: 48, md: 80, lg: 112 } as const
+// Source sprites are 32×32 px; sizes are integer multiples (2×/3×/4×) so pixels stay crisp
+// with image-rendering: pixelated. 16×16 sprites (creeper) scale 4×/6×/8×.
+const DISPLAY_PX = { sm: 64, md: 96, lg: 128 } as const
 
 // ─── CSS fallback pixel maps (8×8 grids) ─────────────────────────────────────
 // Colors: 0=transparent  1=primary  2=darkened  3=lightened
@@ -234,8 +235,44 @@ export default function BossSprite({ boss, size = 'md', defeated = false, animat
   return <StaticBossSprite boss={boss} size={size} defeated={defeated} animated={animated} />
 }
 
+// Sprites que todavía no existen: se prueba cada archivo una sola vez por sesión y se
+// recuerda el resultado, así no se pide (ni falla con 404) en cada render, y mientras
+// tanto se muestra el dibujo alternativo en lugar del texto de la imagen rota.
+const spriteStatus = new Map<string, 'ok' | 'missing'>()
+
+function readCached(src: string): 'ok' | 'missing' | undefined {
+  const mem = spriteStatus.get(src)
+  if (mem) return mem
+  try {
+    // "missing" caduca a los 5 min: si se sube el dibujo, aparece sin tener que cerrar la pestaña.
+    const v = sessionStorage.getItem(`sprite:${src}`)
+    if (v === 'ok') return 'ok'
+    if (v?.startsWith('missing@') && Date.now() - Number(v.slice(8)) < 5 * 60_000) return 'missing'
+  } catch {}
+  return undefined
+}
+
+function useSpriteStatus(src: string): 'loading' | 'ok' | 'missing' {
+  const [status, setStatus] = useState<'loading' | 'ok' | 'missing'>('loading')
+  useEffect(() => {
+    const cached = readCached(src)
+    if (cached) { setStatus(cached); return }
+    let alive = true
+    const probe = new window.Image()
+    const done = (r: 'ok' | 'missing') => {
+      spriteStatus.set(src, r)
+      try { sessionStorage.setItem(`sprite:${src}`, r === 'ok' ? 'ok' : `missing@${Date.now()}`) } catch {}
+      if (alive) setStatus(r)
+    }
+    probe.onload = () => done('ok')
+    probe.onerror = () => done('missing')
+    probe.src = src
+    return () => { alive = false }
+  }, [src])
+  return status
+}
+
 function StaticBossSprite({ boss, size, defeated, animated }: { boss: Boss; size: 'sm' | 'md' | 'lg'; defeated: boolean; animated: boolean }) {
-  const [imgError, setImgError] = useState(false)
   const px = DISPLAY_PX[size]
 
   // Naming convention: /sprites/{boss.id}.gif (animated) or .png (static)
@@ -243,6 +280,7 @@ function StaticBossSprite({ boss, size, defeated, animated }: { boss: Boss; size
   const idleSrc     = `/sprites/${boss.id}.gif`
   const defeatedSrc = `/sprites/${boss.id}-defeated.gif`
   const src = defeated ? defeatedSrc : idleSrc
+  const status = useSpriteStatus(src)
 
   const wrapperStyle: React.CSSProperties = {
     opacity: defeated ? 0.5 : 1,
@@ -254,14 +292,13 @@ function StaticBossSprite({ boss, size, defeated, animated }: { boss: Boss; size
       className={animated && !defeated ? 'animate-boss-idle' : ''}
       style={wrapperStyle}
     >
-      {!imgError ? (
+      {status === 'ok' ? (
         <img
           src={src}
           alt={boss.name}
           width={px}
           height={px}
           style={{ imageRendering: 'pixelated', display: 'block' }}
-          onError={() => setImgError(true)}
         />
       ) : (
         <CssFallback boss={boss} size={size} defeated={defeated} />
