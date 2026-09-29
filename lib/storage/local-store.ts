@@ -120,21 +120,27 @@ export function getAmulets(): Amulet[] {
   } catch { return [] }
 }
 
+// Guarda la lista completa y la empuja a la nube (modo cuenta) — usado por
+// las tres funciones de abajo y por hydrateFromCloud al combinar dispositivos.
+function saveAmuletsRaw(list: Amulet[]): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(AMULETS_KEY, JSON.stringify(list)) } catch { /* ignore quota errors */ }
+  import('@/lib/storage/cloud-sync').then(({ queueCloudSync }) => queueCloudSync('amulets', list))
+}
+
 export function addAmulet(amulet: Amulet): void {
   if (typeof window === 'undefined') return
-  const current = getAmulets()
-  localStorage.setItem(AMULETS_KEY, JSON.stringify([...current, amulet]))
+  saveAmuletsRaw([...getAmulets(), amulet])
 }
 
 export function removeAmulet(id: string): void {
   if (typeof window === 'undefined') return
-  const current = getAmulets()
-  localStorage.setItem(AMULETS_KEY, JSON.stringify(current.filter((a) => a.id !== id)))
+  saveAmuletsRaw(getAmulets().filter((a) => a.id !== id))
 }
 
 export function clearAmulets(): void {
   if (typeof window === 'undefined') return
-  localStorage.removeItem(AMULETS_KEY)
+  saveAmuletsRaw([])
 }
 
 // ─── Proyecto final: cofre (guardado de partida) ─────────────────────────────
@@ -167,6 +173,7 @@ export function getFinaleProgress(): FinaleProgress | null {
 export function saveFinaleProgress(progress: FinaleProgress): void {
   if (typeof window === 'undefined') return
   try { localStorage.setItem(FINALE_KEY, JSON.stringify(progress)) } catch { /* ignore quota errors */ }
+  import('@/lib/storage/cloud-sync').then(({ queueCloudSync }) => queueCloudSync('finale', progress))
 }
 
 // Decoración del cofre — separada del progreso de misiones para que
@@ -190,11 +197,13 @@ export function getFinaleDecoration(): FinaleDecoration | null {
 export function saveFinaleDecoration(deco: FinaleDecoration): void {
   if (typeof window === 'undefined') return
   try { localStorage.setItem(FINALE_DECO_KEY, JSON.stringify(deco)) } catch { /* ignore quota errors */ }
+  import('@/lib/storage/cloud-sync').then(({ queueCloudSync }) => queueCloudSync('finale_deco', deco))
 }
 
 export function clearFinaleProgress(): void {
   if (typeof window === 'undefined') return
   localStorage.removeItem(FINALE_KEY)
+  import('@/lib/storage/cloud-sync').then(({ queueCloudSync }) => queueCloudSync('finale', null))
 }
 
 // ─── Patio de juegos: XP y mejores rachas por tanda ──────────────────────────
@@ -209,9 +218,11 @@ export interface PlaygroundState {
   bestStreak: Record<string, number>
   /** Mejor puntaje (aciertos) de la última vez que se jugó cada tanda. */
   bestScore: Record<string, number>
+  /** Tandas que ya dieron XP alguna vez — repetirlas no vuelve a sumar XP, para que no se pueda farmear infinito. */
+  xpAwarded: Record<string, boolean>
 }
 
-export const EMPTY_PLAYGROUND: PlaygroundState = { xp: 0, bestStreak: {}, bestScore: {} }
+export const EMPTY_PLAYGROUND: PlaygroundState = { xp: 0, bestStreak: {}, bestScore: {}, xpAwarded: {} }
 
 export function getPlaygroundState(): PlaygroundState {
   if (typeof window === 'undefined') return EMPTY_PLAYGROUND
@@ -221,17 +232,34 @@ export function getPlaygroundState(): PlaygroundState {
   } catch { return EMPTY_PLAYGROUND }
 }
 
-/** Suma XP y actualiza los mejores récords de una tanda; devuelve el estado nuevo. */
-export function recordPlaygroundResult(topicKey: string, xpGained: number, streak: number, score: number): PlaygroundState {
-  if (typeof window === 'undefined') return EMPTY_PLAYGROUND
+// Guarda el estado completo y lo empuja a la nube (modo cuenta) — usado por
+// recordPlaygroundResult y por hydrateFromCloud al combinar dispositivos.
+function savePlaygroundStateRaw(state: PlaygroundState): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(PLAYGROUND_KEY, JSON.stringify(state)) } catch { /* ignore quota errors */ }
+  import('@/lib/storage/cloud-sync').then(({ queueCloudSync }) => queueCloudSync('playground', state))
+}
+
+/**
+ * Suma XP y actualiza los mejores récords de una tanda; devuelve el estado
+ * nuevo junto con el XP realmente otorgado. Una tanda solo da XP la primera
+ * vez que se completa — repetirla actualiza racha/puntaje para que el
+ * alumno siga practicando, pero no vuelve a sumar XP (si no, se podía
+ * repetir el mismo ejercicio para farmear XP sin límite).
+ */
+export function recordPlaygroundResult(topicKey: string, xpGained: number, streak: number, score: number): { state: PlaygroundState; xpAwarded: number } {
+  if (typeof window === 'undefined') return { state: EMPTY_PLAYGROUND, xpAwarded: 0 }
   const cur = getPlaygroundState()
+  const alreadyAwarded = cur.xpAwarded[topicKey] === true
+  const awarded = alreadyAwarded ? 0 : xpGained
   const next: PlaygroundState = {
-    xp: cur.xp + xpGained,
+    xp: cur.xp + awarded,
     bestStreak: { ...cur.bestStreak, [topicKey]: Math.max(cur.bestStreak[topicKey] ?? 0, streak) },
     bestScore: { ...cur.bestScore, [topicKey]: Math.max(cur.bestScore[topicKey] ?? 0, score) },
+    xpAwarded: { ...cur.xpAwarded, [topicKey]: true },
   }
-  try { localStorage.setItem(PLAYGROUND_KEY, JSON.stringify(next)) } catch { /* ignore quota errors */ }
-  return next
+  savePlaygroundStateRaw(next)
+  return { state: next, xpAwarded: awarded }
 }
 
 export function playgroundLevel(xp: number): { level: number; xpIntoLevel: number; xpForNext: number } {
@@ -311,4 +339,67 @@ export function getPracticeIntroHidden(): boolean {
 export function setPracticeIntroHidden(hidden: boolean): void {
   if (typeof window === 'undefined') return
   try { localStorage.setItem(PRACTICE_INTRO_KEY, hidden ? '1' : '0') } catch { /* ignore quota errors */ }
+}
+
+// ─── Sync con la nube (solo modo cuenta) ─────────────────────────────────────
+// El patio de juegos, los amuletos y el cofre final corren 100% en el
+// navegador, incluso con cuenta — sin esto, un alumno que cambia de PC en el
+// aula los perdía por completo. `syncOnLoad` (lib/storage/cloud-sync.ts) se
+// corre una vez por sesión y llama acá con lo que haya guardado en la tabla
+// `game_extras`; esta función lo combina con lo que ya haya en el dispositivo,
+// quedándose siempre con el mayor avance de cada lado en vez de pisar ninguno.
+
+export interface CloudExtras {
+  amulets: Amulet[] | null
+  playground: PlaygroundState | null
+  finale: FinaleProgress | null
+  finale_deco: FinaleDecoration | null
+}
+
+export function hydrateFromCloud(cloud: CloudExtras): void {
+  if (typeof window === 'undefined') return
+
+  // Patio de juegos: XP y "ya la jugué" (xpAwarded) por tanda se combinan
+  // tomando lo mayor de cada lado — así tampoco se puede farmear XP jugando
+  // la misma tanda en dos PCs distintas.
+  const localPg = getPlaygroundState()
+  if (cloud.playground) {
+    savePlaygroundStateRaw({
+      xp: Math.max(cloud.playground.xp, localPg.xp),
+      bestStreak: mergeMax(cloud.playground.bestStreak, localPg.bestStreak),
+      bestScore: mergeMax(cloud.playground.bestScore, localPg.bestScore),
+      xpAwarded: { ...cloud.playground.xpAwarded, ...localPg.xpAwarded },
+    })
+  } else if (localPg.xp > 0 || Object.keys(localPg.bestScore).length > 0) {
+    savePlaygroundStateRaw(localPg)
+  }
+
+  // Amuletos: unión por id — son consumibles, no hay "mejor" versión de cada uno.
+  saveAmuletsRaw(mergeAmuletsById(cloud.amulets ?? [], getAmulets()))
+
+  // Cofre final: se queda con el que tenga más misiones completadas.
+  const localFinale = getFinaleProgress()
+  const cloudFinale = cloud.finale
+  const bestFinale =
+    !cloudFinale ? localFinale
+    : !localFinale ? cloudFinale
+    : cloudFinale.completed.length >= localFinale.completed.length ? cloudFinale : localFinale
+  if (bestFinale) saveFinaleProgress(bestFinale)
+
+  // Decoración del cofre: se respeta la que ya está en este dispositivo (es
+  // la que el alumno ve ahora mismo); si acá no hay ninguna, se trae la de la nube.
+  const bestDeco = getFinaleDecoration() ?? cloud.finale_deco
+  if (bestDeco) saveFinaleDecoration(bestDeco)
+}
+
+function mergeMax(a: Record<string, number> = {}, b: Record<string, number> = {}): Record<string, number> {
+  const out: Record<string, number> = { ...a }
+  for (const k of Object.keys(b)) out[k] = Math.max(out[k] ?? 0, b[k])
+  return out
+}
+
+function mergeAmuletsById(a: Amulet[], b: Amulet[]): Amulet[] {
+  const byId = new Map(a.map((am) => [am.id, am] as const))
+  for (const am of b) if (!byId.has(am.id)) byId.set(am.id, am)
+  return [...byId.values()]
 }

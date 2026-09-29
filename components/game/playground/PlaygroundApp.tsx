@@ -17,7 +17,7 @@ import ZoomControl from '@/components/game/ZoomControl'
 const jersey = 'var(--font-jersey), monospace'
 const STREAK_MILESTONES = [3, 5, 8, 12]
 
-type View = { kind: 'home' } | { kind: 'quiz'; topic: PlaygroundTopic } | { kind: 'results'; topic: PlaygroundTopic; score: number; streak: number; xpGained: number }
+type View = { kind: 'home' } | { kind: 'quiz'; topic: PlaygroundTopic } | { kind: 'results'; topic: PlaygroundTopic; score: number; streak: number; xpGained: number; repeated: boolean }
 
 export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; actTitle: string }) {
   const act = useMemo(() => getPlaygroundAct(actKey), [actKey])
@@ -75,10 +75,10 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
   }
 
   const finishTopic = (topic: PlaygroundTopic, finalScore: number, finalBestStreak: number) => {
-    const xpGained = finalScore * 10 + Math.max(0, finalBestStreak - 2) * 2
-    const next = recordPlaygroundResult(topic.key, xpGained, finalBestStreak, finalScore)
-    setPlayground(next)
-    setView({ kind: 'results', topic, score: finalScore, streak: finalBestStreak, xpGained })
+    const xpEarned = finalScore * 10 + Math.max(0, finalBestStreak - 2) * 2
+    const { state, xpAwarded } = recordPlaygroundResult(topic.key, xpEarned, finalBestStreak, finalScore)
+    setPlayground(state)
+    setView({ kind: 'results', topic, score: finalScore, streak: finalBestStreak, xpGained: xpAwarded, repeated: xpAwarded === 0 })
   }
 
   const onAnswered = (correct: boolean) => {
@@ -199,7 +199,7 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
                 {view.score}/{view.topic.exercises.length} correctas
               </div>
               <p className="mb-4" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, color: 'hsl(var(--tx2))' }}>
-                Mejor racha: {view.streak} · +{view.xpGained} XP
+                Mejor racha: {view.streak} · {view.repeated ? 'ya sumaste el XP de esta tanda antes' : `+${view.xpGained} XP`}
               </p>
               <div className="mx-auto mb-5" style={{ maxWidth: 320 }}>
                 <LevelBar fromXp={xpBefore} toXp={xpBefore + view.xpGained} />

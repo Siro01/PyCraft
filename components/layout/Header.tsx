@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { sfx, isMuted, setMuted } from '@/lib/game/architect/sound'
+import { isLocalMode } from '@/lib/local-mode'
 
 interface HeaderProps {
   username?: string
@@ -29,6 +30,14 @@ export default function Header({ username, role }: HeaderProps) {
 
   const [muted, setMutedState] = useState(false)
   useEffect(() => setMutedState(isMuted()), [])
+
+  // Patio de juegos, amuletos y cofre final viven en localStorage incluso en
+  // modo cuenta — esto los combina con lo guardado en la nube una vez por
+  // sesión, para que cambiar de PC en el aula no los borre.
+  useEffect(() => {
+    if (!username || isLocalMode()) return
+    import('@/lib/storage/cloud-sync').then(({ syncOnLoad }) => syncOnLoad())
+  }, [username])
   const toggleSound = () => {
     const next = !muted
     setMuted(next); setMutedState(next)
