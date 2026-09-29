@@ -6,12 +6,13 @@ import AppWindow from '@/components/ui/AppWindow'
 import { PixelBitmap, ICON_TERMINAL } from '@/components/game/architect/desktop/PixelBitmap'
 import { IconCheck } from '@/components/ui/PixelIcons'
 import { sfx } from '@/lib/game/architect/sound'
-import { EMPTY_PLAYGROUND, getPlaygroundState, recordPlaygroundResult } from '@/lib/storage/local-store'
+import { EMPTY_PLAYGROUND, getPlaygroundState, getTextZoom, recordPlaygroundResult, setTextZoom, TEXT_ZOOM_DEFAULT } from '@/lib/storage/local-store'
 import { getPlaygroundAct, type PlaygroundTopic } from '@/lib/game/playground'
 import ExerciseCard from './ExerciseCard'
 import LevelBar from './LevelBar'
 import PlaygroundTopicIcon from './PlaygroundTopicIcon'
 import RodolfoCheer from './RodolfoCheer'
+import ZoomControl from '@/components/game/ZoomControl'
 
 const jersey = 'var(--font-jersey), monospace'
 const STREAK_MILESTONES = [3, 5, 8, 12]
@@ -34,6 +35,23 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
   const [cheerStreak, setCheerStreak] = useState<number | null>(null)
   const [xpBefore, setXpBefore] = useState(playground.xp)
   const [answered, setAnswered] = useState(false)
+  const [maximized, setMaximized] = useState(false)
+  const [zoom, setZoom] = useState(TEXT_ZOOM_DEFAULT)
+  useEffect(() => { setZoom(getTextZoom()) }, [])
+  const handleZoom = (next: number) => { setZoom(next); setTextZoom(next) }
+
+  // El sitio tiene su propio <header> arriba de esta página — se mide acá
+  // para que "pantalla completa" llene lo que queda debajo sin taparlo
+  // (mismo mecanismo que MAPA_DE_JEFES.EXE en el dashboard).
+  useEffect(() => {
+    const header = document.querySelector('header')
+    if (!header) return
+    const measure = () => document.documentElement.style.setProperty('--dash-header-h', `${header.getBoundingClientRect().height}px`)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(header)
+    return () => ro.disconnect()
+  }, [])
 
   if (!act) {
     return (
@@ -90,6 +108,7 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
       <div className="flex items-center gap-3 px-2.5" style={{ height: 28, background: 'hsl(var(--surface))', borderBottom: '2px solid hsl(var(--tx))' }}>
         <span style={{ fontFamily: jersey, fontSize: 18, letterSpacing: '0.08em', color: 'hsl(var(--tx))' }}>PYCRAFT OS</span>
         <span style={{ flex: 1 }} />
+        <ZoomControl zoom={zoom} onChange={handleZoom} />
         <Link href="/dashboard" className="label-mono" style={{ color: 'hsl(var(--tx2))' }}>← Volver al mapa</Link>
       </div>
 
@@ -97,14 +116,17 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
         <AppWindow
           title="PATIO_DE_JUEGOS.EXE"
           icon={<PixelBitmap rows={ICON_TERMINAL} scale={2} ink="hsl(var(--bg))" />}
-          x={0} y={0} w={0} z={0}
+          x={0} y={0} w={0}
+          z={maximized ? 60 : 0}
           active
-          mode="normal"
+          mode={maximized ? 'maximized' : 'normal'}
           essential
-          flow
+          flow={!maximized}
           onFocus={() => {}}
-          bodyStyle={{ padding: 16 }}
+          onToggleMaximize={() => { sfx.click(); setMaximized((m) => !m) }}
+          bodyStyle={{ padding: maximized ? 12 : 16 }}
         >
+          <div style={{ zoom }}>
           <div className="mb-4" style={{ maxWidth: 320 }}>
             <LevelBar fromXp={playground.xp} toXp={playground.xp} />
           </div>
@@ -192,6 +214,7 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
               </div>
             </div>
           )}
+          </div>
         </AppWindow>
       </div>
 

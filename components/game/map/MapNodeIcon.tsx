@@ -56,14 +56,16 @@ export function BossNode({ boss, state, focused }: BossNodeProps) {
   )
 }
 
-interface PlaygroundNodeProps {
+interface UtilityNodeProps {
   reachable: boolean
   focused: boolean
+  glyph: React.ReactNode
 }
 
-// Ícono del patio de juegos: mismo marco cuadrado, glifo de swing en vez de
-// un ícono de jefe. Bloqueado hasta que el alumno llega a ese acto.
-export function PlaygroundNode({ reachable, focused }: PlaygroundNodeProps) {
+// Marco compartido por los nodos que no son jefes (patio de juegos, patio de
+// prácticas): mismo cuadrado duro, un glifo propio adentro. Bloqueado
+// (candado) hasta que el alumno llega a ese acto.
+function UtilityNode({ reachable, focused, glyph }: UtilityNodeProps) {
   const size = TILE_SIZE
   return (
     <div
@@ -80,22 +82,61 @@ export function PlaygroundNode({ reachable, focused }: PlaygroundNodeProps) {
       }}
       aria-hidden="true"
     >
-      {reachable ? (
-        <svg width={14} height={14} viewBox="0 0 16 16" style={{ imageRendering: 'pixelated' }}>
-          <g fill="hsl(var(--tx))">
-            <rect x="1" y="0" width="2" height="12" />
-            <rect x="13" y="0" width="2" height="12" />
-            <rect x="0" y="0" width="16" height="2" />
-            <rect x="6" y="5" width="2" height="7" />
-            <rect x="8" y="5" width="2" height="7" />
-            <rect x="3" y="12" width="10" height="2" />
-            <rect x="2" y="14" width="2" height="2" />
-            <rect x="12" y="14" width="2" height="2" />
-          </g>
-        </svg>
-      ) : (
-        <IconLock size={12} color="hsl(var(--tx3))" />
-      )}
+      {reachable ? glyph : <IconLock size={12} color="hsl(var(--tx3))" />}
     </div>
   )
+}
+
+const SWING_GLYPH = (
+  <svg width={14} height={14} viewBox="0 0 16 16" style={{ imageRendering: 'pixelated' }}>
+    <g fill="hsl(var(--tx))">
+      <rect x="1" y="0" width="2" height="12" />
+      <rect x="13" y="0" width="2" height="12" />
+      <rect x="0" y="0" width="16" height="2" />
+      <rect x="6" y="5" width="2" height="7" />
+      <rect x="8" y="5" width="2" height="7" />
+      <rect x="3" y="12" width="10" height="2" />
+      <rect x="2" y="14" width="2" height="2" />
+      <rect x="12" y="14" width="2" height="2" />
+    </g>
+  </svg>
+)
+
+interface PlaygroundNodeProps {
+  reachable: boolean
+  focused: boolean
+}
+
+// Ícono del patio de juegos: glifo de swing.
+export function PlaygroundNode({ reachable, focused }: PlaygroundNodeProps) {
+  return <UtilityNode reachable={reachable} focused={focused} glyph={SWING_GLYPH} />
+}
+
+const CODE_GLYPH = (
+  <svg width={14} height={14} viewBox="0 0 16 16" style={{ imageRendering: 'pixelated' }}>
+    <g fill="hsl(var(--tx))">
+      {/* < */}
+      <rect x="4" y="2" width="2" height="2" />
+      <rect x="2" y="4" width="2" height="2" />
+      <rect x="0" y="6" width="2" height="4" />
+      <rect x="2" y="10" width="2" height="2" />
+      <rect x="4" y="12" width="2" height="2" />
+      {/* > */}
+      <rect x="10" y="2" width="2" height="2" />
+      <rect x="12" y="4" width="2" height="2" />
+      <rect x="14" y="6" width="2" height="4" />
+      <rect x="12" y="10" width="2" height="2" />
+      <rect x="10" y="12" width="2" height="2" />
+    </g>
+  </svg>
+)
+
+interface PracticeNodeProps {
+  reachable: boolean
+  focused: boolean
+}
+
+// Ícono del patio de prácticas: glifo de corchetes de código `</>`.
+export function PracticeNode({ reachable, focused }: PracticeNodeProps) {
+  return <UtilityNode reachable={reachable} focused={focused} glyph={CODE_GLYPH} />
 }

@@ -18,7 +18,7 @@ import { tags as t } from '@lezer/highlight'
 // ─── Theme — sigue los tokens del sitio; el acento es el color del jefe actual ──
 // Fondo/gutter/texto salen de las CSS custom properties (se adaptan a los 3 temas
 // del sitio), el caret/foco/selección/bracket-match toman el color del jefe.
-function buildEditorTheme(accentColor: string) {
+function buildEditorTheme(accentColor: string, fillHeight: boolean) {
   return EditorView.theme(
     {
       '&': {
@@ -26,6 +26,11 @@ function buildEditorTheme(accentColor: string) {
         fontFamily: "'Courier New', Courier, monospace",
         background: 'hsl(var(--bg))',
         color: 'hsl(var(--tx))',
+        // Por defecto el editor crece con el contenido (como siempre, en las
+        // batallas). Con fillHeight ocupa el 100% del contenedor — lo usa el
+        // patio de prácticas en pantalla completa, donde si no quedaba un
+        // editor chico de 3 líneas perdido en medio de una ventana enorme.
+        ...(fillHeight ? { height: '100%' } : {}),
       },
       '.cm-content': {
         caretColor: accentColor,
@@ -37,7 +42,7 @@ function buildEditorTheme(accentColor: string) {
         overflow: 'auto',
       },
       // min-height so short files don't look empty
-      '.cm-content, .cm-gutter': { minHeight: '200px' },
+      '.cm-content, .cm-gutter': { minHeight: fillHeight ? '100%' : '200px' },
       '&.cm-focused': {
         outline: `1px solid ${accentColor}99`,
         boxShadow: `0 0 0 3px ${accentColor}1F`,
@@ -99,6 +104,8 @@ interface CodeMirrorEditorProps {
   className?: string
   /** Boss identity color (hex, e.g. boss.color) — themes caret/focus/selection/brackets */
   accentColor: string
+  /** Ocupa el 100% del contenedor en vez de crecer solo con el contenido — para pantalla completa. */
+  fillHeight?: boolean
 }
 
 export default function CodeMirrorEditor({
@@ -108,6 +115,7 @@ export default function CodeMirrorEditor({
   onCtrlEnter,
   className,
   accentColor,
+  fillHeight = false,
 }: CodeMirrorEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -151,7 +159,7 @@ export default function CodeMirrorEditor({
         closeBrackets(),
         lineNumbers(),
         highlightActiveLine(),
-        buildEditorTheme(accentColor),
+        buildEditorTheme(accentColor, fillHeight),
         syntaxHighlighting(buildHighlight(accentColor)),
         onChange,
       ],
@@ -165,7 +173,7 @@ export default function CodeMirrorEditor({
       viewRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, accentColor]) // Recreate when the language or the boss (= its color) changes
+  }, [language, accentColor, fillHeight]) // Recreate when the language, el jefe (= su color) o fillHeight cambian
 
   // Sync value when challenge switches (CodeEditor resets code via state)
   useEffect(() => {
@@ -182,7 +190,7 @@ export default function CodeMirrorEditor({
       ref={containerRef}
       className={className}
       // CodeMirror manages its own scroll; the wrapper just needs to fill available space
-      style={{ overflow: 'hidden' }}
+      style={{ overflow: 'hidden', ...(fillHeight ? { height: '100%' } : {}) }}
     />
   )
 }

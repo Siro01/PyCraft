@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { sfx } from '@/lib/game/architect/sound'
 import { TILE_SIZE, type ActMapDef, type MapPoint } from '@/lib/game/act-maps'
-import { BossNode, PlaygroundNode, type NodeState } from './MapNodeIcon'
+import { BossNode, PlaygroundNode, PracticeNode, type NodeState } from './MapNodeIcon'
 import NodeDetailPopover from './NodeDetailPopover'
 import NodeSplash from './NodeSplash'
 import PlayerAvatar, { type Facing } from './PlayerAvatar'
@@ -25,10 +25,31 @@ const MAX_ROWS = 22
 interface ActMapProps {
   act: ActMapDef
   bossStates: Record<string, NodeState>
+  /** Comparte el mismo criterio de alcance el patio de juegos y el de
+   *  prácticas: visibles en cualquier acto, interactuables solo en los que
+   *  el alumno ya llegó a jugar. */
   playgroundReachable: boolean
   onReachEdge: (direction: 'next' | 'prev') => void
   /** Pantalla completa: el mapa ocupa todo el alto disponible, no solo el ancho. */
   fillHeight?: boolean
+}
+
+// Etiqueta de un nodo de utilidad (patio de juegos/prácticas): centrada bajo
+// el ícono, pero con el borde izquierdo nunca por debajo de 0 — si no, en los
+// actos donde el nodo cae cerca de la columna 0 el texto queda cortado por
+// el borde del viewport (`overflow: hidden`), que no puede paneársele detrás
+// porque la cámara ya está clampeada a la izquierda.
+function UtilityLabel({ x, y, text, widthPx }: { x: number; y: number; text: string; widthPx: number }) {
+  const tileCenter = x * TILE_SIZE + TILE_SIZE / 2
+  const left = Math.max(0, tileCenter - widthPx / 2)
+  return (
+    <span
+      className="absolute label-mono whitespace-nowrap px-1 pointer-events-none"
+      style={{ left, top: y * TILE_SIZE + TILE_SIZE * 0.55, width: widthPx, textAlign: 'center', background: 'hsl(var(--bg) / 0.85)', color: 'hsl(var(--tx2))', fontSize: 9, zIndex: 2 }}
+    >
+      {text}
+    </span>
+  )
 }
 
 const LOCKED_LINES = [
@@ -148,8 +169,16 @@ export default function ActMap({ act, bossStates, playgroundReachable, onReachEd
       } else {
         showWarning('Todavía no llegaste tan lejos. ¡El patio de juegos se habilita más adelante!')
       }
+      return
     }
-  }, [act.key, act.playground, bossByIdMap, bossStates, confirmAndGo, nodeAt, playgroundReachable, showWarning])
+    if (p.x === act.practice.x && p.y === act.practice.y) {
+      if (playgroundReachable) {
+        confirmAndGo(p, '/patio-de-practicas')
+      } else {
+        showWarning('Todavía no llegaste tan lejos. ¡El patio de prácticas se habilita más adelante!')
+      }
+    }
+  }, [act.key, act.playground, act.practice, bossByIdMap, bossStates, confirmAndGo, nodeAt, playgroundReachable, showWarning])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -208,6 +237,7 @@ export default function ActMap({ act, bossStates, playgroundReachable, onReachEd
   const camY = Math.min(Math.max(0, pos.y - Math.floor(viewRows / 2)), Math.max(0, act.height - viewRows))
 
   const onPlayground = pos.x === act.playground.x && pos.y === act.playground.y
+  const onPractice = pos.x === act.practice.x && pos.y === act.practice.y
   const focusedBossId = act.nodes.find((n) => n.x === pos.x && n.y === pos.y)?.bossId ?? null
   const detailBossId = hoveredBossId ?? focusedBossId
   const detailBoss = detailBossId ? bossByIdMap.get(detailBossId) : undefined
@@ -297,6 +327,17 @@ export default function ActMap({ act, bossStates, playgroundReachable, onReachEd
         >
           <PlaygroundNode reachable={playgroundReachable} focused={onPlayground} />
         </div>
+        <UtilityLabel x={act.playground.x} y={act.playground.y} text="Patio de juegos" widthPx={92} />
+
+        <div
+          className="absolute flex items-end justify-center"
+          style={{ left: act.practice.x * TILE_SIZE, top: act.practice.y * TILE_SIZE - TILE_SIZE * 0.7, width: TILE_SIZE, height: TILE_SIZE * 1.7, zIndex: 2, cursor: 'pointer' }}
+          onMouseEnter={() => setHoveredBossId(null)}
+          onClick={() => enterTile(act.practice)}
+        >
+          <PracticeNode reachable={playgroundReachable} focused={onPractice} />
+        </div>
+        <UtilityLabel x={act.practice.x} y={act.practice.y} text="Patio de prácticas" widthPx={112} />
 
         {act.nodes.map((n) => {
           const boss = bossByIdMap.get(n.bossId)

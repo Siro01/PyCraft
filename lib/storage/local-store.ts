@@ -11,6 +11,10 @@ const AMULETS_KEY  = 'pysql:amulets'
 const FINALE_KEY   = 'pysql:finale'
 const FINALE_DECO_KEY = 'pysql:finale-deco'
 const PLAYGROUND_KEY = 'pysql:playground'
+const PRACTICE_KEY = 'pysql:practice-code'
+const TEXT_ZOOM_KEY = 'pysql:text-zoom'
+const PRACTICE_LAYOUT_KEY = 'pysql:practice-layout'
+const PRACTICE_INTRO_KEY = 'pysql:practice-intro-hidden'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 export interface LocalUser {
@@ -234,4 +238,77 @@ export function playgroundLevel(xp: number): { level: number; xpIntoLevel: numbe
   const level = Math.floor(xp / PLAYGROUND_XP_PER_LEVEL) + 1
   const xpIntoLevel = xp % PLAYGROUND_XP_PER_LEVEL
   return { level, xpIntoLevel, xpForNext: PLAYGROUND_XP_PER_LEVEL }
+}
+
+// ─── Patio de prácticas: el código Python libre del alumno ──────────────────
+// Un solo bloc de notas que persiste entre visitas — no hay "proyectos" ni
+// nombres, es la libreta de pruebas de variables/inputs/etc.
+
+export function getPracticeCode(): string | null {
+  if (typeof window === 'undefined') return null
+  try { return localStorage.getItem(PRACTICE_KEY) } catch { return null }
+}
+
+export function savePracticeCode(code: string): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(PRACTICE_KEY, code) } catch { /* ignore quota errors */ }
+}
+
+// ─── Zoom de texto: patio de juegos y patio de prácticas ─────────────────────
+// Un multiplicador de CSS `zoom` sobre el contenido (nunca sobre la barra de
+// la ventana) — agranda letra, íconos y botones juntos en vez de solo la
+// tipografía, que es lo que un alumno de 10 años realmente necesita para leer
+// mejor en las PCs del aula. Se recuerda entre visitas.
+
+export const TEXT_ZOOM_MIN = 0.85
+export const TEXT_ZOOM_MAX = 1.6
+export const TEXT_ZOOM_STEP = 0.15
+export const TEXT_ZOOM_DEFAULT = 1
+
+export function getTextZoom(): number {
+  if (typeof window === 'undefined') return TEXT_ZOOM_DEFAULT
+  try {
+    const raw = localStorage.getItem(TEXT_ZOOM_KEY)
+    const n = raw ? parseFloat(raw) : NaN
+    return Number.isFinite(n) ? Math.min(TEXT_ZOOM_MAX, Math.max(TEXT_ZOOM_MIN, n)) : TEXT_ZOOM_DEFAULT
+  } catch { return TEXT_ZOOM_DEFAULT }
+}
+
+export function setTextZoom(zoom: number): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(TEXT_ZOOM_KEY, String(zoom)) } catch { /* ignore quota errors */ }
+}
+
+// ─── Layout del patio de prácticas: ancho editor/consola + ayuda oculta ──────
+// El alumno puede arrastrar el divisor entre el editor y la consola para
+// armar su propio espacio de trabajo — se guarda como fracción (0 a 1) del
+// ancho que le toca al editor. También puede ocultar el párrafo de ayuda del
+// encabezado para ganar espacio vertical.
+
+export const PRACTICE_SPLIT_MIN = 0.3
+export const PRACTICE_SPLIT_MAX = 0.75
+export const PRACTICE_SPLIT_DEFAULT = 0.62
+
+export function getPracticeSplit(): number {
+  if (typeof window === 'undefined') return PRACTICE_SPLIT_DEFAULT
+  try {
+    const raw = localStorage.getItem(PRACTICE_LAYOUT_KEY)
+    const n = raw ? parseFloat(raw) : NaN
+    return Number.isFinite(n) ? Math.min(PRACTICE_SPLIT_MAX, Math.max(PRACTICE_SPLIT_MIN, n)) : PRACTICE_SPLIT_DEFAULT
+  } catch { return PRACTICE_SPLIT_DEFAULT }
+}
+
+export function setPracticeSplit(ratio: number): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(PRACTICE_LAYOUT_KEY, String(ratio)) } catch { /* ignore quota errors */ }
+}
+
+export function getPracticeIntroHidden(): boolean {
+  if (typeof window === 'undefined') return false
+  try { return localStorage.getItem(PRACTICE_INTRO_KEY) === '1' } catch { return false }
+}
+
+export function setPracticeIntroHidden(hidden: boolean): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(PRACTICE_INTRO_KEY, hidden ? '1' : '0') } catch { /* ignore quota errors */ }
 }

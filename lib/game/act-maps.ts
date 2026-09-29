@@ -70,6 +70,7 @@ export interface ActMapDef {
   tiles: MapTile[]
   nodes: MapNode[]
   playground: MapPoint
+  practice: MapPoint
   entry: MapPoint
   exit: MapPoint | null
 }
@@ -199,6 +200,13 @@ function buildAct(opts: {
   const playground: MapPoint = { x: entry.x, y: playgroundUp ? entry.y - 3 : entry.y + 3 }
   vLine(tiles, entry.x, entry.y, playground.y)
 
+  // Patio de prácticas: mismo principio, un poco más allá para no pisar la
+  // rama del patio de juegos — si el patio de juegos ya bajó (no había lugar
+  // arriba), el de prácticas sigue bajando 3 casilleros más por la misma
+  // rama en vez de competir por el mismo lado.
+  const practice: MapPoint = { x: entry.x, y: playgroundUp ? entry.y + 3 : entry.y + 6 }
+  vLine(tiles, entry.x, entry.y, practice.y)
+
   // Sendero secundario: un ramal corto y sin salida que no lleva a nada
   // todavía — el trazado ya soporta curvas y ramas, así que más adelante se
   // puede colgar un secreto en la punta. Se dibuja punteado y tenue (ver
@@ -225,7 +233,7 @@ function buildAct(opts: {
   }
 
   const allTiles = Array.from(tiles.values())
-  const maxY = Math.max(...nodes.map((n) => n.y), playground.y, entry.y, ...allTiles.map((t) => t.y))
+  const maxY = Math.max(...nodes.map((n) => n.y), playground.y, practice.y, entry.y, ...allTiles.map((t) => t.y))
   const width = Math.max(maxX, ...allTiles.map((t) => t.x)) + 3
   const height = maxY + 3
 
@@ -236,6 +244,7 @@ function buildAct(opts: {
   const occupied = new Set(tiles.keys())
   for (const n of nodes) occupied.add(`${n.x},${n.y}`)
   occupied.add(`${playground.x},${playground.y}`)
+  occupied.add(`${practice.x},${practice.y}`)
 
   const decorations: MapTile[] = []
   let seed = opts.index * 1000 + 7
@@ -278,6 +287,7 @@ function buildAct(opts: {
     tiles: [...tiles.values(), ...decorations],
     nodes,
     playground,
+    practice,
     entry,
     exit,
   }
