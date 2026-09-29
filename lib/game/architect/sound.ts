@@ -196,4 +196,15 @@ export const sfx = {
     tone(1568, 0.09, 'triangle', 0.06)
     tone(2093, 0.16, 'triangle', 0.05, { at: 0.09 })
   },
+  // ── Mapa 2D de actos ──────────────────────────────────────────────────────
+  /** Paso del jugador en el mapa: tic corto y percusivo, alterna leve. */
+  step() {
+    tone(jitter(180, 50), 0.035, 'square', 0.03, { to: jitter(95, 20) })
+  },
+  /** Pasar de página al llegar al borde del mapa: papel + barrido ascendente. */
+  pageTurn() {
+    noise(0.22, 0.09, { highpass: 2200 })
+    tone(300, 0.22, 'triangle', 0.05, { to: 920 })
+    tone(200, 0.14, 'triangle', 0.03, { to: 500, at: 0.08 })
+  },
 }

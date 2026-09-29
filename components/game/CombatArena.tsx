@@ -125,11 +125,37 @@ export default function CombatArena({
     })
   }, [boss.id, localMode])
 
-  // Load amulets from localStorage on mount
+  // Load amulets from localStorage on mount; apply boss-hp-reduction on fresh battles
   useEffect(() => {
-    import('@/lib/storage/local-store').then(({ getAmulets }) => {
-      setAmulets(getAmulets())
+    import('@/lib/storage/local-store').then(({ getAmulets, removeAmulet }) => {
+      const loaded = getAmulets()
+      const debilidad = loaded.find((a) => a.type === 'boss-hp-reduction')
+      const isFreshBattle = !initialDefeated && (initialHp ?? boss.hpMax) === boss.hpMax
+
+      if (debilidad && isFreshBattle) {
+        const reducedHp = Math.round(boss.hpMax * 0.6)
+        setBossHp(reducedHp)
+        removeAmulet(debilidad.id)
+        setAmulets(loaded.filter((a) => a.id !== debilidad.id))
+        setLog((prev) => [
+          `[${new Date().toLocaleTimeString()}] [AMU] Amuleto de Debilidad — jefe empieza con ${reducedHp}/${boss.hpMax} HP`,
+          ...prev,
+        ])
+        // Persist reduced starting HP to Supabase so the battle record reflects it from the start
+        if (persist) {
+          import('@/lib/supabase/client').then(({ createClient }) => {
+            createClient()
+              .from('battle_records')
+              .update({ hp_current: reducedHp })
+              .eq('id', persist.battleId)
+              .then(() => {})
+          })
+        }
+      } else {
+        setAmulets(loaded)
+      }
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const refreshAmulets = useCallback(() => {

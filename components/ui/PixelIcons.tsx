@@ -341,6 +341,194 @@ export function IconX({ size, color, className }: IconProps) {
   )
 }
 
+// ── Tag (variables) ──────────────────────────────────────────────────────────
+export function IconTag({ size, color, className }: IconProps) {
+  return (
+    <Icon size={size} color={color} className={className}>
+      <Px x={1} y={2} w={8} h={2} />
+      <Px x={1} y={4} w={2} h={8} />
+      <Px x={9} y={4} w={2} h={2} />
+      <Px x={11} y={6} w={2} h={2} />
+      <Px x={9} y={10} w={2} h={2} />
+      <Px x={1} y={12} w={8} h={2} />
+      <Px x={4} y={6} w={2} h={2} />
+    </Icon>
+  )
+}
+
+// ── Branch (condicionales: if/elif/else) ───────────────────────────────────────
+export function IconBranch({ size, color, className }: IconProps) {
+  return (
+    <Icon size={size} color={color} className={className}>
+      <Px x={7} y={0} w={2} h={5} />
+      <Px x={2} y={5} w={12} h={2} />
+      <Px x={2} y={7} w={2} h={6} />
+      <Px x={12} y={7} w={2} h={6} />
+      <Px x={7} y={5} w={2} h={2} />
+    </Icon>
+  )
+}
+
+// ── Loop (bucles for/while) ─────────────────────────────────────────────────────
+export function IconLoop({ size, color, className }: IconProps) {
+  return (
+    <Icon size={size} color={color} className={className}>
+      <Px x={4} y={0} w={8} h={2} />
+      <Px x={2} y={2} w={2} h={2} />
+      <Px x={12} y={2} w={2} h={2} />
+      <Px x={0} y={4} w={2} h={8} />
+      <Px x={14} y={4} w={2} h={8} />
+      <Px x={2} y={12} w={2} h={2} />
+      <Px x={12} y={12} w={2} h={2} />
+      <Px x={4} y={14} w={8} h={2} />
+      <Px x={10} y={0} w={4} h={2} />
+      <Px x={12} y={0} w={4} h={2} />
+    </Icon>
+  )
+}
+
+// ── Stack (listas de diccionarios) ───────────────────────────────────────────────
+export function IconStack({ size, color, className }: IconProps) {
+  return (
+    <Icon size={size} color={color} className={className}>
+      <Px x={1} y={1} w={14} h={3} />
+      <Px x={1} y={6} w={14} h={3} />
+      <Px x={1} y={11} w={14} h={3} />
+    </Icon>
+  )
+}
+
+// ── Fx (funciones) ────────────────────────────────────────────────────────────
+export function IconFx({ size, color, className }: IconProps) {
+  return (
+    <Icon size={size} color={color} className={className}>
+      <Px x={3} y={0} w={2} h={2} />
+      <Px x={1} y={2} w={2} h={2} />
+      <Px x={0} y={4} w={5} h={2} />
+      <Px x={1} y={6} w={2} h={2} />
+      <Px x={1} y={8} w={2} h={2} />
+      <Px x={1} y={10} w={2} h={2} />
+      <Px x={1} y={12} w={2} h={2} />
+      <Px x={9} y={6} w={2} h={2} />
+      <Px x={13} y={6} w={2} h={2} />
+      <Px x={11} y={8} w={2} h={2} />
+      <Px x={9} y={10} w={2} h={2} />
+      <Px x={13} y={10} w={2} h={2} />
+    </Icon>
+  )
+}
+
+// ── Grid / tabla (de listas a tablas) ───────────────────────────────────────────
+export function IconGrid({ size, color, className }: IconProps) {
+  return (
+    <Icon size={size} color={color} className={className}>
+      <Px x={0} y={0} w={16} h={2} />
+      <Px x={0} y={0} w={2} h={16} />
+      <Px x={14} y={0} w={2} h={16} />
+      <Px x={0} y={14} w={16} h={2} />
+      <Px x={0} y={6} w={16} h={2} />
+      <Px x={7} y={0} w={2} h={16} />
+    </Icon>
+  )
+}
+
+// ── Query (SELECT · WHERE, lupa) ─────────────────────────────────────────────────
+export function IconQuery({ size, color, className }: IconProps) {
+  return (
+    <Icon size={size} color={color} className={className}>
+      <Px x={2} y={0} w={6} h={2} />
+      <Px x={0} y={2} w={2} h={2} />
+      <Px x={8} y={2} w={2} h={2} />
+      <Px x={0} y={4} w={2} h={4} />
+      <Px x={8} y={4} w={2} h={4} />
+      <Px x={0} y={8} w={2} h={2} />
+      <Px x={8} y={8} w={2} h={2} />
+      <Px x={2} y={8} w={6} h={2} />
+      <Px x={9} y={9} w={2} h={2} />
+      <Px x={11} y={11} w={2} h={2} />
+      <Px x={13} y={13} w={2} h={2} />
+    </Icon>
+  )
+}
+
+// ── Sigma (COUNT · SUM · AVG · GROUP BY) ────────────────────────────────────────
+export function IconSigma({ size, color, className }: IconProps) {
+  return (
+    <Icon size={size} color={color} className={className}>
+      <Px x={2} y={1} w={12} h={2} />
+      <Px x={2} y={3} w={2} h={2} />
+      <Px x={4} y={5} w={2} h={2} />
+      <Px x={6} y={7} w={4} h={2} />
+      <Px x={4} y={9} w={2} h={2} />
+      <Px x={2} y={11} w={2} h={2} />
+      <Px x={2} y={13} w={12} h={2} />
+    </Icon>
+  )
+}
+
+// ── Edit (UPDATE · DELETE) ──────────────────────────────────────────────────────
+export function IconEdit({ size, color, className }: IconProps) {
+  return (
+    <Icon size={size} color={color} className={className}>
+      <Px x={11} y={0} w={2} h={2} />
+      <Px x={13} y={2} w={2} h={2} />
+      <Px x={9} y={2} w={2} h={2} />
+      <Px x={2} y={9} w={2} h={2} />
+      <Px x={4} y={7} w={2} h={2} />
+      <Px x={6} y={5} w={2} h={2} />
+      <Px x={11} y={4} w={2} h={2} />
+      <Px x={7} y={4} w={2} h={2} />
+      <Px x={9} y={6} w={2} h={2} />
+      <Px x={0} y={11} w={4} h={4} />
+    </Icon>
+  )
+}
+
+// ── Link (Python + sqlite3) ──────────────────────────────────────────────────────
+export function IconLink({ size, color, className }: IconProps) {
+  return (
+    <Icon size={size} color={color} className={className}>
+      <Px x={0} y={2} w={6} h={2} />
+      <Px x={0} y={2} w={2} h={6} />
+      <Px x={0} y={6} w={6} h={2} />
+      <Px x={4} y={4} w={2} h={2} />
+      <Px x={10} y={8} w={6} h={2} />
+      <Px x={14} y={8} w={2} h={6} />
+      <Px x={10} y={12} w={6} h={2} />
+      <Px x={10} y={10} w={2} h={2} />
+    </Icon>
+  )
+}
+
+// ── Print (pantalla con texto impreso) ──────────────────────────────────────────
+export function IconPrint({ size, color, className }: IconProps) {
+  return (
+    <Icon size={size} color={color} className={className}>
+      <Px x={0} y={0} w={16} h={2} />
+      <Px x={0} y={0} w={2} h={12} />
+      <Px x={14} y={0} w={2} h={12} />
+      <Px x={0} y={10} w={16} h={2} />
+      <Px x={3} y={3} w={7} h={2} />
+      <Px x={3} y={6} w={10} h={2} />
+      <Px x={6} y={13} w={4} h={3} />
+    </Icon>
+  )
+}
+
+// ── Prompt (cursor > de input) ───────────────────────────────────────────────────
+export function IconPrompt({ size, color, className }: IconProps) {
+  return (
+    <Icon size={size} color={color} className={className}>
+      <Px x={1} y={3} w={2} h={2} />
+      <Px x={3} y={5} w={2} h={2} />
+      <Px x={5} y={7} w={2} h={2} />
+      <Px x={3} y={9} w={2} h={2} />
+      <Px x={1} y={11} w={2} h={2} />
+      <Px x={8} y={11} w={7} h={2} />
+    </Icon>
+  )
+}
+
 // ── Amulet icon resolver ──────────────────────────────────────────────────────
 export function AmuletIcon({ type, size = 20, color }: { type: AmuletType; size?: number; color?: string }) {
   switch (type) {

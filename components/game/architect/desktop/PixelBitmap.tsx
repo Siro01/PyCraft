@@ -190,6 +190,26 @@ export const ICON_CLOSE: Bitmap = [
   '#.....#',
 ]
 
+export const ICON_MINIMIZE: Bitmap = [
+  '.......',
+  '.......',
+  '.......',
+  '.......',
+  '.......',
+  '#######',
+  '.......',
+]
+
+export const ICON_MAXIMIZE: Bitmap = [
+  '#######',
+  '#.....#',
+  '#.....#',
+  '#.....#',
+  '#.....#',
+  '#.....#',
+  '#######',
+]
+
 export const ICON_CHECK: Bitmap = [
   '......##',
   '.....##.',

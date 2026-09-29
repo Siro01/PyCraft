@@ -1,11 +1,14 @@
 'use client'
 
-import { useMemo } from 'react'
-import { useReveal } from '@/lib/hooks/useReveal'
-import BossCard from './BossCard'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import AppWindow, { type WindowMode } from '@/components/ui/AppWindow'
+import { ICON_FILE, ICON_TERMINAL, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
+import { ACT_MAPS, MAP_PALETTES, MAP_PALETTE_ON_ACCENT, type MapTheme } from '@/lib/game/act-maps'
+import { sfx } from '@/lib/game/architect/sound'
+import ActMap from './map/ActMap'
+import type { NodeState } from './map/MapNodeIcon'
+import QuestLog from './map/QuestLog'
 import ResetBossButton from './ResetBossButton'
-import Win from '@/components/ui/Win'
-import { IconCheck, IconLock } from '@/components/ui/PixelIcons'
 import type { Boss } from '@/types'
 
 export interface BossProgressEntry {
@@ -19,207 +22,22 @@ interface BossMapProps {
   enabledIds: Set<string>
   username?: string
   totalDefeated: number
-  /** Local-mode extras (tier selector, admin reset) rendered above the progress bar */
   headerExtra?: React.ReactNode
-  /** Local-mode storage notice, rendered below the header */
   notice?: React.ReactNode
-  /** Empty-state message when nothing is unlocked yet */
   emptyState?: React.ReactNode
-  /** Sesión del alumno TEST: permite reiniciar el progreso de cada jefe. */
   testMode?: boolean
 }
 
-// Misma agrupación narrativa que "Cómo funciona" en la landing: Python (1–6),
-// SQLite (7–10), Python+SQL integrado incl. jefe final (11–14).
-const ACTS: {
-  key: string
-  roman: string
-  title: string
-  subtitle: string
-  colorVar: string
-  match: (b: Boss) => boolean
-}[] = [
-  {
-    key: 'python',
-    roman: 'ACTO I',
-    title: 'Python',
-    subtitle: 'Variables, condicionales, bucles y funciones',
-    colorVar: '--python',
-    match: (b) => b.type === 'python',
-  },
-  {
-    key: 'sql',
-    roman: 'ACTO II',
-    title: 'SQLite',
-    subtitle: 'CREATE, SELECT, UPDATE, DELETE',
-    colorVar: '--sql',
-    match: (b) => b.type === 'sql',
-  },
-  {
-    key: 'final',
-    roman: 'ACTO III',
-    title: 'Integración',
-    subtitle: 'Python + sqlite3 combinados',
-    colorVar: '--accent',
-    match: (b) => b.type === 'mixed' || b.type === 'final',
-  },
-]
+const PALETTE_LABEL: Record<MapTheme, string> = { light: 'BLANCO', dark: 'NEGRO', red: 'COLOR' }
+const jersey = 'var(--font-jersey), monospace'
+const monoLabel = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'hsl(var(--tx3))' }
+const DESK_MENU_H = 28
+const DESK_TASKBAR_H = 34
 
-const solid = (colorVar: string) => `hsl(var(${colorVar}))`
-const alpha = (colorVar: string, a: number) => `hsl(var(${colorVar}) / ${a})`
+type WinId = 'stats' | 'log' | 'controls'
+interface WinState { mode: WindowMode; x: number; y: number; z: number }
+const WIN_TITLE: Record<WinId, string> = { stats: 'PROGRESO.TXT', log: 'BITÁCORA.LOG', controls: 'CONTROLES.TXT' }
 
-// ── Waypoint marker — cuadrado pixel sobre la línea de conexión ──────────────
-function Waypoint({ isDefeated, isCurrent, isLocked, color }: {
-  isDefeated: boolean; isCurrent: boolean; isLocked: boolean; color: string
-}) {
-  return (
-    <span className="relative flex items-center justify-center shrink-0" style={{ width: 18, height: 18, marginTop: 6 }}>
-      <span
-        className={isCurrent ? 'chest-bob' : undefined}
-        style={{
-          width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: isLocked ? 'hsl(var(--surface))' : color,
-          border: `2px solid ${isLocked ? 'hsl(var(--border2))' : color}`,
-          boxShadow: isCurrent ? `0 0 0 2px hsl(var(--bg)), 0 0 0 4px ${color}` : 'none',
-        }}
-      >
-        {isDefeated && <IconCheck size={9} color="hsl(var(--bg))" />}
-        {isLocked && <IconLock size={8} color="hsl(var(--tx3))" />}
-      </span>
-    </span>
-  )
-}
-
-// ── Compact entry — jefes derrotados / bloqueados: poco peso visual ──────────
-function CompactEntry({ boss, isDefeated }: { boss: Boss; isDefeated: boolean }) {
-  return (
-    <div
-      className="flex items-center gap-3 px-3.5 py-2"
-      style={{ border: '2px solid hsl(var(--border2))', background: 'hsl(var(--surface) / 0.7)', opacity: isDefeated ? 0.85 : 0.6 }}
-    >
-      <span className="label-mono shrink-0">{boss.title}</span>
-      <span className="truncate flex-1" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, color: isDefeated ? 'hsl(var(--tx2))' : 'hsl(var(--tx3))' }}>
-        {boss.name}
-      </span>
-      <span className="shrink-0" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 17, color: 'hsl(var(--tx3))' }}>
-        {isDefeated ? 'Completado' : `Clase ${boss.classNumber}`}
-      </span>
-    </div>
-  )
-}
-
-// ── One row on the path: waypoint + (full card | compact entry) ──────────────
-function PathNode({ boss, isDefeated, isAvailable, isCurrent, hpCurrent, lineColor, testMode }: {
-  boss: Boss; isDefeated: boolean; isAvailable: boolean; isCurrent: boolean
-  hpCurrent: number; lineColor: string; testMode?: boolean
-}) {
-  const { ref, visible } = useReveal(0.1)
-  const isLocked = !isAvailable && !isDefeated
-
-  return (
-    <div
-      ref={ref}
-      className="relative flex gap-4 md:gap-5 pb-7 last:pb-0"
-      style={{
-        transition: 'opacity 0.5s ease, transform 0.5s ease',
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(16px)',
-      }}
-    >
-      <div className="relative flex justify-center" style={{ width: 28 }}>
-        <Waypoint isDefeated={isDefeated} isCurrent={isCurrent} isLocked={isLocked} color={lineColor} />
-      </div>
-
-      <div className="flex-1 min-w-0 pt-0.5">
-        {isAvailable ? (
-          <>
-            {isCurrent && (
-              <div
-                className="mb-2 inline-flex items-center gap-1.5 px-2 py-0.5 animate-caret-line"
-                style={{ background: 'hsl(var(--accent))', color: 'var(--on-accent)', fontFamily: 'var(--font-jersey), monospace', fontSize: 14, letterSpacing: '0.1em' }}
-              >
-                SIGUIENTE JEFE
-              </div>
-            )}
-            <BossCard boss={boss} isEnabled hpCurrent={hpCurrent} animated={isCurrent} />
-          </>
-        ) : (
-          <CompactEntry boss={boss} isDefeated={isDefeated} />
-        )}
-        {testMode && (isDefeated || hpCurrent < boss.hpMax) && (
-          <div className="mt-1.5 flex justify-end">
-            <ResetBossButton bossId={boss.id} />
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── One act: header + connecting line + its bosses ───────────────────────────
-function ActSection({ act, bosses, progress, enabledIds, firstAvailableId, testMode }: {
-  act: typeof ACTS[number]
-  bosses: Boss[]
-  progress: Record<string, BossProgressEntry>
-  enabledIds: Set<string>
-  firstAvailableId?: string
-  testMode?: boolean
-}) {
-  const { ref, visible } = useReveal(0.05)
-  const defeatedCount = bosses.filter((b) => progress[b.id]?.defeated).length
-
-  return (
-    <section id={`act-${act.key}`} className="mb-16 scroll-mt-20 last:mb-0">
-      <div
-        className="flex items-center justify-between gap-4 mb-6 px-3 py-1.5"
-        style={{ background: 'hsl(var(--tx))', color: 'hsl(var(--bg))' }}
-      >
-        <div className="flex items-baseline gap-3 min-w-0">
-          <span style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 20, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-            {act.roman} · {act.title}
-          </span>
-          <span className="truncate hidden sm:inline" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 17, opacity: 0.75 }}>{act.subtitle}</span>
-        </div>
-        <span className="tabular shrink-0" style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 20 }}>
-          {defeatedCount}/{bosses.length}
-        </span>
-      </div>
-
-      <div ref={ref} className="relative">
-        <div
-          aria-hidden="true"
-          className={visible ? 'absolute top-1 bottom-1 animate-path-draw' : 'absolute top-1 bottom-1'}
-          style={{
-            left: 12, width: 4,
-            background: `repeating-linear-gradient(to bottom, ${solid(act.colorVar)} 0 6px, transparent 6px 12px)`,
-            opacity: 0.55,
-            transformOrigin: 'top',
-            transform: visible ? undefined : 'scaleY(0)',
-          }}
-        />
-        {bosses.map((boss) => {
-          const p = progress[boss.id]
-          const isDefeated = p?.defeated ?? false
-          const isAvailable = enabledIds.has(boss.id) && !isDefeated
-          return (
-            <PathNode
-              key={boss.id}
-              boss={boss}
-              isDefeated={isDefeated}
-              isAvailable={isAvailable}
-              isCurrent={isAvailable && boss.id === firstAvailableId}
-              hpCurrent={p?.hp ?? boss.hpMax}
-              lineColor={solid(act.colorVar)}
-              testMode={testMode}
-            />
-          )
-        })}
-      </div>
-    </section>
-  )
-}
-
-// ── Main map ───────────────────────────────────────────────────────────────────
 export default function BossMap({
   bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, emptyState, testMode,
 }: BossMapProps) {
@@ -228,87 +46,338 @@ export default function BossMap({
     [bosses, enabledIds, progress]
   )
 
-  const acts = useMemo(
-    () => ACTS.map((act) => ({ ...act, bosses: bosses.filter(act.match) })),
-    [bosses]
-  )
+  const reachedActIndex = useMemo(() => {
+    if (firstAvailableId) {
+      const idx = ACT_MAPS.findIndex((act) => act.bosses.some((b) => b.id === firstAvailableId))
+      if (idx >= 0) return idx
+    }
+    let idx = 0
+    ACT_MAPS.forEach((act, i) => {
+      if (act.bosses.some((b) => enabledIds.has(b.id) || progress[b.id]?.defeated)) idx = i
+    })
+    return idx
+  }, [enabledIds, firstAvailableId, progress])
 
-  const pct = bosses.length ? Math.round((totalDefeated / bosses.length) * 100) : 0
+  const bossStates = useMemo(() => {
+    const map: Record<string, NodeState> = {}
+    for (const b of bosses) {
+      const defeated = progress[b.id]?.defeated ?? false
+      const available = enabledIds.has(b.id) && !defeated
+      map[b.id] = defeated ? 'defeated' : b.id === firstAvailableId ? 'current' : available ? 'available' : 'locked'
+    }
+    return map
+  }, [bosses, enabledIds, firstAvailableId, progress])
+
+  const [actIndex, setActIndex] = useState(reachedActIndex)
+  const [turning, setTurning] = useState<'out' | 'in' | null>(null)
+  const [paletteOverride, setPaletteOverride] = useState<MapTheme | null>(null)
+
+  // Escritorio del dashboard: el mapa es la única ventana que no se puede
+  // cerrar ni minimizar (es el gameplay); el resto son ventanas de verdad
+  // que el alumno abre desde los íconos, arrastra, minimiza a la barra de
+  // tareas o cierra — así no tiene por qué ver todo junto de entrada.
+  const zRef = useRef(3)
+  const [activeWin, setActiveWin] = useState<'map' | WinId>('map')
+  const [mapMaximized, setMapMaximized] = useState(false)
+  // Arrancan un casillero por debajo de la fila de íconos, para no taparla
+  // apenas se carga la página.
+  const [stats, setStats] = useState<WinState>({ mode: 'normal', x: 16, y: 80, z: 1 })
+  const [log, setLog] = useState<WinState>({ mode: 'minimized', x: 48, y: 160, z: 2 })
+  // Los controles eran un párrafo fijo dentro del mapa — ahora es su propia
+  // ventana, cerrada por defecto, así el mapa queda más limpio de entrada.
+  const [controls, setControls] = useState<WinState>({ mode: 'minimized', x: 80, y: 120, z: 0 })
+
+  const SETTERS: Record<WinId, React.Dispatch<React.SetStateAction<WinState>>> = { stats: setStats, log: setLog, controls: setControls }
+
+  const bringToFront = (id: WinId) => {
+    zRef.current += 1
+    setActiveWin(id)
+    const z = zRef.current
+    SETTERS[id]((s) => ({ ...s, z }))
+  }
+  const openWin = (id: WinId) => {
+    sfx.open()
+    bringToFront(id)
+    SETTERS[id]((s) => (s.mode === 'minimized' ? { ...s, mode: 'normal' } : s))
+  }
+
+  // El sitio tiene su propio <header> arriba de esta página — se mide acá
+  // para que "pantalla completa" llene lo que queda debajo sin taparlo.
+  useEffect(() => {
+    const header = document.querySelector('header')
+    if (!header) return
+    const measure = () => document.documentElement.style.setProperty('--dash-header-h', `${header.getBoundingClientRect().height}px`)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(header)
+    return () => ro.disconnect()
+  }, [])
+
+  useEffect(() => { setActIndex(reachedActIndex) }, [reachedActIndex])
+
+  const act = ACT_MAPS[actIndex]
+  const palette = paletteOverride ?? act.palette
+
+  const handleReachEdge = (direction: 'next' | 'prev') => {
+    // Doble traba: ActMap ya se bloquea solo apenas agenda un cambio de acto,
+    // pero esto queda como respaldo — mientras el giro de página está en
+    // curso, un segundo llamado no vuelve a arrancarlo.
+    if (turning) return
+    const target = direction === 'next' ? actIndex + 1 : actIndex - 1
+    if (target < 0 || target >= ACT_MAPS.length) return
+    setTurning('out')
+    setTimeout(() => {
+      setActIndex(target)
+      setPaletteOverride(null)
+      setTurning('in')
+      setTimeout(() => setTurning(null), 420)
+    }, 420)
+  }
+
+  const totalBosses = bosses.length
+  const pct = totalBosses ? Math.round((totalDefeated / totalBosses) * 100) : 0
+
+  const styleVars = { ...MAP_PALETTES[palette], '--on-accent': MAP_PALETTE_ON_ACCENT[palette] } as React.CSSProperties
+
+  const minimized: { id: WinId; title: string }[] = (['stats', 'log', 'controls'] as WinId[])
+    .filter((id) => ({ stats, log, controls }[id].mode === 'minimized'))
+    .map((id) => ({ id, title: WIN_TITLE[id] }))
 
   return (
-    <main className="max-w-3xl mx-auto px-4 py-8">
-      {/* Page header — ventana de bienvenida */}
-      <Win
-        title="MAPA_DE_JEFES.EXE"
-        active
-        className="mb-8"
-        right={<span className="tabular" style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.12em', color: 'hsl(var(--bg))' }}>{pct}%</span>}
-        bodyStyle={{ padding: 16 }}
-      >
-        <div className="flex items-end justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-3xl tracking-wide" style={{ color: 'hsl(var(--tx))', lineHeight: 1.05 }}>
-              Bienvenido, <span style={{ color: 'hsl(var(--accent))' }}>{username}</span>
-            </h1>
-            <p className="mt-1" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, color: 'hsl(var(--tx2))' }}>
-              {totalDefeated} / {bosses.length} jefes derrotados
-            </p>
-          </div>
-
-          <div className="flex flex-col items-end gap-2 w-full max-w-xs">
-            {headerExtra}
-            <div className="w-full">
-              <div className="flex justify-between label-mono mb-1.5">
-                <span>Progreso total</span>
-                <span style={{ color: 'hsl(var(--accent))' }}>{pct}%</span>
-              </div>
-              <div className="hp-track h-3">
-                <div className="h-full transition-all duration-700" style={{ width: `${pct}%`, background: 'hsl(var(--accent))' }} />
-              </div>
-            </div>
-          </div>
-        </div>
-      </Win>
-
+    <main className="max-w-6xl mx-auto px-4 py-8" style={styleVars}>
       {notice}
 
-      {/* Quick nav — salta de acto en acto, reemplaza la leyenda plana de antes */}
-      <nav className="flex gap-2 flex-wrap mb-12" aria-label="Saltar a un acto">
-        {acts.map((act) => {
-          const defeatedCount = act.bosses.filter((b) => progress[b.id]?.defeated).length
-          return (
-            <a
-              key={act.key}
-              href={`#act-${act.key}`}
-              className="px-3 py-1 transition-all hover:opacity-80"
-              style={{
-                border: '2px solid hsl(var(--tx))',
-                color: 'hsl(var(--tx))',
-                background: 'transparent',
-                fontFamily: 'var(--font-jersey), monospace', fontSize: 16, letterSpacing: '0.05em', textTransform: 'uppercase',
-              }}
+      {enabledIds.size === 0 ? emptyState : (
+        // El mismo escritorio "PyCraft OS" del cofre y la landing: marco de
+        // 2px + sombra dura + fondo punteado, para que se note como una
+        // pantalla propia incluso en el tema blanco, donde antes se perdía
+        // contra el fondo de la página.
+        <div
+          className="desk relative"
+          style={{
+            border: '2px solid hsl(var(--tx))',
+            background: 'hsl(var(--bg))',
+            backgroundImage: 'radial-gradient(hsl(var(--tx) / 0.18) 1px, transparent 1px)',
+            backgroundSize: '14px 14px',
+            boxShadow: '6px 6px 0 hsl(var(--tx) / 0.18)',
+          }}
+        >
+          {/* Menú superior — igual al de PycraftOS en la landing */}
+          <div
+            className="flex items-center gap-3 px-2.5"
+            style={{ height: DESK_MENU_H, background: 'hsl(var(--surface))', borderBottom: '2px solid hsl(var(--tx))' }}
+          >
+            <span style={{ fontFamily: jersey, fontSize: 18, letterSpacing: '0.08em', color: 'hsl(var(--tx))' }}>PYCRAFT OS</span>
+            <span style={{ flex: 1 }} />
+            <span className="hidden sm:inline" style={monoLabel}>Abrí los programas · arrastrá las ventanas</span>
+          </div>
+
+          <div className="p-3">
+            {/* Íconos para abrir cada ventana — reemplazan a los paneles que
+                antes estaban todos visibles a la vez. */}
+            <div className="flex items-center gap-2 mb-1" role="group" aria-label="Programas del escritorio">
+              <button type="button" className="desk-icon" onClick={() => openWin('stats')} title="Abrir progreso.txt">
+                <PixelBitmap rows={ICON_FILE} scale={4} />
+                <span className="desk-lbl">progreso.txt</span>
+              </button>
+              <button type="button" className="desk-icon" onClick={() => openWin('log')} title="Abrir bitacora.log">
+                <PixelBitmap rows={ICON_TERMINAL} scale={4} />
+                <span className="desk-lbl">bitacora.log</span>
+              </button>
+              <button type="button" className="desk-icon" onClick={() => openWin('controls')} title="Abrir controles.txt">
+                <PixelBitmap rows={ICON_FILE} scale={4} />
+                <span className="desk-lbl">controles.txt</span>
+              </button>
+            </div>
+
+          {/* La ventana del mapa: siempre abierta (es el gameplay), pero con
+              el mismo look de ventana que el resto — y botón de pantalla
+              completa. */}
+          <AppWindow
+            title="MAPA_DE_JEFES.EXE"
+            icon={<PixelBitmap rows={ICON_TERMINAL} scale={2} ink={activeWin === 'map' ? 'hsl(var(--bg))' : 'hsl(var(--tx))'} />}
+            x={0} y={0} w={0}
+            z={mapMaximized ? 60 : 0}
+            active={activeWin === 'map'}
+            mode={mapMaximized ? 'maximized' : 'normal'}
+            essential
+            flow={!mapMaximized}
+            onFocus={() => setActiveWin('map')}
+            onToggleMaximize={() => { sfx.click(); setMapMaximized((m) => !m) }}
+            bodyStyle={{ padding: mapMaximized ? 12 : 16 }}
+          >
+          <div className="flex flex-col" style={mapMaximized ? { height: '100%' } : undefined}>
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-3" style={{ flexShrink: 0 }}>
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => { if (actIndex > 0) { sfx.tab(); setActIndex(actIndex - 1); setPaletteOverride(null) } }}
+                  disabled={actIndex === 0}
+                  aria-label="Acto anterior"
+                  style={{ background: 'none', border: 'none', color: 'hsl(var(--tx))', cursor: actIndex === 0 ? 'default' : 'pointer', opacity: actIndex === 0 ? 0.3 : 1, fontFamily: 'var(--font-jersey), monospace', fontSize: 18, padding: '0 4px' }}
+                >
+                  ◁
+                </button>
+                <span className="truncate" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 17, color: 'hsl(var(--tx2))' }}>{act.subtitle}</span>
+                <button
+                  type="button"
+                  onClick={() => { if (actIndex < ACT_MAPS.length - 1) { sfx.tab(); setActIndex(actIndex + 1); setPaletteOverride(null) } }}
+                  disabled={actIndex === ACT_MAPS.length - 1}
+                  aria-label="Acto siguiente"
+                  style={{ background: 'none', border: 'none', color: 'hsl(var(--tx))', cursor: actIndex === ACT_MAPS.length - 1 ? 'default' : 'pointer', opacity: actIndex === ACT_MAPS.length - 1 ? 0.3 : 1, fontFamily: 'var(--font-jersey), monospace', fontSize: 18, padding: '0 4px' }}
+                >
+                  ▷
+                </button>
+              </div>
+
+              {/* Selector de paleta — el default es el de este acto, se puede cambiar a mano */}
+              <div className="flex items-center gap-1" role="group" aria-label="Paleta del mapa">
+                {(['light', 'dark', 'red'] as MapTheme[]).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => { sfx.theme(); setPaletteOverride(p) }}
+                    title={`Paleta ${PALETTE_LABEL[p]}${p === act.palette ? ' (default de este acto)' : ''}`}
+                    aria-pressed={palette === p}
+                    style={{
+                      fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 9, letterSpacing: '0.1em', padding: '4px 7px', cursor: 'pointer',
+                      background: palette === p ? 'hsl(var(--tx))' : 'transparent',
+                      color: palette === p ? 'hsl(var(--bg))' : 'hsl(var(--tx2))',
+                      border: '2px solid hsl(var(--tx))',
+                    }}
+                  >
+                    {PALETTE_LABEL[p]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div
+              className={turning === 'out' ? 'map-page-turn-out' : turning === 'in' ? 'map-page-turn-in' : ''}
+              style={mapMaximized ? { flex: 1, minHeight: 0 } : undefined}
             >
-              {act.title} <span className="opacity-60 ml-1 tabular">{defeatedCount}/{act.bosses.length}</span>
-            </a>
-          )
-        })}
-      </nav>
+              <ActMap
+                key={act.key}
+                act={act}
+                bossStates={bossStates}
+                playgroundReachable={actIndex <= reachedActIndex}
+                onReachEdge={handleReachEdge}
+                fillHeight={mapMaximized}
+              />
+            </div>
 
-      {enabledIds.size === 0 && emptyState}
+            {testMode && (
+              <div className="mt-4 flex flex-wrap gap-2 justify-center" style={{ flexShrink: 0 }}>
+                {act.bosses.map((b) => (
+                  (progress[b.id]?.defeated || (progress[b.id]?.hp ?? b.hpMax) < b.hpMax) && (
+                    <ResetBossButton key={b.id} bossId={b.id} />
+                  )
+                ))}
+              </div>
+            )}
+          </div>
+          </AppWindow>
 
-      {acts.map((act) => (
-        act.bosses.length > 0 && (
-          <ActSection
-            key={act.key}
-            act={act}
-            bosses={act.bosses}
-            progress={progress}
-            enabledIds={enabledIds}
-            firstAvailableId={firstAvailableId}
-            testMode={testMode}
-          />
-        )
-      ))}
+          {/* PROGRESO.TXT — bienvenida, jefes derrotados y ajustes de dificultad. */}
+          <AppWindow
+            title="PROGRESO.TXT"
+            icon={<PixelBitmap rows={ICON_FILE} scale={2} ink={activeWin === 'stats' ? 'hsl(var(--bg))' : 'hsl(var(--tx))'} />}
+            x={stats.x} y={stats.y} w={340} z={stats.z}
+            active={activeWin === 'stats'}
+            mode={stats.mode}
+            onFocus={() => bringToFront('stats')}
+            onMove={(x, y) => setStats((s) => ({ ...s, x, y }))}
+            onClose={() => setStats((s) => ({ ...s, mode: 'minimized' }))}
+            onMinimize={() => setStats((s) => ({ ...s, mode: 'minimized' }))}
+            bodyStyle={{ padding: 16 }}
+          >
+            <h1 className="text-2xl tracking-wide" style={{ color: 'hsl(var(--tx))', lineHeight: 1.05 }}>
+              Bienvenido, <span style={{ color: 'hsl(var(--accent))' }}>{username}</span>
+            </h1>
+            <p className="mt-1 mb-3" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 20, color: 'hsl(var(--tx2))' }}>
+              {totalDefeated} / {totalBosses} jefes derrotados
+            </p>
+            <div className="flex justify-between label-mono mb-1.5">
+              <span style={{ color: 'hsl(var(--tx3))' }}>Progreso total</span>
+              <span style={{ color: 'hsl(var(--accent))' }}>{pct}%</span>
+            </div>
+            <div className="hp-track h-3 mb-3">
+              <div className="h-full transition-all duration-700" style={{ width: `${pct}%`, background: 'hsl(var(--accent))' }} />
+            </div>
+            {headerExtra}
+          </AppWindow>
+
+          {/* BITÁCORA.LOG — los 14 jefes con su estado, agrupados por acto. */}
+          <AppWindow
+            title="BITÁCORA.LOG"
+            icon={<PixelBitmap rows={ICON_TERMINAL} scale={2} ink={activeWin === 'log' ? 'hsl(var(--bg))' : 'hsl(var(--tx))'} />}
+            x={log.x} y={log.y} w={280} z={log.z}
+            active={activeWin === 'log'}
+            mode={log.mode}
+            onFocus={() => bringToFront('log')}
+            onMove={(x, y) => setLog((s) => ({ ...s, x, y }))}
+            onClose={() => setLog((s) => ({ ...s, mode: 'minimized' }))}
+            onMinimize={() => setLog((s) => ({ ...s, mode: 'minimized' }))}
+          >
+            <QuestLog
+              bossStates={bossStates}
+              activeActKey={act.key}
+              onSelectAct={(i) => { sfx.tab(); setActIndex(i); setPaletteOverride(null) }}
+            />
+          </AppWindow>
+
+          {/* CONTROLES.TXT — cómo moverse, antes era un párrafo fijo dentro
+              del mapa; ahora es opcional, para que el mapa arranque limpio. */}
+          <AppWindow
+            title="CONTROLES.TXT"
+            icon={<PixelBitmap rows={ICON_FILE} scale={2} ink={activeWin === 'controls' ? 'hsl(var(--bg))' : 'hsl(var(--tx))'} />}
+            x={controls.x} y={controls.y} w={300} z={controls.z}
+            active={activeWin === 'controls'}
+            mode={controls.mode}
+            onFocus={() => bringToFront('controls')}
+            onMove={(x, y) => setControls((s) => ({ ...s, x, y }))}
+            onClose={() => setControls((s) => ({ ...s, mode: 'minimized' }))}
+            onMinimize={() => setControls((s) => ({ ...s, mode: 'minimized' }))}
+            bodyStyle={{ padding: 16 }}
+          >
+            <ul className="flex flex-col gap-2" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, color: 'hsl(var(--tx2))', listStyle: 'none', margin: 0, padding: 0 }}>
+              <li><strong style={{ color: 'hsl(var(--tx))' }}>← → ↑ ↓</strong> o <strong style={{ color: 'hsl(var(--tx))' }}>WASD</strong> — moverte</li>
+              <li><strong style={{ color: 'hsl(var(--tx))' }}>Enter</strong> o <strong style={{ color: 'hsl(var(--tx))' }}>Espacio</strong> — entrar a una puerta</li>
+              <li>Pasá el mouse por una puerta para ver el detalle</li>
+              <li>Seguí el camino resaltado para cambiar de acto</li>
+            </ul>
+          </AppWindow>
+
+          </div>
+
+          {/* Barra de tareas — siempre visible, igual que en PycraftOS de la
+              landing: los minimizados se restauran desde acá. */}
+          <div
+            className="flex items-center gap-2 px-2.5"
+            style={{ height: DESK_TASKBAR_H, background: 'hsl(var(--surface))', borderTop: '2px solid hsl(var(--tx))' }}
+            role="group"
+            aria-label="Barra de tareas"
+          >
+            {minimized.length === 0 ? (
+              <span style={monoLabel}>Nada minimizado</span>
+            ) : minimized.map((w) => (
+              <button
+                key={w.id}
+                type="button"
+                onClick={() => openWin(w.id)}
+                style={{
+                  fontFamily: 'var(--font-vt323), monospace', fontSize: 17, lineHeight: 1, padding: '2px 10px', cursor: 'pointer',
+                  background: 'transparent', color: 'hsl(var(--tx2))', border: '2px solid hsl(var(--tx))',
+                }}
+              >
+                {w.title}
+              </button>
+            ))}
+            <span style={{ flex: 1 }} />
+            <span style={monoLabel}>{minimized.length} minimizada{minimized.length === 1 ? '' : 's'}</span>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

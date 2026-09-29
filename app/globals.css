@@ -1081,3 +1081,140 @@ input[type="number"], input[type="search"], textarea {
 .legal-table th, .legal-table td { border: 2px solid hsl(var(--border2)); padding: 8px 10px; text-align: left; vertical-align: top; }
 .legal-table th { font-family: var(--font-pixel), monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: hsl(var(--tx)); background: hsl(var(--surface2)); }
 .legal-table td:first-child { color: hsl(var(--tx)); white-space: nowrap; }
+
+/* ─────────────────────────────────────────────
+   MAPA 2D DE ACTOS (/dashboard) — ruta navegable estilo Game Boy.
+   El contenedor recibe la paleta del acto como variables inline
+   (ver lib/game/act-maps.ts); estas reglas solo animan y texturan.
+   ───────────────────────────────────────────── */
+/* Fondo del mapa deliberadamente distinto del punteado que usa el resto del
+   escritorio (.desk-theme, PixelDust): una grilla de líneas finas del tamaño
+   de la casilla, como una hoja de mapa con coordenadas, sobre una superficie
+   un tono más clara que la página — para que el mapa se lea como una zona
+   propia, no como una continuación del fondo. */
+.map-viewport {
+  background-color: hsl(var(--surface));
+  background-image:
+    linear-gradient(hsl(var(--tx) / 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--tx) / 0.07) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+/* Ruta fina tipo "vías" (referencia: mapas de región de Pokémon) en vez de
+   una baldosa llena por celda: cada tile de camino dibuja solo los tramos
+   que lo conectan con sus vecinos (calculado en ActMap), así el camino se lee
+   como una línea continua con esquinas rectas sobre el fondo punteado, nunca
+   como un piso de cuartos. */
+.map-road-hub { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; transform: translate(-50%, -50%); background: hsl(var(--tx)); }
+/* Vía doble: dos filetes oscuros con una franja clara al medio, como las
+   rutas del mapa de referencia — no una barra lisa. El color sale de
+   --road-c para que el tile de arriba (.map-tile-branch/-exit) lo pise sin
+   repetir el gradiente entero. */
+.map-road { position: absolute; }
+.map-road-r, .map-road-l {
+  top: 50%; width: 50%; height: 14px; transform: translateY(-50%);
+  background: linear-gradient(180deg, var(--road-c, hsl(var(--tx))) 0 6px, hsl(var(--bg)) 6px 8px, var(--road-c, hsl(var(--tx))) 8px 14px);
+}
+.map-road-r { left: 50%; }
+.map-road-l { right: 50%; }
+.map-road-u, .map-road-d {
+  left: 50%; height: 50%; width: 14px; transform: translateX(-50%);
+  background: linear-gradient(90deg, var(--road-c, hsl(var(--tx))) 0 6px, hsl(var(--bg)) 6px 8px, var(--road-c, hsl(var(--tx))) 8px 14px);
+}
+.map-road-d { top: 50%; }
+.map-road-u { bottom: 50%; }
+
+/* Ramal secundario: línea punteada y tenue en vez de la vía doble — se lee
+   como "sendero sin marcar todavía", igual que el camino punteado a la isla
+   del mapa de referencia. */
+.map-tile-branch { --road-c: transparent; }
+.map-tile-branch .map-road-hub { width: 6px; height: 6px; background: hsl(var(--tx3)); }
+.map-tile-branch .map-road-r, .map-tile-branch .map-road-l {
+  height: 6px;
+  background: repeating-linear-gradient(90deg, hsl(var(--tx3)) 0 4px, transparent 4px 10px);
+}
+.map-tile-branch .map-road-u, .map-tile-branch .map-road-d {
+  width: 6px;
+  background: repeating-linear-gradient(0deg, hsl(var(--tx3)) 0 4px, transparent 4px 10px);
+}
+
+/* Tramo de salida: la misma vía doble de siempre (mantiene el filete claro
+   al medio, no un chorro sólido), solo que en acento — y con un pulso de
+   brillo suave, no una animación que le tape el dibujo a la línea. */
+.map-tile-exit { --road-c: hsl(var(--accent)); }
+.map-tile-exit .map-road-hub,
+.map-tile-exit .map-road-r,
+.map-tile-exit .map-road-l {
+  animation: map-exit-pulse 1s steps(5) infinite;
+}
+@keyframes map-exit-pulse {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.45); }
+}
+/* Barrera al final del tramo — como la marca de "fin de vía" del mapa de
+   referencia: dos filetes cortos en acento, no una flecha. */
+.map-exit-gate { position: absolute; width: 14px; height: 14px; transform: translate(-50%, -50%); animation: map-exit-pulse 1s steps(5) infinite; }
+.map-exit-gate::before, .map-exit-gate::after {
+  content: ''; position: absolute; top: 0; width: 4px; height: 14px; background: hsl(var(--accent));
+}
+.map-exit-gate::before { left: 2px; }
+.map-exit-gate::after { left: 8px; }
+/* La barrera de vuelta se ancla al borde izquierdo del mapa en vez de
+   centrarse en la casilla 0 — si no, la mitad queda recortada fuera del
+   visor y no se llega a ver. */
+.map-back-gate { transform: translateY(-50%); }
+/* Relieve del terreno: manchas de varias casillas (armadas en act-maps.ts),
+   no puntitos sueltos — montaña como cuadriculado diagonal, agua como
+   líneas horizontales de ola, igual que el sombreado de un mapa de región. */
+.map-tile-tree {
+  background-color: hsl(var(--tx) / 0.05);
+  background-image:
+    repeating-linear-gradient(45deg, hsl(var(--tx) / 0.3) 0 2px, transparent 2px 7px),
+    repeating-linear-gradient(-45deg, hsl(var(--tx) / 0.3) 0 2px, transparent 2px 7px);
+}
+.map-tile-water {
+  background-color: hsl(var(--tx) / 0.04);
+  background-image: repeating-linear-gradient(hsl(var(--tx) / 0.32) 0 2px, transparent 2px 11px);
+}
+
+/* Splash al confirmar (entrar a un jefe disponible / al patio de juegos):
+   un puñado de pixeles que saltan del nodo y se apagan — CSS puro, sin
+   canvas ni partículas, para que ande liviano en las PCs del taller. */
+.node-splash { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 4; }
+.node-splash span {
+  position: absolute; left: 50%; top: 50%; width: 6px; height: 6px;
+  background: hsl(var(--accent));
+  animation: node-splash-piece 0.34s steps(5) both;
+}
+@keyframes node-splash-piece {
+  0%   { transform: translate(-50%, -50%) translate(0, 0); opacity: 1; }
+  100% { transform: translate(-50%, -50%) translate(var(--tx-x), var(--tx-y)); opacity: 0; }
+}
+
+@keyframes map-detail-in {
+  0%   { opacity: 0; transform: translate(-50%, 4px); }
+  100% { opacity: 1; transform: translate(-50%, 0); }
+}
+.map-detail-in { animation: map-detail-in 0.16s steps(4) both; }
+
+@keyframes map-avatar-step {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2px); }
+}
+.map-avatar-step { animation: map-avatar-step 0.14s steps(1) 1; }
+
+@keyframes map-rodolfo-in {
+  0%   { transform: translateX(120%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+.map-rodolfo-in { animation: map-rodolfo-in 0.32s steps(8) both; }
+
+@keyframes map-page-turn-out {
+  0%   { transform: perspective(900px) rotateY(0deg); opacity: 1; }
+  100% { transform: perspective(900px) rotateY(-95deg); opacity: 0.2; }
+}
+@keyframes map-page-turn-in {
+  0%   { transform: perspective(900px) rotateY(95deg); opacity: 0.2; }
+  100% { transform: perspective(900px) rotateY(0deg); opacity: 1; }
+}
+.map-page-turn-out { animation: map-page-turn-out 0.42s steps(10) both; transform-origin: right center; }
+.map-page-turn-in  { animation: map-page-turn-in 0.42s steps(10) both; transform-origin: left center; }

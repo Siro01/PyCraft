@@ -10,6 +10,7 @@ const TIER_KEY     = 'pysql:tier'
 const AMULETS_KEY  = 'pysql:amulets'
 const FINALE_KEY   = 'pysql:finale'
 const FINALE_DECO_KEY = 'pysql:finale-deco'
+const PLAYGROUND_KEY = 'pysql:playground'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 export interface LocalUser {
@@ -190,4 +191,47 @@ export function saveFinaleDecoration(deco: FinaleDecoration): void {
 export function clearFinaleProgress(): void {
   if (typeof window === 'undefined') return
   localStorage.removeItem(FINALE_KEY)
+}
+
+// ─── Patio de juegos: XP y mejores rachas por tanda ──────────────────────────
+// Opcional y aparte del progreso de jefes — corre 100% en el navegador incluso
+// en modo cuenta, igual que los amuletos y el cofre final.
+
+export const PLAYGROUND_XP_PER_LEVEL = 100
+
+export interface PlaygroundState {
+  xp: number
+  /** Mejor racha de respuestas correctas seguidas, alguna vez, por tanda. */
+  bestStreak: Record<string, number>
+  /** Mejor puntaje (aciertos) de la última vez que se jugó cada tanda. */
+  bestScore: Record<string, number>
+}
+
+export const EMPTY_PLAYGROUND: PlaygroundState = { xp: 0, bestStreak: {}, bestScore: {} }
+
+export function getPlaygroundState(): PlaygroundState {
+  if (typeof window === 'undefined') return EMPTY_PLAYGROUND
+  try {
+    const raw = localStorage.getItem(PLAYGROUND_KEY)
+    return raw ? { ...EMPTY_PLAYGROUND, ...(JSON.parse(raw) as PlaygroundState) } : EMPTY_PLAYGROUND
+  } catch { return EMPTY_PLAYGROUND }
+}
+
+/** Suma XP y actualiza los mejores récords de una tanda; devuelve el estado nuevo. */
+export function recordPlaygroundResult(topicKey: string, xpGained: number, streak: number, score: number): PlaygroundState {
+  if (typeof window === 'undefined') return EMPTY_PLAYGROUND
+  const cur = getPlaygroundState()
+  const next: PlaygroundState = {
+    xp: cur.xp + xpGained,
+    bestStreak: { ...cur.bestStreak, [topicKey]: Math.max(cur.bestStreak[topicKey] ?? 0, streak) },
+    bestScore: { ...cur.bestScore, [topicKey]: Math.max(cur.bestScore[topicKey] ?? 0, score) },
+  }
+  try { localStorage.setItem(PLAYGROUND_KEY, JSON.stringify(next)) } catch { /* ignore quota errors */ }
+  return next
+}
+
+export function playgroundLevel(xp: number): { level: number; xpIntoLevel: number; xpForNext: number } {
+  const level = Math.floor(xp / PLAYGROUND_XP_PER_LEVEL) + 1
+  const xpIntoLevel = xp % PLAYGROUND_XP_PER_LEVEL
+  return { level, xpIntoLevel, xpForNext: PLAYGROUND_XP_PER_LEVEL }
 }
