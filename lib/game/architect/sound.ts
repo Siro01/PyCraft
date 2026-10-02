@@ -207,6 +207,22 @@ export const sfx = {
     tone(300, 0.22, 'triangle', 0.05, { to: 920 })
     tone(200, 0.14, 'triangle', 0.03, { to: 500, at: 0.08 })
   },
+  /** Llegar a una puerta/lugar del mapa: blip corto de "acá hay algo". */
+  mapArrive() {
+    tone(988, 0.04, 'square', 0.04)
+    tone(1319, 0.06, 'square', 0.035, { at: 0.04 })
+  },
+  /** Chocar contra el borde del camino: golpecito sordo, casi mudo. */
+  bump() { tone(110, 0.05, 'triangle', 0.05, { to: 80 }) },
+  /** Aparece el título de un acto: arpegio rápido de 8 bits. */
+  titleReveal() {
+    ;[392, 494, 587, 784, 988].forEach((f, i) => tone(f, 0.06, 'square', 0.035, { at: i * 0.055 }))
+  },
+  /** Minimizar una ventana a la barra de tareas: barrido que cae. */
+  minimize() {
+    tone(784, 0.12, 'square', 0.04, { to: 196 })
+    noise(0.04, 0.02, { highpass: 3000, at: 0.08 })
+  },
   // ── Tienda del Mercader del Abismo ────────────────────────────────────────
   /** Pasar una hoja del libro: más corto y seco que pageTurn (es una hoja, no un mapa entero). */
   pageFlip() {

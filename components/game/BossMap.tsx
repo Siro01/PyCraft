@@ -6,11 +6,14 @@ import { ICON_FILE, ICON_FOLDER, ICON_TERMINAL, PixelBitmap } from '@/components
 import InventoryApp from '@/components/game/inventory/InventoryApp'
 import { ShopGlyph } from '@/components/game/shop/ShopIcons'
 import StickerLayer from '@/components/game/stickers/StickerLayer'
-import { ACT_MAPS, MAP_PALETTES, MAP_PALETTE_ON_ACCENT, type MapTheme } from '@/lib/game/act-maps'
+import { ACT_MAPS, MAP_PALETTES, MAP_PALETTE_ON_ACCENT, type MapPoint, type MapTheme } from '@/lib/game/act-maps'
 import { sfx } from '@/lib/game/architect/sound'
 import { DIAMONDS_PER_BOSS, SHOP_UNLOCK_BOSS_ID } from '@/lib/game/shop'
 import { diamondsAvailable, getPlaygroundState, playgroundLevel } from '@/lib/storage/local-store'
 import ActMap from './map/ActMap'
+import ActEmblem from './map/ActEmblem'
+import type { AvatarId } from './map/avatars'
+import PixelTitle from './map/PixelTitle'
 import type { NodeState } from './map/MapNodeIcon'
 import QuestLog from './map/QuestLog'
 import ResetBossButton from './ResetBossButton'
@@ -33,6 +36,8 @@ interface BossMapProps {
   testMode?: boolean
   /** El docente: la tienda del mapa le queda abierta siempre, para poder revisarla. */
   isAdmin?: boolean
+  /** Diseño del personaje del mapa (por defecto, el explorador). */
+  avatar?: AvatarId
 }
 
 const PALETTE_LABEL: Record<MapTheme, string> = { light: 'BLANCO', dark: 'NEGRO', red: 'COLOR' }
@@ -46,7 +51,7 @@ interface WinState { mode: WindowMode; x: number; y: number; z: number }
 const WIN_TITLE: Record<WinId, string> = { stats: 'PROGRESO.TXT', log: 'BITÁCORA.LOG', controls: 'CONTROLES.TXT', inventory: 'INVENTARIO.EXE' }
 
 export default function BossMap({
-  bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, emptyState, testMode, isAdmin = false,
+  bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, emptyState, testMode, isAdmin = false, avatar,
 }: BossMapProps) {
   const firstAvailableId = useMemo(
     () => bosses.find((b) => enabledIds.has(b.id) && !progress[b.id]?.defeated)?.id,
@@ -86,6 +91,12 @@ export default function BossMap({
   const zRef = useRef(3)
   const [activeWin, setActiveWin] = useState<'map' | WinId>('map')
   const [mapMaximized, setMapMaximized] = useState(false)
+  // El mapa ahora es una ventana de verdad: se minimiza a la barra de tareas
+  // (con un "chupón" de 0.22s antes de desaparecer) y se restaura desde ahí
+  // o desde el ícono mapa.exe. El avatar vuelve a donde estaba.
+  const [mapMode, setMapMode] = useState<'open' | 'closing' | 'minimized'>('open')
+  const posByAct = useRef<Record<string, MapPoint>>({})
+  const [arrival, setArrival] = useState<'entry' | 'exit' | 'saved'>('saved')
   // Arrancan un casillero por debajo de la fila de íconos, para no taparla
   // apenas se carga la página.
   const [stats, setStats] = useState<WinState>({ mode: 'normal', x: 16, y: 80, z: 1 })
@@ -136,6 +147,30 @@ export default function BossMap({
   const act = ACT_MAPS[actIndex]
   const palette = paletteOverride ?? act.palette
 
+  const minimizeMap = () => {
+    if (mapMode !== 'open') return
+    sfx.minimize()
+    setMapMaximized(false)
+    setMapMode('closing')
+    setTimeout(() => setMapMode('minimized'), 220)
+  }
+  const restoreMap = () => {
+    sfx.open()
+    setArrival('saved')
+    setMapMode('open')
+    setActiveWin('map')
+  }
+  const selectAct = (i: number) => {
+    if (i === actIndex) return
+    sfx.tab()
+    setArrival('saved')
+    setActIndex(i)
+    setPaletteOverride(null)
+  }
+
+  // Cada acto nuevo que aparece canta su título.
+  useEffect(() => { if (mapMode === 'open') sfx.titleReveal() }, [actIndex, mapMode])
+
   const handleReachEdge = (direction: 'next' | 'prev') => {
     // Doble traba: ActMap ya se bloquea solo apenas agenda un cambio de acto,
     // pero esto queda como respaldo — mientras el giro de página está en
@@ -145,6 +180,7 @@ export default function BossMap({
     if (target < 0 || target >= ACT_MAPS.length) return
     setTurning('out')
     setTimeout(() => {
+      setArrival(direction === 'next' ? 'entry' : 'exit')
       setActIndex(target)
       setPaletteOverride(null)
       setTurning('in')
@@ -157,9 +193,15 @@ export default function BossMap({
 
   const styleVars = { ...MAP_PALETTES[palette], '--on-accent': MAP_PALETTE_ON_ACCENT[palette] } as React.CSSProperties
 
-  const minimized: { id: WinId; title: string }[] = (['stats', 'log', 'controls', 'inventory'] as WinId[])
-    .filter((id) => ({ stats, log, controls, inventory }[id].mode === 'minimized'))
-    .map((id) => ({ id, title: WIN_TITLE[id] }))
+  const minimized: { id: WinId | 'map'; title: string }[] = [
+    ...(mapMode === 'minimized' ? [{ id: 'map' as const, title: 'MAPA_DE_JEFES.EXE' }] : []),
+    ...(['stats', 'log', 'controls', 'inventory'] as WinId[])
+      .filter((id) => ({ stats, log, controls, inventory }[id].mode === 'minimized'))
+      .map((id) => ({ id, title: WIN_TITLE[id] })),
+  ]
+
+  const startAt = arrival === 'entry' ? act.entry : arrival === 'exit' ? act.exitApproach ?? act.entry : posByAct.current[act.key]
+  const actDefeated = (i: number) => ACT_MAPS[i].bosses.filter((b) => bossStates[b.id] === 'defeated').length
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-8" style={styleVars}>
@@ -200,10 +242,16 @@ export default function BossMap({
             <span className="hidden sm:inline" style={monoLabel}>Abrí los programas · arrastrá las ventanas</span>
           </div>
 
-          <div className="p-3">
+          <div className="p-3" style={mapMode === 'minimized' ? { minHeight: 520 } : undefined}>
             {/* Íconos para abrir cada ventana — reemplazan a los paneles que
                 antes estaban todos visibles a la vez. */}
-            <div className="flex items-center gap-2 mb-1" role="group" aria-label="Programas del escritorio">
+            <div className="flex items-center gap-2 mb-1 flex-wrap" role="group" aria-label="Programas del escritorio">
+              <button type="button" className="desk-icon" onClick={() => (mapMode === 'minimized' ? restoreMap() : setActiveWin('map'))} title="Abrir mapa.exe">
+                <span className="flex items-center justify-center" style={{ width: 48, height: 48, border: '2px solid hsl(var(--tx))', background: 'hsl(var(--bg))' }}>
+                  <ActEmblem actKey={act.key} size={28} color="hsl(var(--tx))" />
+                </span>
+                <span className="desk-lbl">mapa.exe</span>
+              </button>
               <button type="button" className="desk-icon" onClick={() => openWin('stats')} title="Abrir progreso.txt">
                 <PixelBitmap rows={ICON_FILE} scale={4} />
                 <span className="desk-lbl">progreso.txt</span>
@@ -222,81 +270,124 @@ export default function BossMap({
               </button>
             </div>
 
-          {/* La ventana del mapa: siempre abierta (es el gameplay), pero con
-              el mismo look de ventana que el resto — y botón de pantalla
-              completa. */}
+          {/* MAPA_DE_JEFES.EXE: ventana del gameplay. Vive en el flujo de la
+              página (le da su alto al escritorio), pero ahora se puede
+              minimizar a la barra de tareas y poner en pantalla completa. */}
+          <div className={mapMode === 'closing' ? 'win-minimizing' : undefined}>
           <AppWindow
             title="MAPA_DE_JEFES.EXE"
-            icon={<PixelBitmap rows={ICON_TERMINAL} scale={2} ink={activeWin === 'map' ? 'hsl(var(--bg))' : 'hsl(var(--tx))'} />}
+            icon={<ActEmblem actKey={act.key} size={14} color={activeWin === 'map' ? 'hsl(var(--bg))' : 'hsl(var(--tx))'} />}
             x={0} y={0} w={0}
             z={mapMaximized ? 60 : 0}
             active={activeWin === 'map'}
-            mode={mapMaximized ? 'maximized' : 'normal'}
-            essential
+            mode={mapMode === 'minimized' ? 'minimized' : mapMaximized ? 'maximized' : 'normal'}
             flow={!mapMaximized}
             onFocus={() => setActiveWin('map')}
-            onToggleMaximize={() => { sfx.click(); setMapMaximized((m) => !m) }}
-            bodyStyle={{ padding: mapMaximized ? 12 : 16 }}
+            onMinimize={minimizeMap}
+            onClose={minimizeMap}
+            onToggleMaximize={() => setMapMaximized((m) => !m)}
+            bodyStyle={{ padding: mapMaximized ? 10 : 12 }}
           >
           <div className="flex flex-col" style={mapMaximized ? { height: '100%' } : undefined}>
-            <div className="flex items-center justify-between gap-3 flex-wrap mb-3" style={{ flexShrink: 0 }}>
-              <div className="flex items-center gap-3 min-w-0">
-                <button
-                  type="button"
-                  onClick={() => { if (actIndex > 0) { sfx.tab(); setActIndex(actIndex - 1); setPaletteOverride(null) } }}
-                  disabled={actIndex === 0}
-                  aria-label="Acto anterior"
-                  style={{ background: 'none', border: 'none', color: 'hsl(var(--tx))', cursor: actIndex === 0 ? 'default' : 'pointer', opacity: actIndex === 0 ? 0.3 : 1, fontFamily: 'var(--font-jersey), monospace', fontSize: 18, padding: '0 4px' }}
-                >
-                  ◁
-                </button>
-                <span className="truncate" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 17, color: 'hsl(var(--tx2))' }}>{act.subtitle}</span>
-                <button
-                  type="button"
-                  onClick={() => { if (actIndex < ACT_MAPS.length - 1) { sfx.tab(); setActIndex(actIndex + 1); setPaletteOverride(null) } }}
-                  disabled={actIndex === ACT_MAPS.length - 1}
-                  aria-label="Acto siguiente"
-                  style={{ background: 'none', border: 'none', color: 'hsl(var(--tx))', cursor: actIndex === ACT_MAPS.length - 1 ? 'default' : 'pointer', opacity: actIndex === ACT_MAPS.length - 1 ? 0.3 : 1, fontFamily: 'var(--font-jersey), monospace', fontSize: 18, padding: '0 4px' }}
-                >
-                  ▷
-                </button>
+            {/* Pestañas de acto: un ícono por acto, el número y cuántos jefes van. */}
+            <div className="flex items-end justify-between gap-2 flex-wrap" style={{ flexShrink: 0 }}>
+              <div className="flex items-end gap-1 flex-wrap" role="tablist" aria-label="Actos">
+                {ACT_MAPS.map((a, i) => {
+                  const on = i === actIndex
+                  const reached = i <= reachedActIndex
+                  return (
+                    <button
+                      key={a.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={on}
+                      aria-label={`${a.roman}: ${a.title}${reached ? '' : ' (todavía no llegaste)'}`}
+                      title={`${a.roman} · ${a.title}`}
+                      onClick={() => selectAct(i)}
+                      onMouseEnter={() => sfx.hover()}
+                      className={`act-tab${on ? ' act-tab--on' : ''}${a.ascii ? ' act-tab--glitch' : ''}`}
+                      style={{ opacity: reached || on ? 1 : 0.55 }}
+                    >
+                      <ActEmblem actKey={a.key} size={18} color={on ? 'hsl(var(--bg))' : 'hsl(var(--tx))'} />
+                      <span style={{ fontFamily: jersey, fontSize: 20, lineHeight: 1 }}>{a.roman.replace('ACTO ', '')}</span>
+                      <span className="tabular" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 16, lineHeight: 1, opacity: 0.8 }}>
+                        {actDefeated(i)}/{a.bosses.length}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
 
-              {/* Selector de paleta — el default es el de este acto, se puede cambiar a mano */}
-              <div className="flex items-center gap-1" role="group" aria-label="Paleta del mapa">
+              {/* Paleta del mapa: tres muestras, el default es el del acto. */}
+              <div className="flex items-center gap-1.5 pb-1" role="group" aria-label="Paleta del mapa">
                 {(['light', 'dark', 'red'] as MapTheme[]).map((p) => (
                   <button
                     key={p}
                     type="button"
                     onClick={() => { sfx.theme(); setPaletteOverride(p) }}
-                    title={`Paleta ${PALETTE_LABEL[p]}${p === act.palette ? ' (default de este acto)' : ''}`}
+                    title={`Paleta ${PALETTE_LABEL[p]}${p === act.palette ? ' (la de este acto)' : ''}`}
+                    aria-label={`Paleta ${PALETTE_LABEL[p]}`}
                     aria-pressed={palette === p}
+                    className="palette-swatch"
                     style={{
-                      fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 9, letterSpacing: '0.1em', padding: '4px 7px', cursor: 'pointer',
-                      background: palette === p ? 'hsl(var(--tx))' : 'transparent',
-                      color: palette === p ? 'hsl(var(--bg))' : 'hsl(var(--tx2))',
-                      border: '2px solid hsl(var(--tx))',
+                      background: `hsl(${MAP_PALETTES[p]['--bg']})`,
+                      boxShadow: `inset 0 0 0 3px hsl(${MAP_PALETTES[p]['--bg']}), inset 0 0 0 9px hsl(${MAP_PALETTES[p]['--accent']})`,
+                      outline: palette === p ? '2px solid hsl(var(--tx))' : 'none',
                     }}
-                  >
-                    {PALETTE_LABEL[p]}
-                  </button>
+                  />
                 ))}
               </div>
             </div>
 
+            {/* El póster: doble marco, título pixel animado y el mapa. */}
             <div
-              className={turning === 'out' ? 'map-page-turn-out' : turning === 'in' ? 'map-page-turn-in' : ''}
-              style={mapMaximized ? { flex: 1, minHeight: 0 } : undefined}
+              className={`map-poster${act.ascii ? ' map-poster--ascii' : ''} ${turning === 'out' ? 'map-page-turn-out' : turning === 'in' ? 'map-page-turn-in' : ''}`}
+              style={mapMaximized ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : undefined}
             >
-              <ActMap
-                key={act.key}
-                act={act}
-                bossStates={bossStates}
-                playgroundReachable={actIndex <= reachedActIndex}
-                shopUnlocked={isAdmin || !!progress[SHOP_UNLOCK_BOSS_ID]?.defeated}
-                onReachEdge={handleReachEdge}
-                fillHeight={mapMaximized}
-              />
+              <header className="flex flex-col items-center" style={{ padding: '14px 12px 8px', flexShrink: 0 }}>
+                <PixelTitle text={act.title.toUpperCase()} scale={mapMaximized ? 4 : 5} glitch={act.ascii} playKey={act.key} />
+                <div className="label-mono" style={{ color: 'hsl(var(--tx2))', marginTop: 6, fontSize: 12 }}>— {act.roman} —</div>
+              </header>
+
+              <div style={mapMaximized ? { flex: 1, minHeight: 0, padding: '0 12px' } : { padding: '0 12px' }}>
+                {mapMode !== 'minimized' && (
+                  <ActMap
+                    key={act.key}
+                    act={act}
+                    bossStates={bossStates}
+                    playgroundReachable={actIndex <= reachedActIndex}
+                    shopUnlocked={isAdmin || !!progress[SHOP_UNLOCK_BOSS_ID]?.defeated}
+                    onReachEdge={handleReachEdge}
+                    fillHeight={mapMaximized}
+                    startAt={startAt}
+                    onPosChange={(p) => { posByAct.current[act.key] = p }}
+                    keyboard={mapMode === 'open'}
+                    avatar={avatar}
+                  />
+                )}
+              </div>
+
+              {/* Pie: un casillero por jefe del acto + el emblema en la esquina, como la pokébola del póster. */}
+              <footer className="flex items-center justify-between gap-3" style={{ padding: '8px 14px 12px', flexShrink: 0 }}>
+                <div className="flex items-center gap-1.5" aria-label={`${actDefeated(actIndex)} de ${act.bosses.length} jefes derrotados en este acto`}>
+                  {act.bosses.map((b) => {
+                    const st = bossStates[b.id]
+                    return (
+                      <span
+                        key={b.id}
+                        title={b.name}
+                        style={{
+                          width: 12, height: 12, border: '2px solid hsl(var(--tx))',
+                          background: st === 'defeated' ? 'hsl(var(--tx))' : st === 'current' ? 'hsl(var(--accent))' : 'transparent',
+                          opacity: st === 'locked' ? 0.45 : 1,
+                        }}
+                      />
+                    )
+                  })}
+                </div>
+                <span className="label-mono hidden sm:inline" style={{ color: 'hsl(var(--tx3))' }}>WASD / ↑↓←→ · Enter · o hacé clic</span>
+                <span className="map-poster-emblem"><ActEmblem actKey={act.key} size={20} color="hsl(var(--tx))" /></span>
+              </footer>
             </div>
 
             {testMode && (
@@ -310,6 +401,14 @@ export default function BossMap({
             )}
           </div>
           </AppWindow>
+          </div>
+
+          {mapMode === 'minimized' && (
+            <button type="button" className="map-minimized-hint" onClick={restoreMap}>
+              <ActEmblem actKey={act.key} size={20} color="hsl(var(--tx))" />
+              <span>El mapa está minimizado. <u>Abrirlo</u></span>
+            </button>
+          )}
 
           {/* PROGRESO.TXT — bienvenida, jefes derrotados y ajustes de dificultad. */}
           <AppWindow
@@ -355,7 +454,7 @@ export default function BossMap({
             <QuestLog
               bossStates={bossStates}
               activeActKey={act.key}
-              onSelectAct={(i) => { sfx.tab(); setActIndex(i); setPaletteOverride(null) }}
+              onSelectAct={(i) => { selectAct(i); if (mapMode === 'minimized') restoreMap() }}
             />
           </AppWindow>
 
@@ -401,10 +500,12 @@ export default function BossMap({
           </div>
 
           {/* Barra de tareas — siempre visible, igual que en PycraftOS de la
-              landing: los minimizados se restauran desde acá. */}
+              landing: los minimizados se restauran desde acá. Deja lugar a la
+              izquierda para el "✦ Decorar" de StickerLayer, que flota encima,
+              y se desplaza de costado si no entra todo. */}
           <div
             className="flex items-center gap-2 px-2.5"
-            style={{ height: DESK_TASKBAR_H, background: 'hsl(var(--surface))', borderTop: '2px solid hsl(var(--tx))' }}
+            style={{ height: DESK_TASKBAR_H, background: 'hsl(var(--surface))', borderTop: '2px solid hsl(var(--tx))', overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'none', paddingLeft: 136 }}
             role="group"
             aria-label="Barra de tareas"
           >
@@ -414,9 +515,9 @@ export default function BossMap({
               <button
                 key={w.id}
                 type="button"
-                onClick={() => openWin(w.id)}
+                onClick={() => (w.id === 'map' ? restoreMap() : openWin(w.id))}
                 style={{
-                  fontFamily: 'var(--font-vt323), monospace', fontSize: 17, lineHeight: 1, padding: '2px 10px', cursor: 'pointer',
+                  fontFamily: 'var(--font-vt323), monospace', fontSize: 17, lineHeight: 1, padding: '2px 10px', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap',
                   background: 'transparent', color: 'hsl(var(--tx2))', border: '2px solid hsl(var(--tx))',
                 }}
               >
@@ -424,7 +525,7 @@ export default function BossMap({
               </button>
             ))}
             <span style={{ flex: 1 }} />
-            <span style={monoLabel}>{minimized.length} minimizada{minimized.length === 1 ? '' : 's'}</span>
+            <span className="hidden sm:inline" style={{ ...monoLabel, whiteSpace: 'nowrap' }}>{minimized.length} minimizada{minimized.length === 1 ? '' : 's'}</span>
           </div>
         </div>
       )}

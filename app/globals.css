@@ -1092,88 +1092,176 @@ input[type="number"], input[type="search"], textarea {
    de la casilla, como una hoja de mapa con coordenadas, sobre una superficie
    un tono más clara que la página — para que el mapa se lea como una zona
    propia, no como una continuación del fondo. */
-.map-viewport {
-  background-color: hsl(var(--surface));
-  background-image:
-    linear-gradient(hsl(var(--tx) / 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, hsl(var(--tx) / 0.07) 1px, transparent 1px);
-  background-size: 48px 48px;
-}
-/* Ruta fina tipo "vías" (referencia: mapas de región de Pokémon) en vez de
-   una baldosa llena por celda: cada tile de camino dibuja solo los tramos
-   que lo conectan con sus vecinos (calculado en ActMap), así el camino se lee
-   como una línea continua con esquinas rectas sobre el fondo punteado, nunca
-   como un piso de cuartos. */
-.map-road-hub { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; transform: translate(-50%, -50%); background: hsl(var(--tx)); }
-/* Vía doble: dos filetes oscuros con una franja clara al medio, como las
-   rutas del mapa de referencia — no una barra lisa. El color sale de
-   --road-c para que el tile de arriba (.map-tile-branch/-exit) lo pise sin
-   repetir el gradiente entero. */
-.map-road { position: absolute; }
-.map-road-r, .map-road-l {
-  top: 50%; width: 50%; height: 14px; transform: translateY(-50%);
-  background: linear-gradient(180deg, var(--road-c, hsl(var(--tx))) 0 6px, hsl(var(--bg)) 6px 8px, var(--road-c, hsl(var(--tx))) 8px 14px);
-}
-.map-road-r { left: 50%; }
-.map-road-l { right: 50%; }
-.map-road-u, .map-road-d {
-  left: 50%; height: 50%; width: 14px; transform: translateX(-50%);
-  background: linear-gradient(90deg, var(--road-c, hsl(var(--tx))) 0 6px, hsl(var(--bg)) 6px 8px, var(--road-c, hsl(var(--tx))) 8px 14px);
-}
-.map-road-d { top: 50%; }
-.map-road-u { bottom: 50%; }
+/* ─────────────────────────────────────────────
+   MAPA DE ACTOS — póster pixel-art (ActMap, MapArt, PixelTitle)
+   ───────────────────────────────────────────── */
 
-/* Ramal secundario: línea punteada y tenue en vez de la vía doble — se lee
-   como "sendero sin marcar todavía", igual que el camino punteado a la isla
-   del mapa de referencia. */
-.map-tile-branch { --road-c: transparent; }
-.map-tile-branch .map-road-hub { width: 6px; height: 6px; background: hsl(var(--tx3)); }
-.map-tile-branch .map-road-r, .map-tile-branch .map-road-l {
-  height: 6px;
-  background: repeating-linear-gradient(90deg, hsl(var(--tx3)) 0 4px, transparent 4px 10px);
+/* Pestañas de acto: carpetas pegadas al borde superior del póster. */
+.act-tab {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 10px 5px; margin-bottom: -2px;
+  background: hsl(var(--surface)); color: hsl(var(--tx));
+  border: 2px solid hsl(var(--tx)); border-bottom-color: transparent;
+  cursor: pointer; position: relative;
+  transition: transform 0.12s steps(2);
 }
-.map-tile-branch .map-road-u, .map-tile-branch .map-road-d {
-  width: 6px;
-  background: repeating-linear-gradient(0deg, hsl(var(--tx3)) 0 4px, transparent 4px 10px);
+.act-tab:hover { transform: translateY(-2px); }
+.act-tab:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
+.act-tab--on { background: hsl(var(--tx)); color: hsl(var(--bg)); padding-top: 9px; z-index: 1; }
+.act-tab--on:hover { transform: none; }
+.act-tab--glitch:hover svg { animation: act-tab-glitch 0.3s steps(3) infinite; }
+@keyframes act-tab-glitch {
+  0%   { transform: translate(0, 0); }
+  33%  { transform: translate(-1px, 1px); }
+  66%  { transform: translate(2px, 0); }
 }
 
-/* Tramo de salida: la misma vía doble de siempre (mantiene el filete claro
-   al medio, no un chorro sólido), solo que en acento — y con un pulso de
-   brillo suave, no una animación que le tape el dibujo a la línea. */
-.map-tile-exit { --road-c: hsl(var(--accent)); }
-.map-tile-exit .map-road-hub,
-.map-tile-exit .map-road-r,
-.map-tile-exit .map-road-l {
-  animation: map-exit-pulse 1s steps(5) infinite;
+.palette-swatch { width: 22px; height: 22px; border: 2px solid hsl(var(--tx)); padding: 0; cursor: pointer; outline-offset: 2px; }
+.palette-swatch:focus-visible { outline: 2px solid hsl(var(--accent)) !important; }
+
+/* El póster: papel del acto con doble filete, como el marco de la referencia. */
+.map-poster {
+  position: relative;
+  background: hsl(var(--bg));
+  border: 2px solid hsl(var(--tx));
+  box-shadow: inset 0 0 0 4px hsl(var(--bg)), inset 0 0 0 6px hsl(var(--tx)), 4px 4px 0 hsl(var(--tx) / 0.2);
 }
+.map-poster--ascii {
+  border-color: hsl(var(--accent));
+  box-shadow: inset 0 0 0 4px hsl(var(--bg)), inset 0 0 0 5px hsl(var(--accent) / 0.6), 4px 4px 0 hsl(var(--accent) / 0.3);
+}
+.map-poster-emblem { display: inline-flex; padding: 3px; border: 2px solid hsl(var(--tx)); }
+
+.map-scroll { scrollbar-width: thin; scrollbar-color: hsl(var(--tx)) hsl(var(--bg)); }
+.map-stage { cursor: var(--cursor-hand, pointer); user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+
+.map-spot { position: absolute; cursor: var(--cursor-hand, pointer); }
+.map-spot > * { transition: transform 0.1s steps(2); }
+.map-spot:hover > * { transform: translateY(-2px); }
+
+.map-avatar-wrap { position: absolute; pointer-events: none; transition: left 0.085s linear, top 0.085s linear; }
+.map-avatar { filter: drop-shadow(1px 2px 0 hsl(var(--tx) / 0.3)); }
+
+/* Puerta de jefe: el próximo late con un anillo en acento; el que está bajo
+   el avatar lleva el anillo fijo. */
+.map-boss-node--focused { outline: 2px solid hsl(var(--accent)); outline-offset: 3px; }
+.map-boss-node--current { animation: map-node-ring 1.2s steps(2) infinite; }
+@keyframes map-node-ring {
+  0%, 100% { box-shadow: 0 0 0 2px hsl(var(--bg)), 0 0 0 4px hsl(var(--accent)); }
+  50%      { box-shadow: 0 0 0 2px hsl(var(--bg)), 0 0 0 4px hsl(var(--accent) / 0.25); }
+}
+.map-boss-node--final { box-shadow: 0 0 0 2px hsl(var(--bg)), 0 0 0 4px hsl(var(--accent)); }
+.map-next-arrow { animation: map-arrow-bob 0.8s steps(2) infinite; }
+@keyframes map-arrow-bob {
+  0%, 100% { translate: 0 0; }
+  50%      { translate: 0 -4px; }
+}
+
+.map-place--focused { outline: 2px solid hsl(var(--accent)); outline-offset: 3px; }
+.map-secret--closed { animation: map-secret-glint 2.8s steps(1) infinite; }
+@keyframes map-secret-glint {
+  0%, 86%, 100% { filter: none; }
+  90%           { filter: brightness(1.6); }
+}
+
+/* Arte del mapa: barras de salida, luces de los props, tramos rotos. */
+.map-exit-bars { animation: map-exit-pulse 1s steps(2) infinite; }
 @keyframes map-exit-pulse {
-  0%, 100% { filter: brightness(1); }
-  50%      { filter: brightness(1.45); }
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
 }
-/* Barrera al final del tramo — como la marca de "fin de vía" del mapa de
-   referencia: dos filetes cortos en acento, no una flecha. */
-.map-exit-gate { position: absolute; width: 14px; height: 14px; transform: translate(-50%, -50%); animation: map-exit-pulse 1s steps(5) infinite; }
-.map-exit-gate::before, .map-exit-gate::after {
-  content: ''; position: absolute; top: 0; width: 4px; height: 14px; background: hsl(var(--accent));
+.map-prop-glow { animation: map-prop-glow 1.6s steps(2) infinite; }
+@keyframes map-prop-glow {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
 }
-.map-exit-gate::before { left: 2px; }
-.map-exit-gate::after { left: 8px; }
-/* La barrera de vuelta se ancla al borde izquierdo del mapa en vez de
-   centrarse en la casilla 0 — si no, la mitad queda recortada fuera del
-   visor y no se llega a ver. */
-.map-back-gate { transform: translateY(-50%); }
-/* Relieve del terreno: manchas de varias casillas (armadas en act-maps.ts),
-   no puntitos sueltos — montaña como cuadriculado diagonal, agua como
-   líneas horizontales de ola, igual que el sombreado de un mapa de región. */
-.map-tile-tree {
-  background-color: hsl(var(--tx) / 0.05);
-  background-image:
-    repeating-linear-gradient(45deg, hsl(var(--tx) / 0.3) 0 2px, transparent 2px 7px),
-    repeating-linear-gradient(-45deg, hsl(var(--tx) / 0.3) 0 2px, transparent 2px 7px);
+.map-route-gap { opacity: 0; animation: map-route-gap 2.6s steps(1) infinite; }
+@keyframes map-route-gap {
+  0%, 70%, 100% { opacity: 0; }
+  74%, 82%      { opacity: 1; }
 }
-.map-tile-water {
-  background-color: hsl(var(--tx) / 0.04);
-  background-image: repeating-linear-gradient(hsl(var(--tx) / 0.32) 0 2px, transparent 2px 11px);
+
+/* Acto IV: filas ASCII que se corren un cuadro, ojos que titilan, líneas de
+   escaneo y un "desgarro" que cruza la pantalla. Todo CSS, sin bucles en JS. */
+.ascii-glitch-row { animation-name: ascii-row-shift; animation-iteration-count: infinite; animation-timing-function: steps(1); }
+@keyframes ascii-row-shift {
+  0%, 90%, 100% { transform: translateX(0); }
+  92%           { transform: translateX(3px); }
+  95%           { transform: translateX(-4px); }
+}
+.ascii-hot { animation: ascii-hot 1.4s steps(2) infinite; }
+@keyframes ascii-hot {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+.map-ascii-fx {
+  position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden;
+  background-image: repeating-linear-gradient(0deg, hsl(var(--tx) / 0.05) 0 1px, transparent 1px 3px);
+}
+.map-ascii-tear {
+  position: absolute; left: 0; right: 0; height: 6px; top: 30%;
+  background: hsl(var(--accent) / 0.22);
+  box-shadow: 0 2px 0 hsl(var(--tx) / 0.12);
+  opacity: 0;
+  animation: map-ascii-tear 5.5s steps(1) infinite;
+}
+@keyframes map-ascii-tear {
+  0%, 60%, 100% { opacity: 0; top: 30%; transform: translateX(0); }
+  62%           { opacity: 1; top: 30%; transform: translateX(-6px); }
+  64%           { opacity: 1; top: 64%; transform: translateX(8px); }
+  66%           { opacity: 1; top: 18%; transform: translateX(-3px); }
+  68%           { opacity: 0; }
+}
+
+/* Título del acto: cada letra cae en 4 pasos, después salta 1px en ola. */
+.ptitle-letter { animation: ptitle-drop 0.32s steps(4) both; animation-delay: calc(var(--i) * 60ms); }
+@keyframes ptitle-drop {
+  0%   { transform: translateY(-6px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.ptitle-hop { animation: ptitle-hop 4.2s steps(1) infinite; animation-delay: calc(1.2s + var(--i) * 90ms); }
+@keyframes ptitle-hop {
+  0%, 5%, 100% { transform: translateY(0); }
+  2%           { transform: translateY(-1px); }
+}
+.ptitle--glitch .ptitle-hop { animation: none; }
+.ptitle-split { opacity: 0; animation: ptitle-split 2.4s steps(1) infinite; }
+@keyframes ptitle-split {
+  0%, 84%, 100% { opacity: 0; transform: translateX(0); }
+  86%           { opacity: 1; transform: translateX(-1px); }
+  90%           { opacity: 1; transform: translateX(1px); }
+  94%           { opacity: 0; }
+}
+
+/* Minimizar el mapa: se encoge hacia la barra de tareas en 5 cuadros. */
+.win-minimizing { animation: win-minimize 0.22s steps(5) both; transform-origin: 20% 100%; pointer-events: none; }
+@keyframes win-minimize {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.15, 0.04) translateY(40%); opacity: 0.2; }
+}
+.map-minimized-hint {
+  display: inline-flex; align-items: center; gap: 10px; margin: 24px auto 0; padding: 10px 14px;
+  font-family: var(--font-vt323), monospace; font-size: 20px; color: hsl(var(--tx));
+  background: hsl(var(--surface)); border: 2px dashed hsl(var(--tx2)); cursor: pointer;
+}
+.map-minimized-hint:hover { border-style: solid; }
+
+/* Botón "Entrar/Pelear" de la placa de detalle. */
+.map-enter-btn {
+  font-family: var(--font-jersey), monospace; font-size: 15px; letter-spacing: 0.05em; line-height: 1;
+  padding: 4px 9px; cursor: pointer;
+  background: hsl(var(--tx)); color: hsl(var(--bg)); border: 2px solid hsl(var(--tx));
+  box-shadow: 2px 2px 0 hsl(var(--tx) / 0.3);
+}
+.map-enter-btn:hover { background: hsl(var(--accent)); border-color: hsl(var(--accent)); color: var(--on-accent, hsl(var(--bg))); }
+.map-enter-btn:active { transform: translate(2px, 2px); box-shadow: none; }
+.map-enter-btn:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ptitle-letter, .ptitle-hop, .ptitle-split, .map-next-arrow, .map-boss-node--current, .map-secret--closed,
+  .map-exit-bars, .map-prop-glow, .map-route-gap, .ascii-glitch-row, .ascii-hot, .map-ascii-tear,
+  .win-minimizing, .act-tab--glitch:hover svg { animation: none !important; }
+  .map-avatar-wrap, .act-tab, .map-spot > * { transition: none; }
 }
 
 /* Splash al confirmar (entrar a un jefe disponible / al patio de juegos):
@@ -1191,16 +1279,10 @@ input[type="number"], input[type="search"], textarea {
 }
 
 @keyframes map-detail-in {
-  0%   { opacity: 0; transform: translate(-50%, 4px); }
-  100% { opacity: 1; transform: translate(-50%, 0); }
+  0%   { opacity: 0; translate: 0 4px; }
+  100% { opacity: 1; translate: 0 0; }
 }
 .map-detail-in { animation: map-detail-in 0.16s steps(4) both; }
-
-@keyframes map-avatar-step {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-2px); }
-}
-.map-avatar-step { animation: map-avatar-step 0.14s steps(1) 1; }
 
 @keyframes map-rodolfo-in {
   0%   { transform: translateX(120%); opacity: 0; }

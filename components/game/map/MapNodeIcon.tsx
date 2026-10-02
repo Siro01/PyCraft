@@ -1,152 +1,83 @@
 'use client'
 
 import { IconCheck, IconLock } from '@/components/ui/PixelIcons'
-import { TILE_SIZE } from '@/lib/game/act-maps'
-import BossTopicIcon from './BossTopicIcon'
+import { CHEST_CLOSED, ICON_ARROW_DOWN, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
 import { PixelGrid } from '@/components/game/items/ItemSprites'
+import BossTopicIcon from './BossTopicIcon'
 import type { Boss } from '@/types'
 
 export type NodeState = 'defeated' | 'current' | 'available' | 'locked'
+
+// Vocabulario del mapa (como el póster de referencia, donde una ciudad es un
+// cuadrado dentro de otro y un pueblo es un punto):
+//   · Jefe     = cuadrado dentro de un cuadrado, con el glifo del tema adentro.
+//   · Lugar    = un edificio pixel-art parado sobre la ruta (tienda, patios).
+//   · Cofre    = secreto al final de un sendero punteado.
+// El estado se lee por inversión de tinta, nunca por un color nuevo.
 
 interface BossNodeProps {
   boss: Boss
   state: NodeState
   focused: boolean
+  /** Lado del cuadro en px (sale del tamaño de casilla). */
+  size: number
+  final?: boolean
 }
 
-// Puerta de jefe — cuadrado con marco duro de 2px, sin relleno de color:
-// el estado se lee por inversión de tinta (regla del sistema), nunca por un
-// color nuevo. El glifo del tema queda adentro; el estado es una insignia
-// chica en la esquina, igual que en los mapas de referencia.
-export function BossNode({ boss, state, focused }: BossNodeProps) {
-  const size = TILE_SIZE
-  const filled = state === 'defeated' || state === 'current'
+export function BossNode({ boss, state, focused, size, final = false }: BossNodeProps) {
+  const filled = state === 'defeated'
+  const current = state === 'current'
+  const locked = state === 'locked'
+  const b = Math.max(2, Math.round(size / 16))
+  const inner = current ? 'hsl(var(--accent))' : filled ? 'hsl(var(--tx))' : 'hsl(var(--bg))'
+  const glyph = current ? 'var(--on-accent)' : filled ? 'hsl(var(--bg))' : locked ? 'hsl(var(--tx3))' : 'hsl(var(--tx))'
+  const badge = Math.max(12, Math.round(size * 0.34))
 
   return (
-    <div
-      className={state === 'current' ? 'chest-bob' : undefined}
-      style={{
-        width: size - 10,
-        height: size - 10,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-        background: filled ? 'hsl(var(--tx))' : 'hsl(var(--surface))',
-        border: `2px solid ${focused ? 'hsl(var(--accent))' : 'hsl(var(--tx))'}`,
-        boxShadow: state === 'current'
-          ? '0 0 0 2px hsl(var(--bg)), 0 0 0 4px hsl(var(--accent))'
-          : focused ? '0 0 0 2px hsl(var(--bg)), 0 0 0 4px hsl(var(--accent))' : undefined,
-        opacity: state === 'locked' ? 0.55 : 1,
-      }}
-      aria-hidden="true"
-    >
-      <BossTopicIcon bossId={boss.id} size={14} color={filled ? 'hsl(var(--bg))' : state === 'locked' ? 'hsl(var(--tx3))' : 'hsl(var(--tx))'} />
+    <div style={{ position: 'relative', width: size, height: size }} aria-hidden="true">
+      {/* Flecha que rebota sobre el próximo jefe — se ve desde lejos. */}
+      {current && (
+        <span className="map-next-arrow" style={{ position: 'absolute', left: '50%', bottom: '100%', marginBottom: 4, transform: 'translateX(-50%)' }}>
+          <PixelBitmap rows={ICON_ARROW_DOWN} scale={Math.max(2, Math.round(size / 14))} ink="hsl(var(--accent))" />
+        </span>
+      )}
+      <div
+        className={`map-boss-node${current ? ' map-boss-node--current' : ''}${focused ? ' map-boss-node--focused' : ''}${final ? ' map-boss-node--final' : ''}`}
+        style={{
+          width: size, height: size, padding: b,
+          background: 'hsl(var(--bg))',
+          border: `${b}px solid ${locked ? 'hsl(var(--tx3))' : 'hsl(var(--tx))'}`,
+          borderStyle: locked ? 'dashed' : 'solid',
+        }}
+      >
+        <div
+          style={{
+            width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: inner,
+            border: `${b}px solid ${locked ? 'hsl(var(--tx3))' : 'hsl(var(--tx))'}`,
+          }}
+        >
+          <BossTopicIcon bossId={boss.id} size={Math.max(10, Math.round(size * 0.42))} color={glyph} />
+        </div>
+      </div>
 
       {state === 'defeated' && (
-        <span className="absolute" style={{ top: -6, right: -6, width: 12, height: 12, background: 'hsl(var(--bg))', border: '2px solid hsl(var(--tx))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <IconCheck size={7} color="hsl(var(--tx))" />
+        <span className="absolute" style={{ top: -badge / 3, right: -badge / 3, width: badge, height: badge, background: 'hsl(var(--bg))', border: '2px solid hsl(var(--tx))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <IconCheck size={Math.round(badge * 0.6)} color="hsl(var(--tx))" />
         </span>
       )}
-      {state === 'locked' && (
-        <span className="absolute" style={{ top: -6, right: -6, width: 12, height: 12, background: 'hsl(var(--surface))', border: '2px solid hsl(var(--border2))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <IconLock size={7} color="hsl(var(--tx3))" />
+      {locked && (
+        <span className="absolute" style={{ top: -badge / 3, right: -badge / 3, width: badge, height: badge, background: 'hsl(var(--bg))', border: '2px solid hsl(var(--tx3))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <IconLock size={Math.round(badge * 0.6)} color="hsl(var(--tx3))" />
         </span>
       )}
     </div>
   )
 }
 
-interface UtilityNodeProps {
-  reachable: boolean
-  focused: boolean
-  glyph: React.ReactNode
-}
+// ── Lugares (edificios sobre la ruta) ───────────────────────────────────────
+// Roles de PixelGrid: k tinta · m gris medio · f papel · a acento · w fondo.
 
-// Marco compartido por los nodos que no son jefes (patio de juegos, patio de
-// prácticas): mismo cuadrado duro, un glifo propio adentro. Bloqueado
-// (candado) hasta que el alumno llega a ese acto.
-function UtilityNode({ reachable, focused, glyph }: UtilityNodeProps) {
-  const size = TILE_SIZE
-  return (
-    <div
-      style={{
-        width: size - 10,
-        height: size - 10,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'hsl(var(--surface))',
-        border: `2px solid ${focused ? 'hsl(var(--accent))' : 'hsl(var(--tx))'}`,
-        boxShadow: focused ? '0 0 0 2px hsl(var(--bg)), 0 0 0 4px hsl(var(--accent))' : undefined,
-        opacity: reachable ? 1 : 0.5,
-      }}
-      aria-hidden="true"
-    >
-      {reachable ? glyph : <IconLock size={12} color="hsl(var(--tx3))" />}
-    </div>
-  )
-}
-
-const SWING_GLYPH = (
-  <svg width={14} height={14} viewBox="0 0 16 16" style={{ imageRendering: 'pixelated' }}>
-    <g fill="hsl(var(--tx))">
-      <rect x="1" y="0" width="2" height="12" />
-      <rect x="13" y="0" width="2" height="12" />
-      <rect x="0" y="0" width="16" height="2" />
-      <rect x="6" y="5" width="2" height="7" />
-      <rect x="8" y="5" width="2" height="7" />
-      <rect x="3" y="12" width="10" height="2" />
-      <rect x="2" y="14" width="2" height="2" />
-      <rect x="12" y="14" width="2" height="2" />
-    </g>
-  </svg>
-)
-
-interface PlaygroundNodeProps {
-  reachable: boolean
-  focused: boolean
-}
-
-// Ícono del patio de juegos: glifo de swing.
-export function PlaygroundNode({ reachable, focused }: PlaygroundNodeProps) {
-  return <UtilityNode reachable={reachable} focused={focused} glyph={SWING_GLYPH} />
-}
-
-const CODE_GLYPH = (
-  <svg width={14} height={14} viewBox="0 0 16 16" style={{ imageRendering: 'pixelated' }}>
-    <g fill="hsl(var(--tx))">
-      {/* < */}
-      <rect x="4" y="2" width="2" height="2" />
-      <rect x="2" y="4" width="2" height="2" />
-      <rect x="0" y="6" width="2" height="4" />
-      <rect x="2" y="10" width="2" height="2" />
-      <rect x="4" y="12" width="2" height="2" />
-      {/* > */}
-      <rect x="10" y="2" width="2" height="2" />
-      <rect x="12" y="4" width="2" height="2" />
-      <rect x="14" y="6" width="2" height="4" />
-      <rect x="12" y="10" width="2" height="2" />
-      <rect x="10" y="12" width="2" height="2" />
-    </g>
-  </svg>
-)
-
-interface PracticeNodeProps {
-  reachable: boolean
-  focused: boolean
-}
-
-// Ícono del patio de prácticas: glifo de corchetes de código `</>`.
-export function PracticeNode({ reachable, focused }: PracticeNodeProps) {
-  return <UtilityNode reachable={reachable} focused={focused} glyph={CODE_GLYPH} />
-}
-
-// Tienda del Mercader del Abismo: una fachada con toldo a rayas, vidriera y
-// puerta — tiene que leerse como "tienda" de un vistazo, no como un nodo
-// más. Es un poco más grande que los otros nodos de utilidad (es una zona,
-// no una casilla) y usa los mismos roles de color que los sprites de los
-// ítems, así el toldo toma el acento del tema (carmesí en red).
 const SHOP_FRONT = [
   '................',
   '.kkkkkkkkkkkkkk.',
@@ -158,42 +89,85 @@ const SHOP_FRONT = [
   '.kk.kk.kk.kk.kk.',
   '.kffffffffffffk.',
   '.kfkkkkkfkkkkfk.',
-  '.kfkwawkfkddkfk.',
-  '.kfkwwwkfkddkfk.',
-  '.kfkkkkkfkdakfk.',
-  '.kfffffffkddkfk.',
+  '.kfkwawkfkffkfk.',
+  '.kfkwwwkfkffkfk.',
+  '.kfkkkkkfkfakfk.',
+  '.kfffffffkffkfk.',
   'kkkkkkkkkkkkkkkk',
   '................',
 ]
 
-interface ShopNodeProps {
-  /** Ya derrotó al jefe #2 — la tienda está abierta. */
-  unlocked: boolean
+const SWING = [
+  '................',
+  '................',
+  '.kkkkkkkkkkkkkk.',
+  '.kk..........kk.',
+  '.k.k..k..k..k.k.',
+  '.k.k..k..k..k.k.',
+  '.k.k..k..k..k.k.',
+  '.k.k..k..k..k.k.',
+  '.k.k..k..k..k.k.',
+  '.k.kaaak.kaaak.k',
+  '.k.kkkkk.kkkkk.k',
+  '.k............k.',
+  '.k............k.',
+  '.k............k.',
+  'kkk..........kkk',
+  '................',
+]
+
+const TERMINAL = [
+  '................',
+  '.kkkkkkkkkkkkkk.',
+  '.kwwwwwwwwwwwwk.',
+  '.kwawwwwwwwwwwk.',
+  '.kwwawwwwwwwwwk.',
+  '.kwawwkkkwwwwwk.',
+  '.kwwwwwwwwwwwwk.',
+  '.kwwwwwwwwwwwwk.',
+  '.kkkkkkkkkkkkkk.',
+  '.......kk.......',
+  '.....kkkkkk.....',
+  '................',
+  '.kkkkkkkkkkkkkk.',
+  '.kmkmkmkmkmkmkk.',
+  '.kkkkkkkkkkkkkk.',
+  '................',
+]
+
+export type PlaceKind = 'shop' | 'playground' | 'practice'
+const PLACE_ROWS: Record<PlaceKind, string[]> = { shop: SHOP_FRONT, playground: SWING, practice: TERMINAL }
+
+interface PlaceNodeProps {
+  kind: PlaceKind
+  open: boolean
   focused: boolean
+  size: number
 }
 
-export function ShopNode({ unlocked, focused }: ShopNodeProps) {
-  const size = TILE_SIZE - 2
+export function PlaceNode({ kind, open, focused, size }: PlaceNodeProps) {
+  const badge = Math.max(12, Math.round(size * 0.3))
   return (
     <div
-      className={unlocked ? 'shop-node shop-node--open' : 'shop-node'}
-      style={{
-        position: 'relative',
-        width: size,
-        height: size,
-        outline: focused ? '2px solid hsl(var(--accent))' : 'none',
-        outlineOffset: 2,
-        opacity: unlocked ? 1 : 0.5,
-        filter: unlocked ? undefined : 'grayscale(1)',
-      }}
+      className={`map-place${open ? ' map-place--open' : ''}${focused ? ' map-place--focused' : ''}${kind === 'shop' && open ? ' shop-node--open' : ''}`}
+      style={{ position: 'relative', width: size, height: size, opacity: open ? 1 : 0.55 }}
       aria-hidden="true"
     >
-      <PixelGrid rows={SHOP_FRONT} size={size} />
-      {!unlocked && (
-        <span className="absolute" style={{ top: -6, right: -6, width: 14, height: 14, background: 'hsl(var(--surface))', border: '2px solid hsl(var(--tx))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <IconLock size={8} color="hsl(var(--tx))" />
+      <PixelGrid rows={PLACE_ROWS[kind]} size={size} />
+      {!open && (
+        <span className="absolute" style={{ top: -badge / 4, right: -badge / 4, width: badge, height: badge, background: 'hsl(var(--bg))', border: '2px solid hsl(var(--tx))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <IconLock size={Math.round(badge * 0.6)} color="hsl(var(--tx))" />
         </span>
       )}
+    </div>
+  )
+}
+
+export function SecretNode({ focused, size, opened }: { focused: boolean; size: number; opened: boolean }) {
+  const scale = Math.max(1, Math.round(size / 16))
+  return (
+    <div className={`map-secret${focused ? ' map-place--focused' : ''}${opened ? '' : ' map-secret--closed'}`} aria-hidden="true">
+      <PixelBitmap rows={CHEST_CLOSED} scale={scale} />
     </div>
   )
 }

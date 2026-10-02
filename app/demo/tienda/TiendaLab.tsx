@@ -64,7 +64,7 @@ export default function TiendaLab() {
           onReachEdge={() => {}}
         />
         <p className="mt-2" style={{ fontFamily: vt, fontSize: 17, color: 'hsl(var(--tx3))' }}>
-          Caminá con las flechas hasta la tienda (abajo, en el ramal de la entrada) y apretá Enter.
+          Caminá con las flechas (o hacé clic) hasta la tienda — el edificio con toldo, en el claro del medio — y apretá Enter.
         </p>
       </Win>
 

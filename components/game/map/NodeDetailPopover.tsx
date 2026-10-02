@@ -1,62 +1,78 @@
 'use client'
 
-import BossTopicIcon from './BossTopicIcon'
-import type { Boss } from '@/types'
-import type { NodeState } from './MapNodeIcon'
-
-const STATE_LABEL: Record<NodeState, string> = {
-  defeated: 'Derrotado',
-  current: 'Siguiente jefe',
-  available: 'Disponible',
-  locked: 'Bloqueado',
-}
+import type { ReactNode } from 'react'
 
 interface Props {
-  boss: Boss
-  state: NodeState
-  /** Si no hay lugar arriba (filas cercanas al borde superior del mapa), se abre hacia abajo. */
+  icon?: ReactNode
+  title: string
+  body?: string
+  status: string
+  /** Estado "bueno" (disponible/abierto) — la línea de estado va en acento. */
+  positive?: boolean
+  /** Si está parado encima, se puede entrar con este botón (o Enter). */
+  onEnter?: () => void
+  enterLabel?: string
+  /** Se abre hacia abajo cuando no hay lugar arriba. */
   below?: boolean
+  /** Corrimiento horizontal cuando el nodo está pegado a un borde. */
+  align?: 'center' | 'left' | 'right'
 }
 
-// Placa que se abre al pararse (o pasar el mouse) sobre la puerta de un jefe:
-// nombre, tema de la clase y estado. Reemplaza la etiqueta fija de antes por
-// un detalle que aparece solo al interactuar, como pidió el docente.
-export default function NodeDetailPopover({ boss, state, below = false }: Props) {
+// Placa chica que aparece al pararse (o pasar el mouse) sobre un lugar del
+// mapa: es el ÚNICO texto del mapa — el resto se lee por íconos. Barra
+// sólida + cuerpo VT323 + estado; si el avatar está encima, un botón para
+// entrar (además de Enter/Espacio).
+export default function NodeDetailPopover({ icon, title, body, status, positive, onEnter, enterLabel = 'Entrar', below = false, align = 'center' }: Props) {
   const card = (
     <div style={{ background: 'hsl(var(--surface))', border: '2px solid hsl(var(--tx))', boxShadow: '3px 3px 0 hsl(var(--tx) / 0.25)' }}>
-      <div className="flex items-center gap-1.5 px-2" style={{ background: 'hsl(var(--tx))', minHeight: 20 }}>
-        <BossTopicIcon bossId={boss.id} size={11} color="hsl(var(--bg))" />
-        <span style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 12, letterSpacing: '0.05em', color: 'hsl(var(--bg))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {boss.title} · {boss.name}
+      <div className="flex items-center gap-1.5 px-2" style={{ background: 'hsl(var(--tx))', minHeight: 22 }}>
+        {icon}
+        <span style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 15, letterSpacing: '0.04em', color: 'hsl(var(--bg))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {title}
         </span>
       </div>
-      <div className="px-2 py-1.5" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 16, lineHeight: 1.15, color: 'hsl(var(--tx2))' }}>
-        {boss.topic}
-      </div>
-      <div className="px-2 pb-1.5 label-mono" style={{ color: state === 'locked' ? 'hsl(var(--tx3))' : 'hsl(var(--accent))' }}>
-        {STATE_LABEL[state]}
+      {body && (
+        <div className="px-2 pt-1.5" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, lineHeight: 1.1, color: 'hsl(var(--tx2))' }}>
+          {body}
+        </div>
+      )}
+      <div className="px-2 py-1.5 flex items-center justify-between gap-2">
+        <span className="label-mono" style={{ color: positive ? 'hsl(var(--accent))' : 'hsl(var(--tx3))' }}>{status}</span>
+        {onEnter && (
+          <button
+            type="button"
+            className="map-enter-btn"
+            onClick={(e) => { e.stopPropagation(); onEnter() }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {enterLabel} ↵
+          </button>
+        )}
       </div>
     </div>
   )
 
+  const arrowSide = align === 'left' ? { marginLeft: 14 } : align === 'right' ? { marginLeft: 'auto', marginRight: 14 } : { marginLeft: 'auto', marginRight: 'auto' }
   const arrow = (
     <div
-      className="mx-auto"
-      style={
-        below
-          ? { width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderBottom: '5px solid hsl(var(--tx))' }
-          : { width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '5px solid hsl(var(--tx))' }
-      }
+      style={{
+        width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent',
+        ...(below ? { borderBottom: '6px solid hsl(var(--tx))' } : { borderTop: '6px solid hsl(var(--tx))' }),
+        ...arrowSide,
+      }}
     />
   )
 
+  const x = align === 'left' ? { left: -20 } : align === 'right' ? { right: -20 } : { left: '50%', transform: 'translateX(-50%)' }
+
   return (
     <div
-      className="map-detail-in absolute left-1/2 pointer-events-none"
-      style={below
-        ? { top: '100%', transform: 'translateX(-50%)', marginTop: 10, width: 168, zIndex: 5 }
-        : { bottom: '100%', transform: 'translateX(-50%)', marginBottom: 10, width: 168, zIndex: 5 }
-      }
+      className="map-detail-in absolute"
+      style={{
+        ...x,
+        ...(below ? { top: '100%', marginTop: 6 } : { bottom: '100%', marginBottom: 6 }),
+        width: 210, zIndex: 8, pointerEvents: onEnter ? 'auto' : 'none',
+      }}
     >
       {below ? <>{arrow}{card}</> : <>{card}{arrow}</>}
     </div>

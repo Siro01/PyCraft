@@ -10,7 +10,7 @@ export const RENDER_MODES: { id: RenderMode; label: string }[] = [
 
 // Cada "bin" agrupa caracteres de densidad similar; se elige uno al azar por celda
 // (como en la referencia: textura de terminal, no una rampa perfecta).
-const BINS = [' ', '.`', "'^,", '~=-:', '<;v!', 'zcu1', 'n0XN', 'RBH@', '$@0B']
+export const BINS = [' ', '.`', "'^,", '~=-:', '<;v!', 'zcu1', 'n0XN', 'RBH@', '$@0B']
 const BAYER = [
   [0, 8, 2, 10],
   [12, 4, 14, 6],
