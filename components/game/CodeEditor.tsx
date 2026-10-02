@@ -33,6 +33,14 @@ interface CodeEditorProps {
     expected: string
     error: string | null
   } | null
+  /** Pingüino Linux equipado. */
+  penguin?: boolean
+  /** Reemplazo de código desde afuera (Compu Hackeada) — cambia el nonce para aplicarlo. */
+  codeReplace?: { code: string; nonce: number } | null
+  /** Avisa cada cambio del código (lo usan el Pato Debug y la Compu). */
+  onCodeChange?: (code: string) => void
+  /** Banner encima del editor (ítems activos en este ataque: Zonda, Brócoli…). */
+  banner?: React.ReactNode
 }
 
 export default function CodeEditor({
@@ -41,8 +49,18 @@ export default function CodeEditor({
   onSubmit,
   isLoading = false,
   lastResult,
+  penguin = false,
+  codeReplace,
+  onCodeChange,
+  banner,
 }: CodeEditorProps) {
   const [code, setCode] = useState(challenge.initialCode)
+
+  useEffect(() => { onCodeChange?.(code) }, [code, onCodeChange])
+
+  useEffect(() => {
+    if (codeReplace) setCode(codeReplace.code)
+  }, [codeReplace])
   const [engineReady, setEngineReady] = useState(
     challenge.type === 'sql' ? true : isPyodideLoaded(),
   )
@@ -96,6 +114,8 @@ export default function CodeEditor({
         <p className="mt-1.5" style={{ fontFamily: vt, fontSize: 21, lineHeight: 1.22, color: 'hsl(var(--tx2))', maxWidth: '78ch' }}>{challenge.description}</p>
       </Win>
 
+      {banner}
+
       {/* Editor */}
       <Win
         title={isPython ? 'SCRIPT.PY' : 'QUERY.SQL'}
@@ -111,6 +131,7 @@ export default function CodeEditor({
           onCtrlEnter={handleSubmit}
           className="flex-1 overflow-hidden"
           accentColor={boss.color}
+          penguin={penguin}
         />
       </Win>
 

@@ -2,9 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import AppWindow, { type WindowMode } from '@/components/ui/AppWindow'
-import { ICON_FILE, ICON_TERMINAL, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
+import { ICON_FILE, ICON_FOLDER, ICON_TERMINAL, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
+import InventoryApp from '@/components/game/inventory/InventoryApp'
+import { ShopGlyph } from '@/components/game/shop/ShopIcons'
+import StickerLayer from '@/components/game/stickers/StickerLayer'
 import { ACT_MAPS, MAP_PALETTES, MAP_PALETTE_ON_ACCENT, type MapTheme } from '@/lib/game/act-maps'
 import { sfx } from '@/lib/game/architect/sound'
+import { DIAMONDS_PER_BOSS, SHOP_UNLOCK_BOSS_ID } from '@/lib/game/shop'
+import { diamondsAvailable, getPlaygroundState, playgroundLevel } from '@/lib/storage/local-store'
 import ActMap from './map/ActMap'
 import type { NodeState } from './map/MapNodeIcon'
 import QuestLog from './map/QuestLog'
@@ -26,6 +31,8 @@ interface BossMapProps {
   notice?: React.ReactNode
   emptyState?: React.ReactNode
   testMode?: boolean
+  /** El docente: la tienda del mapa le queda abierta siempre, para poder revisarla. */
+  isAdmin?: boolean
 }
 
 const PALETTE_LABEL: Record<MapTheme, string> = { light: 'BLANCO', dark: 'NEGRO', red: 'COLOR' }
@@ -34,12 +41,12 @@ const monoLabel = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 1
 const DESK_MENU_H = 28
 const DESK_TASKBAR_H = 34
 
-type WinId = 'stats' | 'log' | 'controls'
+type WinId = 'stats' | 'log' | 'controls' | 'inventory'
 interface WinState { mode: WindowMode; x: number; y: number; z: number }
-const WIN_TITLE: Record<WinId, string> = { stats: 'PROGRESO.TXT', log: 'BITÁCORA.LOG', controls: 'CONTROLES.TXT' }
+const WIN_TITLE: Record<WinId, string> = { stats: 'PROGRESO.TXT', log: 'BITÁCORA.LOG', controls: 'CONTROLES.TXT', inventory: 'INVENTARIO.EXE' }
 
 export default function BossMap({
-  bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, emptyState, testMode,
+  bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, emptyState, testMode, isAdmin = false,
 }: BossMapProps) {
   const firstAvailableId = useMemo(
     () => bosses.find((b) => enabledIds.has(b.id) && !progress[b.id]?.defeated)?.id,
@@ -86,8 +93,19 @@ export default function BossMap({
   // Los controles eran un párrafo fijo dentro del mapa — ahora es su propia
   // ventana, cerrada por defecto, así el mapa queda más limpio de entrada.
   const [controls, setControls] = useState<WinState>({ mode: 'minimized', x: 80, y: 120, z: 0 })
+  const [inventory, setInventory] = useState<WinState>({ mode: 'minimized', x: 112, y: 100, z: 0 })
 
-  const SETTERS: Record<WinId, React.Dispatch<React.SetStateAction<WinState>>> = { stats: setStats, log: setLog, controls: setControls }
+  // Nivel del patio de juegos y diamantes disponibles — vienen de
+  // localStorage, así que se leen recién montado (server-safe: 0/1 al
+  // principio) para no desincronizar el HTML del servidor con el del cliente.
+  const [level, setLevel] = useState(1)
+  const [diamonds, setDiamonds] = useState(0)
+  useEffect(() => {
+    setLevel(playgroundLevel(getPlaygroundState().xp).level)
+    setDiamonds(diamondsAvailable(totalDefeated))
+  }, [totalDefeated])
+
+  const SETTERS: Record<WinId, React.Dispatch<React.SetStateAction<WinState>>> = { stats: setStats, log: setLog, controls: setControls, inventory: setInventory }
 
   const bringToFront = (id: WinId) => {
     zRef.current += 1
@@ -139,8 +157,8 @@ export default function BossMap({
 
   const styleVars = { ...MAP_PALETTES[palette], '--on-accent': MAP_PALETTE_ON_ACCENT[palette] } as React.CSSProperties
 
-  const minimized: { id: WinId; title: string }[] = (['stats', 'log', 'controls'] as WinId[])
-    .filter((id) => ({ stats, log, controls }[id].mode === 'minimized'))
+  const minimized: { id: WinId; title: string }[] = (['stats', 'log', 'controls', 'inventory'] as WinId[])
+    .filter((id) => ({ stats, log, controls, inventory }[id].mode === 'minimized'))
     .map((id) => ({ id, title: WIN_TITLE[id] }))
 
   return (
@@ -162,13 +180,23 @@ export default function BossMap({
             boxShadow: '6px 6px 0 hsl(var(--tx) / 0.18)',
           }}
         >
+          <StickerLayer surface="dashboard" />
+
           {/* Menú superior — igual al de PycraftOS en la landing */}
           <div
-            className="flex items-center gap-3 px-2.5"
-            style={{ height: DESK_MENU_H, background: 'hsl(var(--surface))', borderBottom: '2px solid hsl(var(--tx))' }}
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2.5 py-1"
+            style={{ minHeight: DESK_MENU_H, background: 'hsl(var(--surface))', borderBottom: '2px solid hsl(var(--tx))' }}
           >
             <span style={{ fontFamily: jersey, fontSize: 18, letterSpacing: '0.08em', color: 'hsl(var(--tx))' }}>PYCRAFT OS</span>
-            <span style={{ flex: 1 }} />
+            <span className="hidden sm:block" style={{ flex: 1 }} />
+            <div className="flex items-center gap-1" title={`Nivel ${level} — jugá el patio de juegos para subir`}>
+              <span className="label-mono" style={{ color: 'hsl(var(--tx3))' }}>NIVEL</span>
+              <span style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--accent))' }}>{level}</span>
+            </div>
+            <div className="flex items-center gap-1.5" style={{ border: '2px solid hsl(var(--tx))', padding: '2px 8px', background: 'hsl(var(--bg))' }} title={`${totalDefeated} jefes derrotados × ${DIAMONDS_PER_BOSS} diamantes — gastalos en la tienda del Mercader del Abismo`}>
+              <ShopGlyph glyph="crystal" size={13} color="hsl(var(--accent))" />
+              <span className="tabular" style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--tx))' }}>{diamonds}</span>
+            </div>
             <span className="hidden sm:inline" style={monoLabel}>Abrí los programas · arrastrá las ventanas</span>
           </div>
 
@@ -187,6 +215,10 @@ export default function BossMap({
               <button type="button" className="desk-icon" onClick={() => openWin('controls')} title="Abrir controles.txt">
                 <PixelBitmap rows={ICON_FILE} scale={4} />
                 <span className="desk-lbl">controles.txt</span>
+              </button>
+              <button type="button" className="desk-icon" onClick={() => openWin('inventory')} title="Abrir inventario.exe">
+                <PixelBitmap rows={ICON_FOLDER} scale={4} />
+                <span className="desk-lbl">inventario.exe</span>
               </button>
             </div>
 
@@ -261,6 +293,7 @@ export default function BossMap({
                 act={act}
                 bossStates={bossStates}
                 playgroundReachable={actIndex <= reachedActIndex}
+                shopUnlocked={isAdmin || !!progress[SHOP_UNLOCK_BOSS_ID]?.defeated}
                 onReachEdge={handleReachEdge}
                 fillHeight={mapMaximized}
               />
@@ -346,6 +379,23 @@ export default function BossMap({
               <li>Pasá el mouse por una puerta para ver el detalle</li>
               <li>Seguí el camino resaltado para cambiar de acto</li>
             </ul>
+          </AppWindow>
+
+          {/* INVENTARIO.EXE — amuletos del Mercader Ambulante + ítems y
+              stickers del Mercader del Abismo, todos juntos. */}
+          <AppWindow
+            title="INVENTARIO.EXE"
+            icon={<PixelBitmap rows={ICON_FOLDER} scale={2} ink={activeWin === 'inventory' ? 'hsl(var(--bg))' : 'hsl(var(--tx))'} />}
+            x={inventory.x} y={inventory.y} w={340} z={inventory.z}
+            active={activeWin === 'inventory'}
+            mode={inventory.mode}
+            onFocus={() => bringToFront('inventory')}
+            onMove={(x, y) => setInventory((s) => ({ ...s, x, y }))}
+            onClose={() => setInventory((s) => ({ ...s, mode: 'minimized' }))}
+            onMinimize={() => setInventory((s) => ({ ...s, mode: 'minimized' }))}
+            bodyStyle={{ padding: 16 }}
+          >
+            <InventoryApp />
           </AppWindow>
 
           </div>

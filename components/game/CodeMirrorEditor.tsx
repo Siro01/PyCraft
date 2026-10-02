@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view'
-import { EditorState } from '@codemirror/state'
+import { EditorState, Compartment } from '@codemirror/state'
 import { defaultKeymap, historyKeymap, history, indentWithTab } from '@codemirror/commands'
 import {
   indentOnInput,
@@ -14,6 +14,7 @@ import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { python } from '@codemirror/lang-python'
 import { sql } from '@codemirror/lang-sql'
 import { tags as t } from '@lezer/highlight'
+import { penguinAutocomplete } from '@/lib/game/items/penguin-completions'
 
 // ─── Theme — sigue los tokens del sitio; el acento es el color del jefe actual ──
 // Fondo/gutter/texto salen de las CSS custom properties (se adaptan a los 3 temas
@@ -106,6 +107,8 @@ interface CodeMirrorEditorProps {
   accentColor: string
   /** Ocupa el 100% del contenedor en vez de crecer solo con el contenido — para pantalla completa. */
   fillHeight?: boolean
+  /** Pingüino Linux equipado: sugerencias de autocompletado con su ícono. */
+  penguin?: boolean
 }
 
 export default function CodeMirrorEditor({
@@ -116,9 +119,14 @@ export default function CodeMirrorEditor({
   className,
   accentColor,
   fillHeight = false,
+  penguin = false,
 }: CodeMirrorEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
+  // El pingüino se prende/apaga en caliente (se equipa en medio de la batalla) sin recrear el editor.
+  const penguinSlot = useRef(new Compartment())
+  const penguinRef = useRef(penguin)
+  penguinRef.current = penguin
 
   // Keep callbacks in refs so the editor extensions never go stale
   const onChangeRef = useRef(onChange)
@@ -161,6 +169,7 @@ export default function CodeMirrorEditor({
         highlightActiveLine(),
         buildEditorTheme(accentColor, fillHeight),
         syntaxHighlighting(buildHighlight(accentColor)),
+        penguinSlot.current.of(penguinRef.current ? penguinAutocomplete(language) : []),
         onChange,
       ],
     })
@@ -174,6 +183,12 @@ export default function CodeMirrorEditor({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language, accentColor, fillHeight]) // Recreate when the language, el jefe (= su color) o fillHeight cambian
+
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: penguinSlot.current.reconfigure(penguin ? penguinAutocomplete(language) : []),
+    })
+  }, [penguin, language])
 
   // Sync value when challenge switches (CodeEditor resets code via state)
   useEffect(() => {

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { sfx } from '@/lib/game/architect/sound'
 import { TILE_SIZE, type ActMapDef, type MapPoint } from '@/lib/game/act-maps'
-import { BossNode, PlaygroundNode, PracticeNode, type NodeState } from './MapNodeIcon'
+import { BossNode, PlaygroundNode, PracticeNode, ShopNode, type NodeState } from './MapNodeIcon'
+import { SHOP_UNLOCK_BOSS_NUMBER } from '@/lib/game/shop'
 import NodeDetailPopover from './NodeDetailPopover'
 import NodeSplash from './NodeSplash'
 import PlayerAvatar, { type Facing } from './PlayerAvatar'
@@ -32,6 +33,8 @@ interface ActMapProps {
   onReachEdge: (direction: 'next' | 'prev') => void
   /** Pantalla completa: el mapa ocupa todo el alto disponible, no solo el ancho. */
   fillHeight?: boolean
+  /** La tienda del Mercader abre después de derrotar al jefe #2 (en todos los actos a la vez). */
+  shopUnlocked?: boolean
 }
 
 // Etiqueta de un nodo de utilidad (patio de juegos/prácticas): centrada bajo
@@ -58,7 +61,7 @@ const LOCKED_LINES = [
   'Esa puerta sigue cerrada por ahora. ¡Seguí practicando mientras tanto!',
 ]
 
-export default function ActMap({ act, bossStates, playgroundReachable, onReachEdge, fillHeight = false }: ActMapProps) {
+export default function ActMap({ act, bossStates, playgroundReachable, onReachEdge, fillHeight, shopUnlocked = false }: ActMapProps) {
   const router = useRouter()
   const [pos, setPos] = useState<MapPoint>(act.entry)
   const [facing, setFacing] = useState<Facing>('right')
@@ -177,8 +180,16 @@ export default function ActMap({ act, bossStates, playgroundReachable, onReachEd
       } else {
         showWarning('Todavía no llegaste tan lejos. ¡El patio de prácticas se habilita más adelante!')
       }
+      return
     }
-  }, [act.key, act.playground, act.practice, bossByIdMap, bossStates, confirmAndGo, nodeAt, playgroundReachable, showWarning])
+    if (p.x === act.mercader.x && p.y === act.mercader.y) {
+      if (shopUnlocked) {
+        confirmAndGo(p, '/mercader')
+      } else {
+        showWarning(`La tienda del Mercader está cerrada. Abre cuando derrotes al jefe ${SHOP_UNLOCK_BOSS_NUMBER}, el Guardián de la Puerta. ¡Ahí ya vas a tener diamantes para gastar!`)
+      }
+    }
+  }, [act.key, act.mercader, act.playground, act.practice, bossByIdMap, bossStates, confirmAndGo, nodeAt, playgroundReachable, shopUnlocked, showWarning])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -238,6 +249,7 @@ export default function ActMap({ act, bossStates, playgroundReachable, onReachEd
 
   const onPlayground = pos.x === act.playground.x && pos.y === act.playground.y
   const onPractice = pos.x === act.practice.x && pos.y === act.practice.y
+  const onMercader = pos.x === act.mercader.x && pos.y === act.mercader.y
   const focusedBossId = act.nodes.find((n) => n.x === pos.x && n.y === pos.y)?.bossId ?? null
   const detailBossId = hoveredBossId ?? focusedBossId
   const detailBoss = detailBossId ? bossByIdMap.get(detailBossId) : undefined
@@ -338,6 +350,21 @@ export default function ActMap({ act, bossStates, playgroundReachable, onReachEd
           <PracticeNode reachable={playgroundReachable} focused={onPractice} />
         </div>
         <UtilityLabel x={act.practice.x} y={act.practice.y} text="Patio de prácticas" widthPx={112} />
+
+        <div
+          className="absolute flex items-end justify-center"
+          style={{ left: act.mercader.x * TILE_SIZE, top: act.mercader.y * TILE_SIZE - TILE_SIZE * 0.7, width: TILE_SIZE, height: TILE_SIZE * 1.7, zIndex: 2, cursor: 'pointer' }}
+          onMouseEnter={() => setHoveredBossId(null)}
+          onClick={() => enterTile(act.mercader)}
+        >
+          <ShopNode unlocked={shopUnlocked} focused={onMercader} />
+        </div>
+        <UtilityLabel
+          x={act.mercader.x}
+          y={act.mercader.y}
+          text={shopUnlocked ? 'Tienda del Mercader' : `Tienda · tras el jefe ${SHOP_UNLOCK_BOSS_NUMBER}`}
+          widthPx={shopUnlocked ? 124 : 132}
+        />
 
         {act.nodes.map((n) => {
           const boss = bossByIdMap.get(n.bossId)

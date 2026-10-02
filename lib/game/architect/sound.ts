@@ -207,4 +207,30 @@ export const sfx = {
     tone(300, 0.22, 'triangle', 0.05, { to: 920 })
     tone(200, 0.14, 'triangle', 0.03, { to: 500, at: 0.08 })
   },
+  // ── Tienda del Mercader del Abismo ────────────────────────────────────────
+  /** Pasar una hoja del libro: más corto y seco que pageTurn (es una hoja, no un mapa entero). */
+  pageFlip() {
+    noise(0.1, 0.06, { highpass: 2600 })
+    tone(260, 0.09, 'triangle', 0.035, { to: 480 })
+  },
+  /** Mover la selección entre ítems del libro: brillo mágico breve. */
+  itemFocus() { tone(jitter(1400, 120), 0.035, 'sine', 0.03, { to: 1700 }) },
+  /** El Mercader aparece y habla: tono grave del abismo + un tintineo frío. */
+  mercaderGreet() {
+    tone(90, 0.5, 'sine', 0.05, { to: 60 })
+    tone(1800, 0.12, 'sine', 0.02, { at: 0.15 })
+    tone(2200, 0.14, 'sine', 0.018, { at: 0.28 })
+  },
+  // ── Ítems de la tienda (ÍTEMS.SYS) ────────────────────────────────────────
+  /** Se usa un ítem consumible en batalla: ráfaga ascendente con un "pop" final. */
+  perkUse() {
+    ;[440, 660, 990].forEach((f, i) => tone(f, 0.08, 'square', 0.06, { at: i * 0.05 }))
+    tone(1320, 0.12, 'triangle', 0.05, { at: 0.16 })
+    noise(0.05, 0.03, { highpass: 3000, at: 0.15 })
+  },
+  /** Equipar/desequipar un ítem pasivo: clic mecánico con eco corto. */
+  equip(on: boolean) {
+    tone(on ? 587 : 349, 0.05, 'square', 0.05)
+    tone(on ? 880 : 262, 0.08, 'square', 0.04, { at: 0.06 })
+  },
 }

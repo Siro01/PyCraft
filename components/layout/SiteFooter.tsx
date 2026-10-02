@@ -35,7 +35,7 @@ export default function SiteFooter({ compact = false }: { compact?: boolean }) {
           <Col title="Proyecto">
             {SITE.inscripcionesUrl && <a href={SITE.inscripcionesUrl} target="_blank" rel="noopener noreferrer" style={linkStyle} className="hover:text-tx">Inscripciones</a>}
             <a href={SITE.githubUrl} target="_blank" rel="noopener noreferrer" style={linkStyle} className="hover:text-tx">Código en GitHub</a>
-            <Link href="/demo" style={linkStyle} className="hover:text-tx">Probar la demo</Link>
+            <Link href="/demo" style={linkStyle} className="hover:text-tx">Probar un jefe gratis</Link>
             <Link href="/login" style={linkStyle} className="hover:text-tx">Entrar al taller</Link>
           </Col>
 

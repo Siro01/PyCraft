@@ -1,6 +1,9 @@
 'use client'
 
-import type { ChallengeTier, Amulet } from '@/types'
+import type { ChallengeTier, Amulet, OwnedShopItem, ShopItem } from '@/types'
+import { PLAYGROUND_ACTS } from '@/lib/game/playground'
+import { DIAMONDS_PER_BOSS, SHOP_CATALOG, discountedPrice } from '@/lib/game/shop'
+import { PERK_SLOT_LIMIT } from '@/lib/game/perk-effects'
 
 // ─── Keys ───────────────────────────────────────────────────────────────────
 const USER_KEY     = 'pysql:user'
@@ -15,6 +18,9 @@ const PRACTICE_KEY = 'pysql:practice-code'
 const TEXT_ZOOM_KEY = 'pysql:text-zoom'
 const PRACTICE_LAYOUT_KEY = 'pysql:practice-layout'
 const PRACTICE_INTRO_KEY = 'pysql:practice-intro-hidden'
+const SHOP_OWNED_KEY = 'pysql:shop-owned'
+const STICKER_PLACEMENTS_KEY = 'pysql:sticker-placements'
+const EQUIPPED_PERKS_KEY = 'pysql:equipped-perks'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 export interface LocalUser {
@@ -262,10 +268,33 @@ export function recordPlaygroundResult(topicKey: string, xpGained: number, strea
   return { state: next, xpAwarded: awarded }
 }
 
+// Nivel 1-20 como fracción del XP MÁXIMO posible hoy en el patio de juegos
+// (todas las tandas, todos los ejercicios, con la mejor racha) — no un XP
+// fijo por nivel. Así nivel 20 es exactamente "completaste todo lo que hay"
+// sin importar cuántos actos tenga el patio de juegos en el futuro: al
+// agregar más tandas, el nivel de un alumno existente se recalcula solo
+// (baja proporcionalmente) hasta que también complete lo nuevo.
+export const PLAYGROUND_MAX_LEVEL = 20
+
+function playgroundMaxXp(): number {
+  let max = 0
+  for (const act of PLAYGROUND_ACTS) {
+    for (const topic of act.topics) {
+      const n = topic.exercises.length
+      max += n * 10 + Math.max(0, n - 2) * 2
+    }
+  }
+  return max
+}
+
 export function playgroundLevel(xp: number): { level: number; xpIntoLevel: number; xpForNext: number } {
-  const level = Math.floor(xp / PLAYGROUND_XP_PER_LEVEL) + 1
-  const xpIntoLevel = xp % PLAYGROUND_XP_PER_LEVEL
-  return { level, xpIntoLevel, xpForNext: PLAYGROUND_XP_PER_LEVEL }
+  const maxXp = playgroundMaxXp()
+  const perLevel = maxXp > 0 ? maxXp / (PLAYGROUND_MAX_LEVEL - 1) : PLAYGROUND_XP_PER_LEVEL
+  const level = Math.min(PLAYGROUND_MAX_LEVEL, 1 + Math.floor(xp / perLevel))
+  const levelFloorXp = (level - 1) * perLevel
+  const xpIntoLevel = Math.round(Math.max(0, xp - levelFloorXp))
+  const xpForNext = level >= PLAYGROUND_MAX_LEVEL ? xpIntoLevel : Math.round(perLevel)
+  return { level, xpIntoLevel, xpForNext }
 }
 
 // ─── Patio de prácticas: el código Python libre del alumno ──────────────────
@@ -341,6 +370,234 @@ export function setPracticeIntroHidden(hidden: boolean): void {
   try { localStorage.setItem(PRACTICE_INTRO_KEY, hidden ? '1' : '0') } catch { /* ignore quota errors */ }
 }
 
+// ─── Tienda del Mercader del Abismo ──────────────────────────────────────────
+// Los diamantes NO se guardan como un contador aparte: se calculan (jefes
+// derrotados × DIAMONDS_PER_BOSS) menos lo gastado en ítems ya comprados —
+// así nunca pueden desincronizarse de la fuente real (battle_records en modo
+// cuenta, o el progreso local). Lo único que hace falta guardar es qué
+// compró el alumno.
+
+/** Registro completo de compras, incluidos los consumibles ya usados (consumedAt). */
+function getShopLedger(): OwnedShopItem[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(SHOP_OWNED_KEY)
+    return raw ? (JSON.parse(raw) as OwnedShopItem[]) : []
+  } catch { return [] }
+}
+
+/** Lo que el alumno TIENE ahora (sin los consumibles que ya usó). */
+export function getShopOwned(): OwnedShopItem[] {
+  return getShopLedger().filter((o) => !o.consumedAt)
+}
+
+function saveShopOwnedRaw(list: OwnedShopItem[]): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(SHOP_OWNED_KEY, JSON.stringify(list)) } catch { /* ignore quota errors */ }
+  import('@/lib/storage/cloud-sync').then(({ queueCloudSync }) => queueCloudSync('shop', list))
+}
+
+export function diamondsEarned(bossesDefeated: number): number {
+  return bossesDefeated * DIAMONDS_PER_BOSS
+}
+
+// Gastado = todo lo comprado (también lo ya usado: usar un ítem no devuelve
+// diamantes), salvo lo que salió del catálogo, que se reintegra.
+const CATALOG_IDS = new Set(SHOP_CATALOG.map((i) => i.id))
+
+export function diamondsAvailable(bossesDefeated: number): number {
+  const spent = getShopLedger().filter((o) => CATALOG_IDS.has(o.id)).reduce((sum, o) => sum + o.pricePaid, 0)
+  return diamondsEarned(bossesDefeated) - spent
+}
+
+/** Devuelve null si ya lo tenía o no le alcanzaba/no tenía el nivel — el
+ *  llamador (ShopApp) ya filtra eso en la UI, esto es el último guardián.
+ *  Si hay un Cupón activo, cobra el precio con descuento. */
+export function buyShopItem(item: ShopItem, bossesDefeated: number, playerLevel: number): OwnedShopItem | null {
+  if (typeof window === 'undefined') return null
+  const owned = getShopOwned()
+  if (owned.some((o) => o.id === item.id)) return null
+  if (playerLevel < item.level) return null
+  const price = discountedPrice(item.price, getShopDiscount())
+  if (diamondsAvailable(bossesDefeated) < price) return null
+  const entry: OwnedShopItem = { id: item.id, pricePaid: price, acquiredAt: new Date().toISOString() }
+  saveShopOwnedRaw([...getShopLedger(), entry])
+  return entry
+}
+
+export function setStickerColorway(itemId: string, colorway: string): void {
+  saveShopOwnedRaw(getShopLedger().map((o) => (o.id === itemId && !o.consumedAt ? { ...o, colorway } : o)))
+}
+
+/** Gasta un perk consumible: sale del inventario (se puede volver a comprar), pero
+ *  queda en el registro como usado — si se borrara, sus diamantes "volverían". */
+export function consumePerk(itemId: string): void {
+  const ledger = getShopLedger()
+  const i = ledger.findIndex((o) => o.id === itemId && !o.consumedAt)
+  if (i >= 0) ledger[i] = { ...ledger[i], consumedAt: new Date().toISOString() }
+  saveShopOwnedRaw(ledger)
+  setEquippedPerks(getEquippedPerks().filter((id) => id !== itemId))
+}
+
+// ─── Cupón de Descuento ───────────────────────────────────────────────────
+// Usar el cupón lo deja "pendiente"; la próxima vez que se abre la tienda
+// pasa a "activo" por 30 minutos (= una visita) y todas las compras de esa
+// visita salen con descuento. Así no se gasta en la primera compra sola ni
+// queda activo para siempre si el alumno se olvida la pestaña abierta.
+
+const SHOP_COUPON_KEY = 'pysql:shop-coupon'
+const COUPON_VISIT_MS = 30 * 60 * 1000
+
+interface CouponState { pct: number; activeUntil?: number }
+
+function readCoupon(): CouponState | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(SHOP_COUPON_KEY)
+    return raw ? (JSON.parse(raw) as CouponState) : null
+  } catch { return null }
+}
+
+/** Descuento vigente (0 si no hay cupón, o si la visita en que se usó ya terminó). */
+export function getShopDiscount(): number {
+  const c = readCoupon()
+  if (!c) return 0
+  if (c.activeUntil && Date.now() > c.activeUntil) {
+    try { localStorage.removeItem(SHOP_COUPON_KEY) } catch { /* ignore */ }
+    return 0
+  }
+  return c.pct
+}
+
+/** `false` si ya había un cupón esperando — no se apilan. */
+export function activateShopCoupon(pct: number): boolean {
+  if (getShopDiscount() > 0) return false
+  try { localStorage.setItem(SHOP_COUPON_KEY, JSON.stringify({ pct } satisfies CouponState)) } catch { return false }
+  return true
+}
+
+/** La tienda llama esto al abrirse: un cupón pendiente empieza a correr su visita. */
+export function startCouponVisit(): void {
+  const c = readCoupon()
+  if (!c || c.activeUntil) return
+  try { localStorage.setItem(SHOP_COUPON_KEY, JSON.stringify({ ...c, activeUntil: Date.now() + COUPON_VISIT_MS })) } catch { /* ignore */ }
+}
+
+// ─── Armadura (Mandarina sin barra de vida) ───────────────────────────────
+// En junior/senior no hay vida que perder, así que la Mandarina da Armadura:
+// un contador que guardan los jefes especiales (ver spendArmor).
+
+const ARMOR_KEY = 'pysql:armor'
+
+export function getArmor(): number {
+  if (typeof window === 'undefined') return 0
+  try { return Math.max(0, parseInt(localStorage.getItem(ARMOR_KEY) ?? '0', 10) || 0) } catch { return 0 }
+}
+
+export function addArmor(n = 1): number {
+  const next = getArmor() + n
+  try { localStorage.setItem(ARMOR_KEY, String(next)) } catch { /* ignore */ }
+  return next
+}
+
+/** Para los jefes especiales: gasta 1 de armadura si hay. Devuelve si pudo. */
+export function spendArmor(): boolean {
+  const cur = getArmor()
+  if (cur <= 0) return false
+  try { localStorage.setItem(ARMOR_KEY, String(cur - 1)) } catch { return false }
+  return true
+}
+
+// ─── Perks pasivos equipados ──────────────────────────────────────────────
+// Hasta PERK_SLOT_LIMIT (lib/game/perk-effects.ts) a la vez — es lo que hace
+// que equipar sea una decisión real y lo que habilita sinergias futuras
+// entre dos equipados juntos. A diferencia de los stickers, esto SÍ viaja
+// entre dispositivos: es una elección de juego, no una preferencia de
+// escritorio local.
+
+export function getEquippedPerks(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(EQUIPPED_PERKS_KEY)
+    return raw ? (JSON.parse(raw) as string[]) : []
+  } catch { return [] }
+}
+
+function setEquippedPerksRaw(ids: string[]): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(EQUIPPED_PERKS_KEY, JSON.stringify(ids)) } catch { /* ignore quota errors */ }
+  import('@/lib/storage/cloud-sync').then(({ queueCloudSync }) => queueCloudSync('equipped_perks', ids))
+}
+
+export function setEquippedPerks(ids: string[]): void {
+  setEquippedPerksRaw(ids)
+}
+
+/** Devuelve `false` sin hacer nada si se intenta equipar un slot ya lleno. */
+export function togglePerkEquipped(itemId: string, slotLimit: number): boolean {
+  const current = getEquippedPerks()
+  if (current.includes(itemId)) {
+    setEquippedPerksRaw(current.filter((id) => id !== itemId))
+    return true
+  }
+  if (current.length >= slotLimit) return false
+  setEquippedPerksRaw([...current, itemId])
+  return true
+}
+
+// ─── Dónde pegó cada sticker el alumno ────────────────────────────────────────
+// Dos superficies decorables (el escritorio del dashboard y el patio de
+// prácticas) — pero cada sticker ocupa un solo lugar a la vez: pegarlo en una
+// pantalla lo saca de la otra si estaba ahí (decisión del profe: así conecta
+// más con el alumno, que arma su espacio a gusto cada vez, en vez de
+// "completar" las dos pantallas de una sola pasada). Posición en porcentaje
+// (0-100) del contenedor, para que no se desarme si cambia el tamaño de
+// ventana. Vive solo en este dispositivo/sesión (`localStorage`, sin
+// sincronizar a la nube) a propósito — es la parte "propia de esta PC" del
+// espacio de trabajo, no progreso que deba viajar entre máquinas.
+
+export type StickerSurface = 'dashboard' | 'practice'
+export interface StickerPlacement { surface: StickerSurface; x: number; y: number }
+type Placements = Record<string, StickerPlacement>
+
+function getAllPlacements(): Placements {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(STICKER_PLACEMENTS_KEY)
+    return raw ? (JSON.parse(raw) as Placements) : {}
+  } catch { return {} }
+}
+
+function saveAllPlacements(all: Placements): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(STICKER_PLACEMENTS_KEY, JSON.stringify(all)) } catch { /* ignore quota errors */ }
+}
+
+/** Solo los stickers puestos en ESTA superficie — los que están en la otra no aparecen acá. */
+export function getStickerPlacements(surface: StickerSurface): Record<string, StickerPlacement> {
+  const out: Record<string, StickerPlacement> = {}
+  for (const [id, p] of Object.entries(getAllPlacements())) if (p.surface === surface) out[id] = p
+  return out
+}
+
+/** ¿En qué superficie está este sticker ahora mismo (si está en alguna)? */
+export function getStickerSurface(itemId: string): StickerSurface | null {
+  return getAllPlacements()[itemId]?.surface ?? null
+}
+
+/** Pega (o mueve) el sticker acá — si estaba en la otra superficie, se saca de ahí solo. */
+export function setStickerPlacement(surface: StickerSurface, itemId: string, pos: { x: number; y: number }): void {
+  const all = getAllPlacements()
+  all[itemId] = { surface, ...pos }
+  saveAllPlacements(all)
+}
+
+export function removeStickerPlacement(itemId: string): void {
+  const all = getAllPlacements()
+  delete all[itemId]
+  saveAllPlacements(all)
+}
+
 // ─── Sync con la nube (solo modo cuenta) ─────────────────────────────────────
 // El patio de juegos, los amuletos y el cofre final corren 100% en el
 // navegador, incluso con cuenta — sin esto, un alumno que cambia de PC en el
@@ -354,6 +611,8 @@ export interface CloudExtras {
   playground: PlaygroundState | null
   finale: FinaleProgress | null
   finale_deco: FinaleDecoration | null
+  shop: OwnedShopItem[] | null
+  equipped_perks: string[] | null
 }
 
 export function hydrateFromCloud(cloud: CloudExtras): void {
@@ -377,6 +636,10 @@ export function hydrateFromCloud(cloud: CloudExtras): void {
   // Amuletos: unión por id — son consumibles, no hay "mejor" versión de cada uno.
   saveAmuletsRaw(mergeAmuletsById(cloud.amulets ?? [], getAmulets()))
 
+  // Ítems de la tienda: unión por id (una vez comprado, es para siempre) — si
+  // un lado personalizó el color y el otro no, se respeta la personalización.
+  saveShopOwnedRaw(mergeOwnedById(cloud.shop ?? [], getShopLedger()))
+
   // Cofre final: se queda con el que tenga más misiones completadas.
   const localFinale = getFinaleProgress()
   const cloudFinale = cloud.finale
@@ -390,6 +653,17 @@ export function hydrateFromCloud(cloud: CloudExtras): void {
   // la que el alumno ve ahora mismo); si acá no hay ninguna, se trae la de la nube.
   const bestDeco = getFinaleDecoration() ?? cloud.finale_deco
   if (bestDeco) saveFinaleDecoration(bestDeco)
+
+  // Perks equipados: unión recortada al límite de slots — es una elección,
+  // no un progreso acumulable, así que si los dos lados equiparon cosas
+  // distintas se prioriza lo que ya estaba en la nube.
+  const localEquipped = getEquippedPerks()
+  if (cloud.equipped_perks) {
+    const merged = [...new Set([...cloud.equipped_perks, ...localEquipped])].slice(0, PERK_SLOT_LIMIT)
+    setEquippedPerksRaw(merged)
+  } else if (localEquipped.length > 0) {
+    setEquippedPerksRaw(localEquipped)
+  }
 }
 
 function mergeMax(a: Record<string, number> = {}, b: Record<string, number> = {}): Record<string, number> {
@@ -402,4 +676,21 @@ function mergeAmuletsById(a: Amulet[], b: Amulet[]): Amulet[] {
   const byId = new Map(a.map((am) => [am.id, am] as const))
   for (const am of b) if (!byId.has(am.id)) byId.set(am.id, am)
   return [...byId.values()]
+}
+
+/** Une los registros de compras de la nube y de este dispositivo. Cada compra
+ *  es única por (id, fecha) — un consumible puede comprarse varias veces —, y
+ *  si un lado ya la marcó como usada, gana "usada" (si no, el ítem revivía al
+ *  sincronizar). Entre dos versiones sin usar, gana la personalizada. */
+function mergeOwnedById(a: OwnedShopItem[], b: OwnedShopItem[]): OwnedShopItem[] {
+  const key = (o: OwnedShopItem) => `${o.id}@${o.acquiredAt}`
+  const byKey = new Map(a.map((o) => [key(o), o] as const))
+  for (const o of b) {
+    const existing = byKey.get(key(o))
+    if (!existing) { byKey.set(key(o), o); continue }
+    const consumedAt = existing.consumedAt ?? o.consumedAt
+    const colorway = existing.colorway ?? o.colorway
+    byKey.set(key(o), { ...existing, ...(consumedAt ? { consumedAt } : {}), ...(colorway ? { colorway } : {}) })
+  }
+  return [...byKey.values()]
 }

@@ -10,14 +10,29 @@ import MercaderModal, { AmuletCard } from './MercaderModal'
 import ResetBossButton from './ResetBossButton'
 import BossIntro from './BossIntro'
 import LessonWindow from './LessonWindow'
+import InventoryApp from './inventory/InventoryApp'
 import Win from '@/components/ui/Win'
 import { getLesson } from '@/lib/game/lessons'
 import { executeChallenge, preloadPyodide, preloadSqlJs } from '@/lib/game/executor'
 import { AMULET_META, getRandomAmuletOffer } from '@/lib/game/amulets'
 import { AmuletIcon } from '@/components/ui/PixelIcons'
+import InventoryConsole from './items/InventoryConsole'
+import PatoDebugWindow from './items/PatoDebugWindow'
+import CompuHackeadaWindow from './items/CompuHackeadaWindow'
+import { ItemSprite, itemSpriteKey } from './items/ItemSprites'
+import { ItemUseBurst, PenguinTip, SixSevenOverlay, ZondaSweep } from './items/ItemOverlays'
 import { sfx } from '@/lib/game/architect/sound'
 import { BOSS_DIALOGUES } from '@/lib/game/dialogues'
-import type { Boss, Challenge, ChallengeTier, Amulet, AmuletType } from '@/types'
+import {
+  applyItem, broccoliDamage, ownedPerkItems, rollBossHeal, BROCCOLI_HITS, PERK_SLOT_LIMIT,
+  type ItemUseResult,
+} from '@/lib/game/perk-effects'
+import { autoFixCode, type CodeFix } from '@/lib/game/items/auto-fix'
+import { BATTLE_ITEMS } from '@/lib/game/shop'
+import {
+  activateShopCoupon, addArmor as storeAddArmor, consumePerk, getArmor, getEquippedPerks, getShopOwned, setEquippedPerks,
+} from '@/lib/storage/local-store'
+import type { Boss, Challenge, ChallengeTier, Amulet, AmuletType, ShopItem } from '@/types'
 
 const PLAYER_MAX_HP = 100
 const PLAYER_WRONG_PENALTY = 25  // TRAINEE: -25 HP per wrong answer
@@ -36,6 +51,17 @@ interface CombatArenaProps {
   defeatedBefore?: number
   /** Sesión del alumno TEST: muestra herramientas para simular aciertos. */
   testMode?: boolean
+  /** Banco de pruebas de ítems (/demo/items): los 14 ítems disponibles, nada se gasta ni se guarda. */
+  sandbox?: boolean
+}
+
+const PENGUIN_TIP_KEY = 'pysql:penguin-tip-seen'
+
+/** Código con algo ejecutable de verdad (no solo comentarios, ni huecos ___) — lo pide el Zonda. */
+function hasRealCode(code: string, lang: 'python' | 'sql'): boolean {
+  if (/_{3,}/.test(code)) return false
+  const comment = lang === 'sql' ? /--.*$/gm : /#.*$/gm
+  return code.replace(comment, '').trim().length > 0
 }
 
 interface AttackResult {
@@ -46,14 +72,14 @@ interface AttackResult {
 }
 
 export default function CombatArena({
-  boss, challenges, initialHp, initialDefeated, persist, victoryHref, localMode, showGuide, tier, defeatedBefore, testMode,
+  boss, challenges, initialHp, initialDefeated, persist, victoryHref, localMode, showGuide, tier, defeatedBefore, testMode, sandbox,
 }: CombatArenaProps) {
   const router = useRouter()
   const attacksRef = useRef(persist?.attacksCount ?? 0)
 
   // Intro dialogue — inicializar false para evitar hydration mismatch, luego leer localStorage en useEffect
   const introLines = BOSS_DIALOGUES[boss.id] ?? []
-  const hasIntro = introLines.length > 0
+  const hasIntro = introLines.length > 0 && !sandbox
   const introKey = `boss-intro-seen-${boss.id}`
   const [showIntro, setShowIntro] = useState(false)
 
@@ -77,6 +103,9 @@ export default function CombatArena({
   const lesson = getLesson(boss.id)
   const [showLesson, setShowLesson] = useState(false)
   const openLesson = useCallback(() => setShowLesson(true), [])
+
+  // Inventario: amuletos + ítems/stickers de la tienda, consultable en medio de la batalla.
+  const [showInventory, setShowInventory] = useState(false)
 
   // Boss state
   const [bossHp, setBossHp]                 = useState(initialHp ?? boss.hpMax)
@@ -103,9 +132,30 @@ export default function CombatArena({
   const [showMercader, setShowMercader]     = useState(false)
   const [mercaderOffers, setMercaderOffers] = useState<AmuletType[]>([])
   const [pendingVictoryHref, setPendingVHref] = useState<string | null>(null)
+  /** El alumno ya derrotó al Mercader del Abismo — decide qué línea sobre el hermano usa el Ambulante. */
+  const [abismoEncountered, setAbismoEncountered] = useState<boolean | undefined>(undefined)
 
   // Amulets
   const [amulets, setAmulets]               = useState<Amulet[]>([])
+
+  // ── Ítems del Mercader (se usan desde INVENTARIO.PY con print(nombre)) ────
+  const [ownedItems, setOwnedItems]         = useState<ShopItem[]>([])
+  const [equippedItems, setEquippedItems]   = useState<string[]>([])
+  const [armor, setArmor]                   = useState(0)
+  const [duckActive, setDuckActive]         = useState(false)
+  const [showDuck, setShowDuck]             = useState(false)
+  const [compuFix, setCompuFix]             = useState<{ fixes: CodeFix[]; hasBlanks: boolean } | null>(null)
+  const [codeReplace, setCodeReplace]       = useState<{ code: string; nonce: number } | null>(null)
+  const [broccoliHits, setBroccoliHits]     = useState(0)
+  const [zondaArmed, setZondaArmed]         = useState(false)
+  const [show67, setShow67]                 = useState(false)
+  const [zondaFx, setZondaFx]               = useState(false)
+  const [itemBurst, setItemBurst]           = useState<{ key: number; sprite: string; label: string } | null>(null)
+  const [penguinTip, setPenguinTip]         = useState(false)
+  const editorCodeRef = useRef('')
+  const handleCodeChange = useCallback((code: string) => { editorCodeRef.current = code }, [])
+  const penguinOn = equippedItems.includes('item-pinguino')
+  const cloverOn  = equippedItems.includes('item-trebol')
 
   // Preload WASM engines
   useEffect(() => {
@@ -165,6 +215,146 @@ export default function CombatArena({
   }, [])
 
   const challenge = challenges[currentChallengeIdx]
+
+  // Ítems: en el sandbox están los 14 (y nada se gasta); si no, lo que compró el alumno.
+  useEffect(() => {
+    if (sandbox) { setOwnedItems(BATTLE_ITEMS); return }
+    setOwnedItems(ownedPerkItems(getShopOwned()))
+    setEquippedItems(getEquippedPerks())
+    setArmor(getArmor())
+  }, [sandbox])
+
+  // El Pingüino se presenta la primera vez que está activo en una batalla.
+  useEffect(() => {
+    if (!penguinOn) return
+    try { if (!localStorage.getItem(PENGUIN_TIP_KEY)) setPenguinTip(true) } catch { /* modo privado */ }
+  }, [penguinOn])
+
+  const closePenguinTip = useCallback(() => {
+    setPenguinTip(false)
+    try { localStorage.setItem(PENGUIN_TIP_KEY, '1') } catch { /* modo privado */ }
+  }, [])
+
+  const pushLog = useCallback((msg: string) => {
+    setLog((prev) => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev])
+  }, [])
+
+  /** Guarda la vida del jefe después de un golpe de ítem (mismo camino que el Amuleto de Debilidad). */
+  const persistBossHp = useCallback((hp: number) => {
+    if (sandbox) return
+    if (localMode) {
+      import('@/lib/storage/local-store').then(({ saveBossProgress }) => saveBossProgress(boss.id, hp, false))
+    }
+    if (persist) {
+      import('@/lib/supabase/client').then(({ createClient }) => {
+        createClient().from('battle_records').update({ hp_current: hp }).eq('id', persist.battleId).then(() => {})
+      })
+    }
+  }, [sandbox, localMode, persist, boss.id])
+
+  const spawnDamageNumber = useCallback((value: number) => {
+    const numId = Date.now() + Math.random()
+    const xOffset = 40 + Math.random() * 20
+    setDamageNumbers((prev) => [...prev, { id: numId, value, x: xOffset }])
+    setTimeout(() => setDamageNumbers((prev) => prev.filter((n) => n.id !== numId)), 1200)
+  }, [])
+
+  const handleUseItem = useCallback((item: ShopItem): ItemUseResult => {
+    const sprite = itemSpriteKey(item.glyph)
+    const battleLive = !isDefeated && !isPlayerDefeated
+
+    const result = applyItem(item, {
+      battle: battleLive && challenge ? {
+        boss, bossHp,
+        damageBoss: (amount, source) => {
+          const next = Math.max(1, bossHp - amount)
+          setBossHp(next)
+          setDamageAnim(true)
+          setTimeout(() => setDamageAnim(false), 420)
+          spawnDamageNumber(amount)
+          sfx.hit()
+          pushLog(`[ITM] ${source}: -${amount} HP → ${next} restante`)
+          persistBossHp(next)
+        },
+        hasPlayerHp: showPlayerHp,
+        playerHp, maxPlayerHp: PLAYER_MAX_HP,
+        healPlayer: (amount) => {
+          setPlayerHp((hp) => Math.min(PLAYER_MAX_HP, hp + amount))
+          sfx.potion()
+          pushLog(`[ITM] ${item.name}: +${amount} HP`)
+        },
+        addArmor: () => {
+          const next = sandbox ? armor + 1 : storeAddArmor(1)
+          setArmor(next)
+          pushLog(`[ITM] ${item.name}: +1 Armadura (total ${next})`)
+          return next
+        },
+        openDuck: () => { setDuckActive(true); setShowDuck(true) },
+        duckActive,
+        runAutoFix: () => {
+          const r = autoFixCode(editorCodeRef.current, challenge.type)
+          if (!r.fixes.length) {
+            return { fixes: 0, reason: r.hasBlanks
+              ? 'La Compu no encontró errores de escritura. Lo que falta son los huecos ___, y esos los completás vos. No se gastó.'
+              : 'La Compu revisó todo y no encontró errores de escritura. No se gastó.' }
+          }
+          setCodeReplace({ code: r.code, nonce: Date.now() })
+          setCompuFix({ fixes: r.fixes, hasBlanks: r.hasBlanks })
+          pushLog(`[ITM] Compu Hackeada: ${r.fixes.length} ${r.fixes.length === 1 ? 'corrección' : 'correcciones'}`)
+          return { fixes: r.fixes.length }
+        },
+        broccoliHitsLeft: broccoliHits,
+        armBroccoli: () => { setBroccoliHits(BROCCOLI_HITS); pushLog(`[ITM] Brócoli: próximos ${BROCCOLI_HITS} golpes +20%`) },
+        zondaArmed,
+        armZonda: () => { setZondaArmed(true); setZondaFx(true); pushLog('[ITM] Zonda: el próximo código válido le pega al jefe') },
+      } : null,
+      show67: () => { setShow67(true); sfx.jingle() },
+      activateCoupon: (pct) => {
+        if (sandbox) { pushLog(`[ITM] Cupón -${Math.round(pct * 100)}% (sandbox: no se guarda)`); return true }
+        return activateShopCoupon(pct)
+      },
+      togglePassive: (it) => {
+        const isOn = equippedItems.includes(it.id)
+        if (!isOn && equippedItems.length >= PERK_SLOT_LIMIT) return { ok: false, equipped: false }
+        const next = isOn ? equippedItems.filter((id) => id !== it.id) : [...equippedItems, it.id]
+        setEquippedItems(next)
+        sfx.equip(!isOn)
+        if (!sandbox) setEquippedPerks(next)
+        pushLog(`[ITM] ${it.name} ${isOn ? 'desequipado' : 'equipado'}`)
+        return { ok: true, equipped: !isOn }
+      },
+    })
+
+    if (result.status === 'used') {
+      sfx.perkUse()
+      if (sprite && item.effectId !== 'pato-debug' && item.effectId !== 'compu-hackeada') {
+        setItemBurst({ key: Date.now(), sprite, label: item.name })
+      }
+      if (!sandbox) {
+        consumePerk(item.id)
+        setOwnedItems((prev) => prev.filter((p) => p.id !== item.id))
+      }
+    }
+    return result
+  }, [
+    boss, bossHp, challenge, isDefeated, isPlayerDefeated, showPlayerHp, playerHp, armor, duckActive, broccoliHits,
+    zondaArmed, equippedItems, sandbox, pushLog, persistBossHp, spawnDamageNumber,
+  ])
+
+  /** Jefes de la fase 2 que se curan — por ahora solo lo dispara el sandbox; el Trébol puede frenarlo. */
+  const handleBossHeal = useCallback((amount: number) => {
+    if (isDefeated) return
+    if (rollBossHeal(cloverOn).blocked) {
+      sfx.denied()
+      pushLog('[ITM] Trébol de la Suerte: ¡el jefe intentó curarse y no pudo!')
+      setItemBurst({ key: Date.now(), sprite: 'trebol', label: '¡Suerte!' })
+      return
+    }
+    const next = Math.min(boss.hpMax, bossHp + amount)
+    setBossHp(next)
+    sfx.potion()
+    pushLog(`[JEF] ${boss.name} se curó +${next - bossHp} HP → ${next}`)
+  }, [isDefeated, cloverOn, bossHp, boss.hpMax, boss.name, pushLog])
 
   // Supabase mode: guarda el ataque y el estado del jefe. Un fallo de red no debe romper el combate.
   const persistAttack = useCallback(async (
@@ -247,9 +437,16 @@ export default function CombatArena({
     setLastResult(null)
 
     try {
-      const result = simulate
+      const executed = simulate
         ? { isCorrect: true, actualOutput: challenge.expectedOutput, expectedOutput: challenge.expectedOutput, error: null }
         : await executeChallenge(challenge, code)
+      // Zonda: no importa lo que pidió el jefe — si el código corre sin error, pega.
+      const zondaHit = zondaArmed && !simulate && !executed.isCorrect && !executed.error && hasRealCode(code, challenge.type)
+      const result = zondaHit ? { ...executed, isCorrect: true } : executed
+      if (zondaArmed && !simulate && (result.isCorrect)) {
+        setZondaArmed(false)
+        if (zondaHit) { setZondaFx(true); pushLog('[ITM] Zonda: ¡la ráfaga barrió la consigna!') }
+      }
       const attackResult: AttackResult = {
         isCorrect: result.isCorrect,
         output: result.actualOutput,
@@ -260,7 +457,13 @@ export default function CombatArena({
 
       if (result.isCorrect) {
         // ── Correct answer ───────────────────────────────────────────────
-        const damage = simulate === 'kill' ? bossHp : challenge.damage
+        const isLastPhase = currentChallengeIdx >= challenges.length - 1
+        const boosted = broccoliHits > 0 && simulate !== 'kill'
+        const damage = simulate === 'kill' ? bossHp : boosted ? broccoliDamage(challenge.damage, bossHp, isLastPhase) : challenge.damage
+        if (boosted) {
+          setBroccoliHits((n) => n - 1)
+          pushLog(`[ITM] Brócoli: +${damage - challenge.damage} de daño extra (${broccoliHits - 1} restantes)`)
+        }
         const newBossHp = Math.max(0, bossHp - damage)
         setBossHp(newBossHp)
         setDamageAnim(true)
@@ -289,10 +492,11 @@ export default function CombatArena({
 
         // El Mercader aparece cada 2 jefes derrotados (2, 4, 6…); el jefe final no ofrece Mercader:
         // el final tiene su propia escena.
-        const onBossDefeated = (totalDefeated: number) => {
+        const onBossDefeated = (totalDefeated: number, abismoDefeated?: boolean) => {
           if (totalDefeated % 2 === 0 && boss.type !== 'final') {
             setTimeout(() => {
               setMercaderOffers(getRandomAmuletOffer(2, tier))
+              setAbismoEncountered(abismoDefeated)
               setShowMercader(true)
               sfx.mercader()
               if (victoryHref) setPendingVHref(victoryHref)
@@ -306,12 +510,17 @@ export default function CombatArena({
           import('@/lib/storage/local-store').then(({ saveBossProgress, getAllProgress }) => {
             saveBossProgress(boss.id, newBossHp, bossDefeated)
             if (bossDefeated) {
-              const totalDefeated = Object.values(getAllProgress()).filter((p) => p.defeated).length
-              onBossDefeated(totalDefeated)
+              const progress = getAllProgress()
+              const totalDefeated = Object.values(progress).filter((p) => p.defeated).length
+              const abismoDefeated = boss.id === 'mercader-abismo' ? true : !!progress['mercader-abismo']?.defeated
+              onBossDefeated(totalDefeated, abismoDefeated)
             }
           })
         } else if (bossDefeated) {
-          onBossDefeated((defeatedBefore ?? 0) + 1)
+          // Modo Supabase: no tenemos acá el detalle por jefe, solo el total — si el
+          // jefe recién caído ES el Mercader del Abismo lo sabemos con certeza, y para
+          // el resto de los casos dejamos `undefined` (el diálogo elige el tono neutro).
+          onBossDefeated((defeatedBefore ?? 0) + 1, boss.id === 'mercader-abismo' ? true : undefined)
         }
 
         if (bossDefeated) {
@@ -353,6 +562,7 @@ export default function CombatArena({
     challenge, isLoading, isDefeated, isPlayerDefeated, bossHp, playerHp,
     currentChallengeIdx, challenges.length, showPlayerHp,
     localMode, boss.id, victoryHref, router, persistAttack, defeatedBefore, tier, boss.type,
+    zondaArmed, broccoliHits, pushLog, spawnDamageNumber,
   ])
 
   // ── Derived ────────────────────────────────────────────────────────────────
@@ -401,9 +611,27 @@ export default function CombatArena({
     <div className="flex flex-col gap-4 h-full">
       {showGuide && <MascotGuide tip={challenge?.tip} onOpenLesson={lesson ? openLesson : undefined} />}
       {showLesson && lesson && <LessonWindow lesson={lesson} bossName={boss.name} onClose={() => setShowLesson(false)} />}
+      {showInventory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3" style={{ background: 'hsl(var(--bg) / 0.78)' }}>
+          <div className="w-full" style={{ maxWidth: 460 }}>
+            <Win title="INVENTARIO.EXE" active onClose={() => setShowInventory(false)} bodyStyle={{ padding: 16 }}>
+              <InventoryApp inBattle itemsOverride={sandbox ? BATTLE_ITEMS : undefined} equippedOverride={equippedItems} />
+            </Win>
+          </div>
+        </div>
+      )}
+      {showDuck && challenge && (
+        <PatoDebugWindow boss={boss} challenge={challenge} getCode={() => editorCodeRef.current} onClose={() => setShowDuck(false)} />
+      )}
+      {compuFix && <CompuHackeadaWindow fixes={compuFix.fixes} hasBlanks={compuFix.hasBlanks} onClose={() => setCompuFix(null)} />}
+      {show67 && <SixSevenOverlay onDone={() => setShow67(false)} />}
+      {zondaFx && <ZondaSweep onDone={() => setZondaFx(false)} />}
+      {penguinTip && challenge && !isDefeated && <PenguinTip language={challenge.type} onClose={closePenguinTip} />}
       {showMercader && (
         <MercaderModal
           offers={mercaderOffers}
+          bossName={boss.name}
+          abismoEncountered={abismoEncountered}
           onChoose={(type) => handleMercaderClose(type)}
           onSkip={() => handleMercaderClose()}
         />
@@ -433,6 +661,9 @@ export default function CombatArena({
             <div className={isDamageAnimating ? 'animate-damage-flash-v2' : ''}>
               <BossSprite boss={boss} size="lg" defeated={isDefeated} animated={!isDefeated} hpRatio={bossHp / boss.hpMax} />
             </div>
+            {itemBurst && (
+              <ItemUseBurst key={itemBurst.key} sprite={itemBurst.sprite} label={itemBurst.label} onDone={() => setItemBurst(null)} />
+            )}
             {/* Floating damage numbers */}
             {damageNumbers.map(n => (
               <div
@@ -474,9 +705,31 @@ export default function CombatArena({
                   Apuntes
                 </button>
               )}
+              <button
+                onClick={() => { sfx.open(); setShowInventory(true) }}
+                className="hover:opacity-80 transition-opacity"
+                style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 14, letterSpacing: '0.05em', textTransform: 'uppercase', padding: '1px 8px', border: '2px solid hsl(var(--border2))', background: 'transparent', color: 'hsl(var(--tx2))', cursor: 'pointer' }}
+                title="Ver amuletos, ítems y stickers"
+              >
+                Inventario
+              </button>
             </div>
             <h2 className="text-2xl mb-3" style={{ color: 'hsl(var(--tx))', lineHeight: 1.05 }}>{boss.name}</h2>
             <HPBar current={bossHp} max={boss.hpMax} label="HP JEFE" size="lg" color="hsl(var(--accent))" />
+            {!isDefeated && (broccoliHits > 0 || zondaArmed || penguinOn || cloverOn || duckActive || (!showPlayerHp && armor > 0)) && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-2" aria-label="Ítems activos">
+                {duckActive && (
+                  <button type="button" onClick={() => { sfx.open(); setShowDuck(true) }} title="Abrir al Pato Debug" style={chipStyle(true)}>
+                    <ItemSprite sprite="pato-debug" size={16} /> Pato
+                  </button>
+                )}
+                {broccoliHits > 0 && <span style={chipStyle()} title="Próximos golpes +20%"><ItemSprite sprite="brocoli" size={16} /> ×{broccoliHits}</span>}
+                {zondaArmed && <span style={chipStyle()} title="Cualquier código válido pega"><ItemSprite sprite="zonda" size={16} animated /> Zonda</span>}
+                {penguinOn && <span style={chipStyle()} title="Autocompletado activo"><ItemSprite sprite="pinguino" size={16} /> Pingüino</span>}
+                {cloverOn && <span style={chipStyle()} title="20% de frenar curaciones del jefe"><ItemSprite sprite="trebol" size={16} /> Trébol</span>}
+                {!showPlayerHp && armor > 0 && <span style={chipStyle()} title="Armadura para jefes especiales"><ItemSprite sprite="mandarina" size={16} /> Armadura {armor}</span>}
+              </div>
+            )}
             {isDefeated && (
               <p className="mt-2" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, color: 'hsl(var(--accent))' }}>
                 ¡DERROTADO! — Clase {boss.classNumber} completada.
@@ -541,6 +794,11 @@ export default function CombatArena({
         </Win>
       )}
 
+      {/* INVENTARIO.PY — los ítems se usan escribiendo print(nombre) */}
+      {(ownedItems.length > 0 || sandbox) && !isDefeated && !isPlayerDefeated && (
+        <InventoryConsole items={ownedItems} equipped={equippedItems} onUse={handleUseItem} />
+      )}
+
       {/* Player defeated screen */}
       {isPlayerDefeated ? (
         <Win title="DERROTA.EXE" tone="danger" active bodyStyle={{ padding: 32 }}>
@@ -578,10 +836,28 @@ export default function CombatArena({
               ← Volver al mapa
             </a>
             {testMode && <ResetBossButton bossId={boss.id} onDone={() => window.location.reload()} />}
+            {sandbox && (
+              <button type="button" className="btn-ghost" onClick={() => { setIsDefeated(false); setBossHp(boss.hpMax); setIdx(0); setLastResult(null); setBroccoliHits(0); setZondaArmed(false) }}>
+                Revivir al jefe (sandbox)
+              </button>
+            )}
           </div>
         </Win>
       ) : challenge ? (
         <div className="flex-1 min-h-0 flex flex-col gap-3">
+          {sandbox && (
+            <SandboxPanel
+              bossHp={bossHp}
+              bossMax={boss.hpMax}
+              showPlayerHp={showPlayerHp}
+              cloverOn={cloverOn}
+              busy={isLoading}
+              onBossHp={(hp) => setBossHp(Math.max(1, Math.min(boss.hpMax, hp)))}
+              onBossHeal={() => handleBossHeal(Math.round(boss.hpMax * 0.15))}
+              onPlayerHit={() => setPlayerHp((hp) => Math.max(1, hp - 25))}
+              onSimulateHit={() => handleSubmit('# SANDBOX: acierto simulado', 'hit')}
+            />
+          )}
           {testMode && (
             <div
               className="flex flex-wrap items-center gap-2 px-3 py-2 font-mono text-[11px]"
@@ -616,6 +892,17 @@ export default function CombatArena({
             onSubmit={handleSubmit}
             isLoading={isLoading}
             lastResult={lastResult}
+            penguin={penguinOn}
+            codeReplace={codeReplace}
+            onCodeChange={handleCodeChange}
+            banner={zondaArmed ? (
+              <div className="flex items-center gap-2 item-status-in" style={{ padding: '6px 10px', border: '2px solid hsl(var(--tx))', background: 'hsl(var(--surface2))' }}>
+                <ItemSprite sprite="zonda" size={24} animated />
+                <span style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, lineHeight: 1.1, color: 'hsl(var(--tx))' }}>
+                  <b>Sopla el Zonda.</b> En este ataque no importa la consigna: cualquier código que funcione sin error le pega al jefe.
+                </span>
+              </div>
+            ) : null}
           />
         </div>
       ) : (
@@ -635,5 +922,44 @@ export default function CombatArena({
         </Win>
       )}
     </div>
+  )
+}
+
+function chipStyle(interactive = false): React.CSSProperties {
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: 5, padding: '1px 7px 1px 3px',
+    fontFamily: 'var(--font-jersey), monospace', fontSize: 14, letterSpacing: '0.03em', lineHeight: 1.2,
+    border: '2px solid hsl(var(--tx))', background: 'hsl(var(--surface2))', color: 'hsl(var(--tx))',
+    cursor: interactive ? 'pointer' : 'default',
+  }
+}
+
+/** Controles del banco de pruebas (/demo/items) — nunca aparece en una batalla real. */
+function SandboxPanel({
+  bossHp, bossMax, showPlayerHp, cloverOn, busy, onBossHp, onBossHeal, onPlayerHit, onSimulateHit,
+}: {
+  bossHp: number; bossMax: number; showPlayerHp: boolean; cloverOn: boolean; busy: boolean
+  onBossHp: (hp: number) => void; onBossHeal: () => void; onPlayerHit: () => void; onSimulateHit: () => void
+}) {
+  const btn = (tone: 'tx' | 'accent' = 'tx'): React.CSSProperties => ({
+    padding: '4px 10px', border: `2px solid hsl(var(--${tone}))`, background: 'hsl(var(--surface))',
+    color: `hsl(var(--${tone}))`, cursor: 'pointer', fontFamily: 'var(--font-jersey), monospace', fontSize: 15, letterSpacing: '0.03em',
+  })
+  return (
+    <Win title="SANDBOX_ITEMS.SYS" bodyStyle={{ padding: 10 }}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="label-mono" style={{ color: 'hsl(var(--tx2))' }}>Vida del jefe</span>
+        <button type="button" style={btn()} onClick={() => { sfx.click(); onBossHp(bossHp + 25) }}>+25</button>
+        <button type="button" style={btn()} onClick={() => { sfx.click(); onBossHp(bossHp + 100) }}>+100</button>
+        <button type="button" style={btn()} onClick={() => { sfx.click(); onBossHp(bossMax) }}>Llenar</button>
+        <button type="button" style={btn()} onClick={() => { sfx.click(); onBossHp(bossHp - 25) }}>−25</button>
+        <span style={{ width: 1, alignSelf: 'stretch', background: 'hsl(var(--border2))' }} aria-hidden />
+        <button type="button" style={btn()} onClick={onBossHeal} title={cloverOn ? 'Con Trébol: 20% de que falle' : 'Equipá el Trébol para probarlo'}>
+          Jefe se cura +15% {cloverOn ? '· Trébol' : ''}
+        </button>
+        {showPlayerHp && <button type="button" style={btn()} onClick={onPlayerHit}>Me pegan −25</button>}
+        <button type="button" style={btn('accent')} disabled={busy} onClick={onSimulateHit}>Simular acierto</button>
+      </div>
+    </Win>
   )
 }

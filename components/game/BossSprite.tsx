@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { Boss } from '@/types'
 import ArchitectCanvas from './architect/ArchitectCanvas'
+import { MercaderPortrait } from './shop/MercaderPortrait'
 
 interface BossSpriteProps {
   boss: Boss
@@ -232,7 +233,21 @@ export default function BossSprite({ boss, size = 'md', defeated = false, animat
   if (boss.id === 'el-arquitecto') {
     return <ArchitectSprite boss={boss} size={size} defeated={defeated} animated={animated} hpRatio={hpRatio} />
   }
+  if (boss.id === 'mercader-abismo') {
+    return <MercaderBossSprite size={size} defeated={defeated} animated={animated} />
+  }
   return <StaticBossSprite boss={boss} size={size} defeated={defeated} animated={animated} />
+}
+
+// El Mercader del Abismo (jefe 4) usa el mismo dibujo que la tienda (56×64),
+// a la altura de los otros sprites de jefe: 64 / 96 / 128 px de alto.
+function MercaderBossSprite({ size, defeated, animated }: { size: 'sm' | 'md' | 'lg'; defeated: boolean; animated: boolean }) {
+  const scale = DISPLAY_PX[size] / 64
+  return (
+    <div style={{ opacity: defeated ? 0.5 : 1, filter: defeated ? 'grayscale(0.8)' : 'none' }}>
+      <MercaderPortrait scale={scale} animated={animated && !defeated} />
+    </div>
+  )
 }
 
 // Sprites que todavía no existen: se prueba cada archivo una sola vez por sesión y se

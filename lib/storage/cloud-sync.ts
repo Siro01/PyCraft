@@ -26,7 +26,7 @@ async function getUserId(): Promise<string | null> {
   return cachedUserId
 }
 
-type Field = 'amulets' | 'playground' | 'finale' | 'finale_deco'
+type Field = 'amulets' | 'playground' | 'finale' | 'finale_deco' | 'shop' | 'equipped_perks'
 const timers: Partial<Record<Field, ReturnType<typeof setTimeout>>> = {}
 
 /** Sube un campo del progreso a la nube (con un pequeño debounce por campo). */
@@ -65,12 +65,12 @@ export function syncOnLoad(): void {
       const { createClient } = await import('@/lib/supabase/client')
       const { data } = await createClient()
         .from('game_extras')
-        .select('amulets, playground, finale, finale_deco')
+        .select('amulets, playground, finale, finale_deco, shop, equipped_perks')
         .eq('user_id', userId)
         .maybeSingle()
       const { hydrateFromCloud } = await import('@/lib/storage/local-store')
       hydrateFromCloud(
-        (data as CloudExtras | null) ?? { amulets: null, playground: null, finale: null, finale_deco: null }
+        (data as CloudExtras | null) ?? { amulets: null, playground: null, finale: null, finale_deco: null, shop: null, equipped_perks: null }
       )
     } catch (err) {
       console.error('No se pudo traer el progreso de la nube', err)

@@ -1,10 +1,22 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
 
-const PROTECTED = ['/dashboard', '/battle', '/admin']
+// Solo para el docente: el panel admin y todas las vistas de prueba (bancos
+// de ítems/tienda/Mercader, el final del Arquitecto, la victoria) — spoilers
+// del taller. /demo y /demo/creeper-formulario siguen públicos.
+const ADMIN_ONLY = [
+  '/admin',
+  '/demo/items', '/demo/tienda', '/demo/mercader-v2',
+  '/demo/mercader', '/demo/architect-lab', '/demo/victory',
+]
+const PROTECTED = ['/dashboard', '/battle', ...ADMIN_ONLY]
+
+function matches(pathname: string, routes: string[]) {
+  return routes.some((r) => pathname === r || pathname.startsWith(`${r}/`))
+}
 
 function isProtected(pathname: string) {
-  return PROTECTED.some((r) => pathname.startsWith(r))
+  return matches(pathname, PROTECTED)
 }
 
 // ─── Local mode: no middleware auth — pages guard themselves via localStorage ──
@@ -42,7 +54,7 @@ async function handleSupabaseMode(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (pathname.startsWith('/admin') && user) {
+  if (user && matches(pathname, ADMIN_ONLY)) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')

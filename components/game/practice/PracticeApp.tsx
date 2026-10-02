@@ -13,6 +13,7 @@ import {
   setTextZoom, TEXT_ZOOM_DEFAULT,
 } from '@/lib/storage/local-store'
 import ZoomControl from '@/components/game/ZoomControl'
+import StickerLayer from '@/components/game/stickers/StickerLayer'
 
 const jersey = 'var(--font-jersey), monospace'
 const ACCENT = '#DC143C'
@@ -169,6 +170,7 @@ export default function PracticeApp() {
 
   return (
     <div className="desk relative" style={{ border: '2px solid hsl(var(--tx))', background: 'hsl(var(--bg))', backgroundImage: 'radial-gradient(hsl(var(--tx) / 0.18) 1px, transparent 1px)', backgroundSize: '14px 14px', boxShadow: '6px 6px 0 hsl(var(--tx) / 0.18)' }}>
+      <StickerLayer surface="practice" />
       <div className="flex items-center gap-3 px-2.5" style={{ height: 28, background: 'hsl(var(--surface))', borderBottom: '2px solid hsl(var(--tx))' }}>
         <span style={{ fontFamily: jersey, fontSize: 18, letterSpacing: '0.08em', color: 'hsl(var(--tx))' }}>PYCRAFT OS</span>
         <span style={{ flex: 1 }} />

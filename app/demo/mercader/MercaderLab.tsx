@@ -42,6 +42,8 @@ export default function MercaderLab() {
       {offers && (
         <MercaderModal
           offers={offers}
+          bossName="Mercader del Abismo"
+          abismoEncountered={false}
           onChoose={(t) => { setChosen(t); setOffers(null) }}
           onSkip={() => setOffers(null)}
         />

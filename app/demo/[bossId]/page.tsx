@@ -15,8 +15,15 @@ export async function generateMetadata({ params }: PageProps) {
   return { title: boss ? `${boss.name} · Demo` : 'Demo' }
 }
 
+// La demo solo deja enfrentar a Creeper Formulario (el primer jefe) — antes
+// cualquier /demo/[bossId] andaba, así que alcanzaba con escribir la URL de
+// otro jefe para saltearse el taller entero y spoilearse el resto.
+const DEMO_BOSS_ID = 'creeper-formulario'
+
 export default async function DemoBattlePage({ params }: PageProps) {
   const { bossId } = await params
+
+  if (bossId !== DEMO_BOSS_ID) notFound()
 
   const boss = getBossById(bossId)
   if (!boss) notFound()

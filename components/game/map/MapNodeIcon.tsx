@@ -3,6 +3,7 @@
 import { IconCheck, IconLock } from '@/components/ui/PixelIcons'
 import { TILE_SIZE } from '@/lib/game/act-maps'
 import BossTopicIcon from './BossTopicIcon'
+import { PixelGrid } from '@/components/game/items/ItemSprites'
 import type { Boss } from '@/types'
 
 export type NodeState = 'defeated' | 'current' | 'available' | 'locked'
@@ -139,4 +140,60 @@ interface PracticeNodeProps {
 // Ícono del patio de prácticas: glifo de corchetes de código `</>`.
 export function PracticeNode({ reachable, focused }: PracticeNodeProps) {
   return <UtilityNode reachable={reachable} focused={focused} glyph={CODE_GLYPH} />
+}
+
+// Tienda del Mercader del Abismo: una fachada con toldo a rayas, vidriera y
+// puerta — tiene que leerse como "tienda" de un vistazo, no como un nodo
+// más. Es un poco más grande que los otros nodos de utilidad (es una zona,
+// no una casilla) y usa los mismos roles de color que los sprites de los
+// ítems, así el toldo toma el acento del tema (carmesí en red).
+const SHOP_FRONT = [
+  '................',
+  '.kkkkkkkkkkkkkk.',
+  '.kfffffaafffffk.',
+  '.kkkkkkkkkkkkkk.',
+  'kkkkkkkkkkkkkkkk',
+  'kaaffaaffaaffaak',
+  'kaaffaaffaaffaak',
+  '.kk.kk.kk.kk.kk.',
+  '.kffffffffffffk.',
+  '.kfkkkkkfkkkkfk.',
+  '.kfkwawkfkddkfk.',
+  '.kfkwwwkfkddkfk.',
+  '.kfkkkkkfkdakfk.',
+  '.kfffffffkddkfk.',
+  'kkkkkkkkkkkkkkkk',
+  '................',
+]
+
+interface ShopNodeProps {
+  /** Ya derrotó al jefe #2 — la tienda está abierta. */
+  unlocked: boolean
+  focused: boolean
+}
+
+export function ShopNode({ unlocked, focused }: ShopNodeProps) {
+  const size = TILE_SIZE - 2
+  return (
+    <div
+      className={unlocked ? 'shop-node shop-node--open' : 'shop-node'}
+      style={{
+        position: 'relative',
+        width: size,
+        height: size,
+        outline: focused ? '2px solid hsl(var(--accent))' : 'none',
+        outlineOffset: 2,
+        opacity: unlocked ? 1 : 0.5,
+        filter: unlocked ? undefined : 'grayscale(1)',
+      }}
+      aria-hidden="true"
+    >
+      <PixelGrid rows={SHOP_FRONT} size={size} />
+      {!unlocked && (
+        <span className="absolute" style={{ top: -6, right: -6, width: 14, height: 14, background: 'hsl(var(--surface))', border: '2px solid hsl(var(--tx))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <IconLock size={8} color="hsl(var(--tx))" />
+        </span>
+      )}
+    </div>
+  )
 }

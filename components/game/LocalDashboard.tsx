@@ -88,6 +88,7 @@ export default function LocalDashboard() {
         progress={progress}
         enabledIds={enabledIds}
         username={user?.name}
+        isAdmin={user?.role === 'admin'}
         totalDefeated={totalDefeated}
         headerExtra={
           <div className="flex flex-col items-end gap-2 self-end">

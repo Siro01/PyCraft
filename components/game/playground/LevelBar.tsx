@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { PLAYGROUND_XP_PER_LEVEL, playgroundLevel } from '@/lib/storage/local-store'
+import { PLAYGROUND_MAX_LEVEL, playgroundLevel } from '@/lib/storage/local-store'
 
 interface Props {
   /** XP total ANTES de este resultado — la barra arranca acá y sube animada. */
@@ -46,7 +46,11 @@ export default function LevelBar({ fromXp, toXp }: Props) {
         <div className="h-full transition-all duration-700 ease-out" style={{ width: `${pct}%`, background: 'hsl(var(--accent))' }} suppressHydrationWarning />
       </div>
       <div className="flex items-center justify-between label-mono mt-1" style={{ color: 'hsl(var(--tx3))' }}>
-        <span suppressHydrationWarning>{animated ? to.xpIntoLevel : from.xpIntoLevel} / {PLAYGROUND_XP_PER_LEVEL} XP</span>
+        <span suppressHydrationWarning>
+          {shownLevel >= PLAYGROUND_MAX_LEVEL
+            ? '¡Nivel máximo!'
+            : `${animated ? to.xpIntoLevel : from.xpIntoLevel} / ${animated ? to.xpForNext : from.xpForNext} XP`}
+        </span>
         {leveledUp && animated && (
           <span className="animate-caret-line" style={{ color: 'hsl(var(--accent))' }}>¡SUBISTE DE NIVEL!</span>
         )}

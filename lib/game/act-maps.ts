@@ -71,6 +71,7 @@ export interface ActMapDef {
   nodes: MapNode[]
   playground: MapPoint
   practice: MapPoint
+  mercader: MapPoint
   entry: MapPoint
   exit: MapPoint | null
 }
@@ -207,6 +208,12 @@ function buildAct(opts: {
   const practice: MapPoint = { x: entry.x, y: playgroundUp ? entry.y + 3 : entry.y + 6 }
   vLine(tiles, entry.x, entry.y, practice.y)
 
+  // Tienda del Mercader del Abismo: mismo principio, un ramal más allá del
+  // patio de prácticas por la misma columna — las tres ramas nunca compiten
+  // por casillas porque cada una extiende la anterior en vez de cruzarla.
+  const mercader: MapPoint = { x: entry.x, y: playgroundUp ? entry.y + 6 : entry.y + 9 }
+  vLine(tiles, entry.x, entry.y, mercader.y)
+
   // Sendero secundario: un ramal corto y sin salida que no lleva a nada
   // todavía — el trazado ya soporta curvas y ramas, así que más adelante se
   // puede colgar un secreto en la punta. Se dibuja punteado y tenue (ver
@@ -233,7 +240,7 @@ function buildAct(opts: {
   }
 
   const allTiles = Array.from(tiles.values())
-  const maxY = Math.max(...nodes.map((n) => n.y), playground.y, practice.y, entry.y, ...allTiles.map((t) => t.y))
+  const maxY = Math.max(...nodes.map((n) => n.y), playground.y, practice.y, mercader.y, entry.y, ...allTiles.map((t) => t.y))
   const width = Math.max(maxX, ...allTiles.map((t) => t.x)) + 3
   const height = maxY + 3
 
@@ -245,6 +252,7 @@ function buildAct(opts: {
   for (const n of nodes) occupied.add(`${n.x},${n.y}`)
   occupied.add(`${playground.x},${playground.y}`)
   occupied.add(`${practice.x},${practice.y}`)
+  occupied.add(`${mercader.x},${mercader.y}`)
 
   const decorations: MapTile[] = []
   let seed = opts.index * 1000 + 7
@@ -288,6 +296,7 @@ function buildAct(opts: {
     nodes,
     playground,
     practice,
+    mercader,
     entry,
     exit,
   }

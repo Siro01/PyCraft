@@ -67,6 +67,7 @@ async function SupabaseDashboard() {
         progress={progress}
         enabledIds={enabledIds}
         testMode={isTest}
+        isAdmin={role === 'admin'}
         username={username}
         totalDefeated={totalDefeated}
         headerExtra={tier && enabledTiers.length > 1 ? <TierSelector enabled={enabledTiers} current={tier} /> : undefined}
