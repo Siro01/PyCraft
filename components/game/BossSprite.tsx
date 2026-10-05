@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import type { Boss } from '@/types'
 import ArchitectCanvas from './architect/ArchitectCanvas'
 import { MercaderPortrait } from './shop/MercaderPortrait'
+import GuardianSprite from './GuardianSprite'
 
 interface BossSpriteProps {
   boss: Boss
@@ -235,6 +236,14 @@ export default function BossSprite({ boss, size = 'md', defeated = false, animat
   }
   if (boss.id === 'mercader-abismo') {
     return <MercaderBossSprite size={size} defeated={defeated} animated={animated} />
+  }
+  if (boss.id === 'guardian-puerta') {
+    // Tiene su propia animación idle y su propio cuadro de derrota (ya apagado).
+    return (
+      <div style={{ opacity: defeated ? 0.85 : 1 }}>
+        <GuardianSprite px={DISPLAY_PX[size]} animated={animated} defeated={defeated} />
+      </div>
+    )
   }
   return <StaticBossSprite boss={boss} size={size} defeated={defeated} animated={animated} />
 }

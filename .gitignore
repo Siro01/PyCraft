@@ -57,3 +57,6 @@ PRODUCT.MD
 
 #ENV PLACEHOLDERS
 .env.example
+
+# Guías internas de diseño (solo locales)
+docs/guia-sprites-jefes.md
