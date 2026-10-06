@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import BossSprite from './BossSprite'
 import HPBar from './HPBar'
+import XPBar from './XPBar'
 import CodeEditor from './CodeEditor'
 import MascotGuide from './MascotGuide'
 import MercaderModal, { AmuletCard } from './MercaderModal'
@@ -109,6 +110,9 @@ export default function CombatArena({
 
   // Boss state
   const [bossHp, setBossHp]                 = useState(initialHp ?? boss.hpMax)
+  // El Archivista (jefe 6): su vida es la barra de experiencia de Minecraft, que suena
+  // ella misma ("ding" de XP) al bajar; por eso no lleva el golpe genérico.
+  const xpBoss = boss.id === 'archivista'
   const [currentChallengeIdx, setIdx]       = useState(0)
   const [isLoading, setIsLoading]           = useState(false)
   const [lastResult, setLastResult]         = useState<AttackResult | null>(null)
@@ -272,7 +276,7 @@ export default function CombatArena({
           setDamageAnim(true)
           setTimeout(() => setDamageAnim(false), 420)
           spawnDamageNumber(amount)
-          sfx.hit()
+          if (!xpBoss) sfx.hit()
           pushLog(`[ITM] ${source}: -${amount} HP → ${next} restante`)
           persistBossHp(next)
         },
@@ -471,7 +475,7 @@ export default function CombatArena({
           if (boss.type === 'final') sfx.powerdown()
           else sfx.victory()
           setVictoryVisible(true)
-        } else {
+        } else if (!xpBoss) {
           sfx.hit()
         }
         // Floating damage number
@@ -715,7 +719,9 @@ export default function CombatArena({
               </button>
             </div>
             <h2 className="text-2xl mb-3" style={{ color: 'hsl(var(--tx))', lineHeight: 1.05 }}>{boss.name}</h2>
-            <HPBar current={bossHp} max={boss.hpMax} label="HP JEFE" size="lg" color="hsl(var(--accent))" />
+            {xpBoss
+              ? <XPBar current={bossHp} max={boss.hpMax} label="HP JEFE" />
+              : <HPBar current={bossHp} max={boss.hpMax} label="HP JEFE" size="lg" color="hsl(var(--accent))" />}
             {!isDefeated && (broccoliHits > 0 || zondaArmed || penguinOn || cloverOn || duckActive || (!showPlayerHp && armor > 0)) && (
               <div className="flex flex-wrap items-center gap-1.5 mt-2" aria-label="Ítems activos">
                 {duckActive && (

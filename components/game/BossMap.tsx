@@ -235,7 +235,7 @@ export default function BossMap({
               <span className="label-mono" style={{ color: 'hsl(var(--tx3))' }}>NIVEL</span>
               <span style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--accent))' }}>{level}</span>
             </div>
-            <div className="flex items-center gap-1.5" style={{ border: '2px solid hsl(var(--tx))', padding: '2px 8px', background: 'hsl(var(--bg))' }} title={`${totalDefeated} jefes derrotados × ${DIAMONDS_PER_BOSS} diamantes — gastalos en la tienda del Mercader del Abismo`}>
+            <div className="flex items-center gap-1.5" style={{ border: '2px solid hsl(var(--tx))', padding: '2px 8px', background: 'hsl(var(--bg))' }} title={`${totalDefeated} jefes × ${DIAMONDS_PER_BOSS} diamantes + los del patio de juegos — gastalos en la tienda del Mercader del Abismo`}>
               <ShopGlyph glyph="crystal" size={13} color="hsl(var(--accent))" />
               <span className="tabular" style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--tx))' }}>{diamonds}</span>
             </div>

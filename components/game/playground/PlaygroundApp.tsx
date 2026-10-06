@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import AppWindow from '@/components/ui/AppWindow'
 import { PixelBitmap, ICON_TERMINAL } from '@/components/game/architect/desktop/PixelBitmap'
-import { IconCheck } from '@/components/ui/PixelIcons'
 import { sfx } from '@/lib/game/architect/sound'
 import { EMPTY_PLAYGROUND, getPlaygroundState, getTextZoom, recordPlaygroundResult, setTextZoom, TEXT_ZOOM_DEFAULT } from '@/lib/storage/local-store'
 import { getPlaygroundAct, type PlaygroundTopic } from '@/lib/game/playground'
@@ -12,12 +11,23 @@ import ExerciseCard from './ExerciseCard'
 import LevelBar from './LevelBar'
 import PlaygroundTopicIcon from './PlaygroundTopicIcon'
 import RodolfoCheer from './RodolfoCheer'
+import PlaygroundChecklist from './PlaygroundChecklist'
+import DiamondCounter from './DiamondCounter'
+import { PLAYGROUND_DIAMONDS_COMPLETE, PLAYGROUND_DIAMONDS_PERFECT, playgroundDiamonds, playgroundMaxDiamonds, topicReward } from '@/lib/game/playground-rewards'
 import ZoomControl from '@/components/game/ZoomControl'
 
 const jersey = 'var(--font-jersey), monospace'
 const STREAK_MILESTONES = [3, 5, 8, 12]
 
-type View = { kind: 'home' } | { kind: 'quiz'; topic: PlaygroundTopic } | { kind: 'results'; topic: PlaygroundTopic; score: number; streak: number; xpGained: number; repeated: boolean }
+type View =
+  | { kind: 'home' }
+  | { kind: 'quiz'; topic: PlaygroundTopic }
+  | {
+      kind: 'results'; topic: PlaygroundTopic; score: number; streak: number; xpGained: number; repeated: boolean
+      /** Diamantes del patio antes/después de esta tanda (el contador sube entre los dos). */
+      diamondsBefore: number; diamondsAfter: number
+      newlyComplete: boolean; newlyPerfect: boolean; perfectNow: boolean
+    }
 
 export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; actTitle: string }) {
   const act = useMemo(() => getPlaygroundAct(actKey), [actKey])
@@ -36,6 +46,8 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
   const [xpBefore, setXpBefore] = useState(playground.xp)
   const [answered, setAnswered] = useState(false)
   const [maximized, setMaximized] = useState(false)
+  /** Tanda recién tildada: al volver al checklist, su casilla entra animada. */
+  const [justChecked, setJustChecked] = useState<string | null>(null)
   const [zoom, setZoom] = useState(TEXT_ZOOM_DEFAULT)
   useEffect(() => { setZoom(getTextZoom()) }, [])
   const handleZoom = (next: number) => { setZoom(next); setTextZoom(next) }
@@ -76,9 +88,18 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
 
   const finishTopic = (topic: PlaygroundTopic, finalScore: number, finalBestStreak: number) => {
     const xpEarned = finalScore * 10 + Math.max(0, finalBestStreak - 2) * 2
+    const before = getPlaygroundState()
+    const rewardBefore = topicReward(topic, before)
     const { state, xpAwarded } = recordPlaygroundResult(topic.key, xpEarned, finalBestStreak, finalScore)
+    const rewardAfter = topicReward(topic, state)
     setPlayground(state)
-    setView({ kind: 'results', topic, score: finalScore, streak: finalBestStreak, xpGained: xpAwarded, repeated: xpAwarded === 0 })
+    setView({
+      kind: 'results', topic, score: finalScore, streak: finalBestStreak, xpGained: xpAwarded, repeated: xpAwarded === 0,
+      diamondsBefore: playgroundDiamonds(before), diamondsAfter: playgroundDiamonds(state),
+      newlyComplete: rewardAfter.complete && !rewardBefore.complete,
+      newlyPerfect: rewardAfter.perfect && !rewardBefore.perfect,
+      perfectNow: rewardAfter.perfect,
+    })
   }
 
   const onAnswered = (correct: boolean) => {
@@ -127,45 +148,21 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
           bodyStyle={{ padding: maximized ? 12 : 16 }}
         >
           <div style={{ zoom }}>
-          <div className="mb-4" style={{ maxWidth: 320 }}>
-            <LevelBar fromXp={playground.xp} toXp={playground.xp} />
-          </div>
+          {view.kind !== 'results' && (
+            <div className="mb-4 flex flex-wrap items-end gap-x-8 gap-y-3">
+              <div style={{ width: 320, maxWidth: '100%' }}>
+                <LevelBar fromXp={playground.xp} toXp={playground.xp} />
+              </div>
+              <DiamondCounter from={playgroundDiamonds(playground)} to={playgroundDiamonds(playground)} max={playgroundMaxDiamonds()} />
+            </div>
+          )}
 
           {view.kind === 'home' && (
             <>
               <p className="mb-4" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 20, color: 'hsl(var(--tx2))' }}>
-                Practicá {actTitle} con tandas cortas — no hace falta derrotar a nadie. Sumás XP y podés volver cuando quieras.
+                Practicá {actTitle} con tandas cortas. Cada tanda terminada te da {PLAYGROUND_DIAMONDS_COMPLETE} diamantes, y si la sacás perfecta, {PLAYGROUND_DIAMONDS_PERFECT} más.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {act.topics.map((topic) => {
-                  const best = playground.bestScore[topic.key]
-                  return (
-                    <button
-                      key={topic.key}
-                      type="button"
-                      onClick={() => startTopic(topic)}
-                      className="text-left p-3 flex flex-col gap-2"
-                      style={{ border: '2px solid hsl(var(--tx))', background: 'hsl(var(--surface))', boxShadow: '3px 3px 0 hsl(var(--tx) / 0.15)', cursor: 'pointer' }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="flex items-center justify-center shrink-0" style={{ width: 28, height: 28, border: '2px solid hsl(var(--tx))' }}>
-                          <PlaygroundTopicIcon icon={topic.icon} size={14} color="hsl(var(--tx))" />
-                        </span>
-                        <span style={{ fontFamily: jersey, fontSize: 17, color: 'hsl(var(--tx))' }}>{topic.title}</span>
-                      </div>
-                      <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 17, color: 'hsl(var(--tx2))', lineHeight: 1.2 }}>{topic.blurb}</p>
-                      <div className="flex items-center justify-between label-mono">
-                        <span style={{ color: 'hsl(var(--tx3))' }}>{topic.exercises.length} ejercicios</span>
-                        {best !== undefined && (
-                          <span className="flex items-center gap-1" style={{ color: 'hsl(var(--accent))' }}>
-                            <IconCheck size={9} color="hsl(var(--accent))" /> {best}/{topic.exercises.length}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
+              <PlaygroundChecklist act={act} state={playground} onPlay={startTopic} justChecked={justChecked} />
             </>
           )}
 
@@ -201,12 +198,34 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
               <p className="mb-4" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, color: 'hsl(var(--tx2))' }}>
                 Mejor racha: {view.streak} · {view.repeated ? 'ya sumaste el XP de esta tanda antes' : `+${view.xpGained} XP`}
               </p>
-              <div className="mx-auto mb-5" style={{ maxWidth: 320 }}>
-                <LevelBar fromXp={xpBefore} toXp={xpBefore + view.xpGained} />
+              <div className="mx-auto mb-3 flex flex-wrap items-end justify-center gap-x-8 gap-y-3">
+                <div style={{ width: 320, maxWidth: '100%' }}>
+                  <LevelBar fromXp={xpBefore} toXp={xpBefore + view.xpGained} />
+                </div>
+                <DiamondCounter from={view.diamondsBefore} to={view.diamondsAfter} max={playgroundMaxDiamonds()} />
               </div>
+              <p className="mb-5" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, color: view.diamondsAfter > view.diamondsBefore ? 'hsl(var(--accent))' : 'hsl(var(--tx3))' }}>
+                {view.newlyComplete && view.newlyPerfect
+                  ? `¡Tanda terminada y perfecta! +${PLAYGROUND_DIAMONDS_COMPLETE + PLAYGROUND_DIAMONDS_PERFECT} diamantes.`
+                  : view.newlyComplete
+                    ? `¡Tanda terminada! +${PLAYGROUND_DIAMONDS_COMPLETE} diamantes. Sacala perfecta para ganar ${PLAYGROUND_DIAMONDS_PERFECT} más.`
+                    : view.newlyPerfect
+                      ? `¡Perfecta! +${PLAYGROUND_DIAMONDS_PERFECT} diamantes.`
+                      : view.perfectNow
+                        ? 'Ya ganaste todos los diamantes de esta tanda.'
+                        : `Sacala perfecta para ganar ${PLAYGROUND_DIAMONDS_PERFECT} diamantes más.`}
+              </p>
               <div className="flex items-center justify-center gap-2">
-                <button type="button" className="cta-btn cta-btn--primary" onClick={() => { sfx.click(); setView({ kind: 'home' }) }}>
-                  Volver al patio
+                <button
+                  type="button"
+                  className="cta-btn cta-btn--primary"
+                  onClick={() => {
+                    sfx.click()
+                    setJustChecked(view.newlyComplete || view.newlyPerfect ? view.topic.key : null)
+                    setView({ kind: 'home' })
+                  }}
+                >
+                  Volver al checklist
                 </button>
                 <button type="button" className="cta-btn" onClick={() => startTopic(view.topic)}>
                   Repetir tanda

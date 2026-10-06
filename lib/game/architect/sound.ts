@@ -244,6 +244,19 @@ export const sfx = {
     tone(1320, 0.12, 'triangle', 0.05, { at: 0.16 })
     noise(0.05, 0.03, { highpass: 3000, at: 0.15 })
   },
+  // ── El Archivista: su vida es una barra de experiencia ────────────────────
+  /** Un orbe de experiencia: "ding" cristalino con tono al azar, como al juntar XP
+   *  en Minecraft (sintetizado, no es el audio original). */
+  xpOrb(at = 0) {
+    const pitch = 0.62 + Math.random() * 0.62
+    tone(1760 * pitch, 0.11, 'sine', 0.07, { at })
+    tone(3520 * pitch, 0.07, 'triangle', 0.025, { at })
+    tone(2637 * pitch, 0.09, 'sine', 0.03, { at: at + 0.02 })
+  },
+  /** Juntar varios orbes seguidos (al pegarle al Archivista). */
+  xpGain(orbs = 4) {
+    for (let i = 0; i < orbs; i++) this.xpOrb(i * 0.055 + Math.random() * 0.02)
+  },
   /** Equipar/desequipar un ítem pasivo: clic mecánico con eco corto. */
   equip(on: boolean) {
     tone(on ? 587 : 349, 0.05, 'square', 0.05)

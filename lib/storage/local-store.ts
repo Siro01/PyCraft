@@ -4,6 +4,7 @@ import type { ChallengeTier, Amulet, OwnedShopItem, ShopItem } from '@/types'
 import { PLAYGROUND_ACTS } from '@/lib/game/playground'
 import { DIAMONDS_PER_BOSS, SHOP_CATALOG, discountedPrice } from '@/lib/game/shop'
 import { PERK_SLOT_LIMIT } from '@/lib/game/perk-effects'
+import { playgroundDiamonds } from '@/lib/game/playground-rewards'
 
 // ─── Keys ───────────────────────────────────────────────────────────────────
 const USER_KEY     = 'pysql:user'
@@ -397,8 +398,9 @@ function saveShopOwnedRaw(list: OwnedShopItem[]): void {
   import('@/lib/storage/cloud-sync').then(({ queueCloudSync }) => queueCloudSync('shop', list))
 }
 
+/** Jefes (20💎 c/u, la fuente principal) + logros del patio de juegos (fuente chica, ver playground-rewards.ts). */
 export function diamondsEarned(bossesDefeated: number): number {
-  return bossesDefeated * DIAMONDS_PER_BOSS
+  return bossesDefeated * DIAMONDS_PER_BOSS + playgroundDiamonds(getPlaygroundState())
 }
 
 // Gastado = todo lo comprado (también lo ya usado: usar un ítem no devuelve

@@ -4,7 +4,20 @@ import { useEffect, useState } from 'react'
 import type { Boss } from '@/types'
 import ArchitectCanvas from './architect/ArchitectCanvas'
 import { MercaderPortrait } from './shop/MercaderPortrait'
-import GuardianSprite from './GuardianSprite'
+import StripSprite from './StripSprite'
+import { ACTIVE_GUARDIAN, GUARDIAN_FRAMES, GUARDIAN_FRAME_MS, guardianSrc } from '@/lib/game/guardian-sprite'
+import { ACTIVE_GOLEM, GOLEM_FRAMES, GOLEM_FRAME_MS, golemSrc } from '@/lib/game/golem-sprite'
+import { ACTIVE_CRAFTERO, CRAFTERO_FRAMES, CRAFTERO_FRAME_MS, crafteroSrc } from '@/lib/game/craftero-sprite'
+import { ACTIVE_ARCHIVISTA, ARCHIVISTA_FRAMES, ARCHIVISTA_FRAME_MS, archivistaSrc } from '@/lib/game/archivista-sprite'
+
+// Jefes rediseñados en tiras de cuadros de 64×64 (scripts/sprites/*.py): cada uno
+// tiene su animación idle y su propio cuadro de derrota, así que no se agrisan.
+const STRIP_SPRITES: Record<string, { src: (defeated: boolean) => string; frames: number; frameMs: number }> = {
+  'guardian-puerta': { src: (d) => guardianSrc(ACTIVE_GUARDIAN, d), frames: GUARDIAN_FRAMES, frameMs: GUARDIAN_FRAME_MS },
+  'golem-infinito': { src: (d) => golemSrc(ACTIVE_GOLEM, d), frames: GOLEM_FRAMES, frameMs: GOLEM_FRAME_MS },
+  'maestro-craftero': { src: (d) => crafteroSrc(ACTIVE_CRAFTERO, d), frames: CRAFTERO_FRAMES, frameMs: CRAFTERO_FRAME_MS },
+  archivista: { src: (d) => archivistaSrc(ACTIVE_ARCHIVISTA, d), frames: ARCHIVISTA_FRAMES, frameMs: ARCHIVISTA_FRAME_MS },
+}
 
 interface BossSpriteProps {
   boss: Boss
@@ -237,11 +250,18 @@ export default function BossSprite({ boss, size = 'md', defeated = false, animat
   if (boss.id === 'mercader-abismo') {
     return <MercaderBossSprite size={size} defeated={defeated} animated={animated} />
   }
-  if (boss.id === 'guardian-puerta') {
-    // Tiene su propia animación idle y su propio cuadro de derrota (ya apagado).
+  const strip = STRIP_SPRITES[boss.id]
+  if (strip) {
     return (
       <div style={{ opacity: defeated ? 0.85 : 1 }}>
-        <GuardianSprite px={DISPLAY_PX[size]} animated={animated} defeated={defeated} />
+        <StripSprite
+          src={strip.src(defeated)}
+          frames={defeated ? 1 : strip.frames}
+          frameMs={strip.frameMs}
+          px={DISPLAY_PX[size]}
+          animated={animated && !defeated}
+          label={boss.name}
+        />
       </div>
     )
   }
