@@ -104,18 +104,67 @@ export interface PythonRunResult {
 // llevar un '\n' de verdad, cierra la línea "prompt + respuesta" en el
 // batched() de arriba exactamente como se vería en una terminal real, y
 // deja al próximo print() del alumno empezar en su propia línea.
+//
+// Freno para bucles infinitos: Pyodide corre en el hilo de la página, así que
+// un `while` que nunca termina congelaba la pestaña sin forma de pararlo. Un
+// sys.settrace mira el reloj en cada línea del código del alumno (solo de
+// '<alumno>', no de la librería estándar) y corta con _Freno si pasa del
+// límite. El tiempo esperando en input() no cuenta — el alumno puede tardar
+// lo que quiera en contestar. _Freno hereda de BaseException para que un
+// `except Exception:` del alumno no lo trague. También se corta si imprime
+// demasiadas líneas (un print dentro de un bucle infinito llena la consola
+// mucho antes de llegar al límite de tiempo).
 const CAPTURE_WRAPPER = `
-import sys
+import sys, time, builtins
+
+_LIMITE_SEG = 3.0
+_LIMITE_LINEAS = 2000
+
+class _Freno(BaseException):
+    pass
+
+_deadline = time.monotonic() + _LIMITE_SEG
+_lineas = 0
+
+def _tracer(frame, event, arg):
+    if frame.f_code.co_filename != '<alumno>':
+        return None
+    return _tracer_local
+
+def _tracer_local(frame, event, arg):
+    if time.monotonic() > _deadline:
+        raise _Freno('tiempo')
+    return _tracer_local
 
 def _custom_input(prompt=''):
+    global _deadline
+    _t0 = time.monotonic()
     print(prompt, end='', flush=True)
     line = sys.stdin.readline().rstrip('\\n')
+    _deadline += time.monotonic() - _t0
     print(line)
     return line
 
+def _custom_print(*args, **kwargs):
+    global _lineas
+    _lineas += 1
+    if _lineas > _LIMITE_LINEAS:
+        raise _Freno('lineas')
+    builtins.print(*args, **kwargs)
+
 _pyerr = None
 try:
-    exec(_user_code, {'__name__': '__main__', 'input': _custom_input})
+    _compiled = compile(_user_code, '<alumno>', 'exec')
+    sys.settrace(_tracer)
+    try:
+        exec(_compiled, {'__name__': '__main__', 'input': _custom_input, 'print': _custom_print})
+    finally:
+        sys.settrace(None)
+except _Freno as _e:
+    if str(_e) == 'lineas':
+        _pyerr = 'Tu programa imprimió más de ' + str(_LIMITE_LINEAS) + ' líneas y lo frenamos. ¿Hay un bucle que nunca termina? Fijate que la variable del while cambie en cada vuelta.'
+    else:
+        _pyerr = 'Tu programa tardó más de ' + str(int(_LIMITE_SEG)) + ' segundos y lo frenamos. ¿Hay un bucle que nunca termina? Fijate que la variable del while cambie en cada vuelta.'
 except SyntaxError as _e:
     _pyerr = 'SyntaxError línea ' + str(_e.lineno) + ': ' + (_e.msg or str(_e))
 except Exception as _e:
