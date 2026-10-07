@@ -13,6 +13,7 @@
 // todas se apagan con prefers-reduced-motion.
 
 import { memo, useId, useMemo } from 'react'
+import { CHEST_SPRITES, CHEST_SPRITE_ANIM } from '@/components/game/stickers/chest-sprites'
 
 const ROLE: Record<string, string> = {
   k: 'hsl(var(--tx))',
@@ -440,6 +441,8 @@ export const ITEM_SPRITES: Record<string, string[]> = {
     '.kkkkkkkkkkkkkkk',
     '................',
   ],
+  // ── Stickers de cofre (se encuentran explorando el mapa) ──
+  ...CHEST_SPRITES,
 }
 
 /** Animación leve de cada ítem en el inventario — elegida por lo que ES el objeto. */
@@ -467,6 +470,7 @@ export const ITEM_ANIM: Record<string, string> = {
   'st-corazon': 'item-anim-pulse',
   'st-prompt': 'item-anim-screen',
   'st-abismo': 'item-anim-twinkle',
+  ...CHEST_SPRITE_ANIM,
 }
 
 /** Une los píxeles iguales consecutivos de cada fila en un solo <rect> (menos nodos en el DOM). */

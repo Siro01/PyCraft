@@ -57,6 +57,8 @@ export interface ShopItem {
   printName?: string
   /** Solo perks — una línea de "cómo se usa / qué hace exactamente", más concreta que la descripción. */
   effectHint?: string
+  /** 'chest' = sticker que no se vende: se encuentra en un cofre del mapa (lib/game/chest-stickers.ts). */
+  source?: 'chest'
 }
 
 export interface OwnedShopItem {

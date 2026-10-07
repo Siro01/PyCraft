@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ShopGlyph } from '@/components/game/shop/ShopIcons'
 import { SHOP_CATALOG } from '@/lib/game/shop'
+import { getChestSticker } from '@/lib/game/chest-stickers'
+import ChestStickerToy, { ChestSparkle } from './ChestStickerToy'
 import { sfx } from '@/lib/game/architect/sound'
 import {
   getShopOwned, getStickerPlacements, getStickerSurface, removeStickerPlacement, setStickerPlacement,
@@ -107,6 +109,7 @@ export default function StickerLayer({ surface }: Props) {
         const owned1 = owned.find((o) => o.id === id)
         if (!item || !owned1) return null
         const tint = owned1.colorway ? `hsl(${owned1.colorway})` : 'hsl(var(--accent))'
+        const chest = item.source === 'chest' ? getChestSticker(id) : undefined
         return (
           <div
             key={id}
@@ -115,10 +118,25 @@ export default function StickerLayer({ surface }: Props) {
             style={{
               left: `${pos.x}%`, top: `${pos.y}%`, width: 30, height: 30, transform: 'translate(-50%, -50%)',
               pointerEvents: 'auto', cursor: decorate ? 'grab' : 'default', touchAction: 'none',
+              zIndex: chest ? 1 : undefined,
             }}
-            title={item.name}
+            title={chest && !decorate ? undefined : item.name}
           >
-            <ShopGlyph glyph={item.glyph} size={22} color={tint} animated />
+            {chest ? (
+              <>
+                {/* Los stickers de cofre están vivos: fuera del modo decorar, tocarlos los hace reaccionar y hablar. */}
+                <ChestStickerToy
+                  id={id}
+                  size={32}
+                  interactive={!decorate}
+                  bubble={pos.y < 26 ? 'bottom' : 'top'}
+                  align={pos.x < 20 ? 'start' : pos.x > 80 ? 'end' : 'center'}
+                />
+                {!decorate && <ChestSparkle kind={chest.kind} px={7} style={{ right: -6, top: -6 }} />}
+              </>
+            ) : (
+              <ShopGlyph glyph={item.glyph} size={22} color={tint} animated />
+            )}
             {decorate && (
               <button
                 type="button"

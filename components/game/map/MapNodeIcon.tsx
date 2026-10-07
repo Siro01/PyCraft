@@ -1,7 +1,7 @@
 'use client'
 
 import { IconCheck, IconLock } from '@/components/ui/PixelIcons'
-import { CHEST_CLOSED, ICON_ARROW_DOWN, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
+import { CHEST_CLOSED, CHEST_OPEN, ICON_ARROW_DOWN, PixelBitmap, type Bitmap } from '@/components/game/architect/desktop/PixelBitmap'
 import { PixelGrid } from '@/components/game/items/ItemSprites'
 import BossTopicIcon from './BossTopicIcon'
 import type { Boss } from '@/types'
@@ -12,7 +12,7 @@ export type NodeState = 'defeated' | 'current' | 'available' | 'locked'
 // cuadrado dentro de otro y un pueblo es un punto):
 //   · Jefe     = cuadrado dentro de un cuadrado, con el glifo del tema adentro.
 //   · Lugar    = un edificio pixel-art parado sobre la ruta (tienda, patios).
-//   · Cofre    = secreto al final de un sendero punteado.
+//   · Cofre    = al final de un sendero punteado (o de un camino escondido, si es secreto).
 // El estado se lee por inversión de tinta, nunca por un color nuevo.
 
 interface BossNodeProps {
@@ -156,8 +156,29 @@ const SCHOOL = [
   '................',
 ]
 
-export type PlaceKind = 'shop' | 'playground' | 'practice' | 'school'
-const PLACE_ROWS: Record<PlaceKind, string[]> = { shop: SHOP_FRONT, playground: SWING, practice: TERMINAL, school: SCHOOL }
+// La Biblioteca: frontón con acento y la fachada abierta como un estante,
+// con lomos de alturas y tintas distintas — se lee "libros" aun a 28px.
+const LIBRARY = [
+  '.......kk.......',
+  '.....kkaakk.....',
+  '...kkaaaaaakk...',
+  '.kkkkkkkkkkkkkk.',
+  '..kwwwwwwwwwwk..',
+  '..kawkfwkmwfkk..',
+  '..kamkfakmafkk..',
+  '..kamkfakmafkk..',
+  '..kkkkkkkkkkkk..',
+  '..kmkafmakfmak..',
+  '..kmkafmakfmak..',
+  '..kkkkkkkkkkkk..',
+  '..kfffkwwkfffk..',
+  '..kfffkwwkfffk..',
+  'kkkkkkkkkkkkkkkk',
+  '................',
+]
+
+export type PlaceKind = 'shop' | 'playground' | 'practice' | 'school' | 'library'
+const PLACE_ROWS: Record<PlaceKind, string[]> = { shop: SHOP_FRONT, playground: SWING, practice: TERMINAL, school: SCHOOL, library: LIBRARY }
 
 // "!" para un repaso esperando — mismo lenguaje que el candado, pero en acento.
 const BANG = ['##', '##', '##', '##', '..', '##']
@@ -194,11 +215,42 @@ export function PlaceNode({ kind, open, focused, size, pending = false }: PlaceN
   )
 }
 
-export function SecretNode({ focused, size, opened }: { focused: boolean; size: number; opened: boolean }) {
+// Cofre secreto: herrajes en acento y cerradura — se distingue del común de un vistazo.
+const CHEST_SECRET: Bitmap = [
+  '................',
+  '..############..',
+  '.#aooooooooooa#.',
+  '#aooooooooooooa#',
+  '#ooooooaaoooooo#',
+  '################',
+  '#aooooooooooooa#',
+  '#ooooooaaoooooo#',
+  '#oooooa##aooooo#',
+  '#oooooooooooooo#',
+  '#aooooooooooooa#',
+  '################',
+  '..hhhhhhhhhhhh..',
+]
+
+/** Cofre del mapa: cerrado (con su sticker adentro), abierto/vacío, o sellado (el secreto del Acto IV). */
+export function ChestNode({ focused, size, kind, opened, sealed = false, fresh = false }: {
+  focused: boolean; size: number; kind: 'cofre' | 'secreto'; opened: boolean; sealed?: boolean; fresh?: boolean
+}) {
   const scale = Math.max(1, Math.round(size / 16))
+  const rows = opened ? CHEST_OPEN : kind === 'secreto' ? CHEST_SECRET : CHEST_CLOSED
+  const badge = Math.max(12, Math.round(size * 0.5))
   return (
-    <div className={`map-secret${focused ? ' map-place--focused' : ''}${opened ? '' : ' map-secret--closed'}`} aria-hidden="true">
-      <PixelBitmap rows={CHEST_CLOSED} scale={scale} />
+    <div
+      className={`map-secret${focused ? ' map-place--focused' : ''}${opened ? ' map-chest-found' : ' map-secret--closed'}${fresh ? ' map-chest-pop' : ''}`}
+      style={{ position: 'relative' }}
+      aria-hidden="true"
+    >
+      <PixelBitmap rows={rows} scale={scale} />
+      {sealed && !opened && (
+        <span className="map-chest-seal" style={{ width: badge, height: badge }}>
+          <IconLock size={Math.round(badge * 0.62)} color="hsl(var(--accent))" />
+        </span>
+      )}
     </div>
   )
 }

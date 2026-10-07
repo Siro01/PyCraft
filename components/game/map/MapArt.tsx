@@ -111,6 +111,8 @@ export function clearRects(act: ActMapDef): [number, number, number, number][] {
   const c = (v: number) => v * ART + ART / 2
   const M = 5
   for (const r of act.routes) {
+    // Un camino escondido no corta el terreno: si no, se vería el hueco.
+    if (r.hidden) continue
     for (let i = 0; i < r.pts.length - 1; i++) {
       const [x1, y1] = r.pts[i]
       const [x2, y2] = r.pts[i + 1]
@@ -118,7 +120,7 @@ export function clearRects(act: ActMapDef): [number, number, number, number][] {
     }
   }
   const nodeR = 10
-  const pts = [...act.nodes, act.playground, act.practice, act.mercader, ...(act.secret ? [act.secret] : [])]
+  const pts = [...act.nodes, act.playground, act.practice, act.mercader, act.library, ...act.chests.filter((c) => c.kind === 'cofre')]
   for (const p of pts) rects.push([c(p.x) - nodeR, c(p.y) - nodeR - 6, c(p.x) + nodeR, c(p.y) + nodeR])
   for (const p of act.props) {
     const b = PROP_BITMAPS[p.kind]
@@ -183,13 +185,14 @@ function routePath(pts: [number, number][]): string {
 /** Acto IV: tramos que parpadean como si el camino estuviera roto. */
 function brokenGaps(act: ActMapDef): { x: number; y: number; d: number }[] {
   const gaps: { x: number; y: number; d: number }[] = []
-  const nodeKeys = new Set([...act.nodes, act.playground, act.practice, act.mercader, act.entry].map((p) => `${p.x},${p.y}`))
+  const nodeKeys = new Set([...act.nodes, act.playground, act.practice, act.mercader, act.library, act.entry].map((p) => `${p.x},${p.y}`))
   for (const [k, ns] of Object.entries(act.links)) {
     const [x, y] = k.split(',').map(Number)
     for (const n of ns) {
       const [nx, ny] = n.split(',').map(Number)
       if (nx < x || ny < y) continue // cada tramo una vez
       if (nodeKeys.has(k) || nodeKeys.has(n)) continue
+      if (act.hiddenTiles[k] || act.hiddenTiles[n]) continue // los cortes delatarían el camino escondido
       if (hash2(x * 3 + nx, y * 5 + ny, 17) > 0.16) continue
       gaps.push({ x: (center(x) + center(nx)) / 2, y: (center(y) + center(ny)) / 2, d: hash2(x, y, 3) * 3 })
     }
@@ -201,9 +204,28 @@ interface Props {
   act: ActMapDef
   /** El Arquitecto parpadea (solo Acto IV). */
   blink?: boolean
+  /** Cofres secretos cuyo camino escondido ya se destapó (se dibuja punteado). */
+  revealed?: string[]
+  /** El que se acaba de destapar: su camino se dibuja casilla por casilla. */
+  fresh?: string | null
 }
 
-function MapArt({ act, blink = false }: Props) {
+/** Casillas de un camino escondido en orden, desde la entrada. */
+function hiddenSteps(pts: [number, number][]): { x: number; y: number; px: number; py: number }[] {
+  const out: { x: number; y: number; px: number; py: number }[] = []
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x1, y1] = pts[i]
+    const [x2, y2] = pts[i + 1]
+    const dx = Math.sign(x2 - x1), dy = Math.sign(y2 - y1)
+    for (let x = x1, y = y1; x !== x2 || y !== y2;) { out.push({ px: x, py: y, x: x + dx, y: y + dy }); x += dx; y += dy }
+  }
+  return out
+}
+
+// Destellito con halo de papel: se lee aun encima del tramado del bosque o del ASCII.
+const GLINT = ['.ooo.', 'oo#oo', 'o###o', 'oo#oo', '.ooo.']
+
+function MapArt({ act, blink = false, revealed = [], fresh = null }: Props) {
   const uid = useId().replace(/:/g, '')
   const W = act.width * ART
   const H = act.height * ART
@@ -244,9 +266,42 @@ function MapArt({ act, blink = false }: Props) {
         <Bitmap key={`p${i}`} rows={PROP_BITMAPS[p.kind]} cx={p.at[0] * ART + (p.kind.startsWith('bridge') ? ART / 2 : 0)} cy={p.at[1] * ART + (p.kind.startsWith('bridge') ? ART / 2 : 0)} glowClass="map-prop-glow" />
       ))}
 
+      {/* Caminos escondidos ya destapados: un corte de papel en el terreno y el
+          sendero punteado encima; el recién descubierto se dibuja casilla por casilla. */}
+      {act.routes.map((r, i) => {
+        if (!r.hidden || !revealed.includes(r.hidden)) return null
+        const steps = hiddenSteps(r.pts)
+        const chest = act.chests.find((c) => c.id === r.hidden)
+        const isFresh = fresh === r.hidden
+        return (
+          <g key={`h${i}`} fill="none">
+            {steps.map((st, j) => (
+              <g key={j} className={isFresh ? 'map-hidden-step' : undefined} style={isFresh ? { animationDelay: `${j * 90}ms` } : undefined}>
+                <path d={routePath([[st.px, st.py], [st.x, st.y]])} stroke="hsl(var(--bg))" strokeWidth={9} strokeLinecap="square" />
+                <path d={routePath([[st.px, st.py], [st.x, st.y]])} stroke="hsl(var(--tx2))" strokeWidth={3} strokeDasharray="3 3" strokeLinecap="butt" />
+              </g>
+            ))}
+            {chest && (
+              <rect
+                className={isFresh ? 'map-hidden-step' : undefined}
+                style={isFresh ? { animationDelay: `${steps.length * 90}ms` } : undefined}
+                x={center(chest.x) - 9} y={center(chest.y) - 13} width={18} height={18} fill="hsl(var(--bg))"
+              />
+            )}
+          </g>
+        )
+      })}
+
+      {/* Algo brilla donde no hay camino: la única pista en el mapa de un cofre secreto sin descubrir. */}
+      {act.chests.map((c) => (c.kind === 'secreto' && !revealed.includes(c.id) ? (
+        <g key={`gl-${c.id}`} className="map-chest-glint" style={{ animationDelay: `${(c.x * 0.37) % 2}s` }}>
+          <Bitmap rows={GLINT} cx={center(c.x)} cy={center(c.y) - 1} />
+        </g>
+      ) : null))}
+
       {/* Rutas: vía de 3px en ángulo recto; las punteadas se caminan igual. */}
       <g fill="none" strokeLinejoin="miter">
-        {act.routes.map((r, i) => (
+        {act.routes.filter((r) => !r.hidden).map((r, i) => (
           <path
             key={`r${i}`}
             d={routePath(r.pts)}

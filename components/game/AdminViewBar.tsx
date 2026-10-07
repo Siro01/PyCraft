@@ -19,6 +19,7 @@ const PLACES = [
   { href: '/patio-de-juegos', label: 'Patio de juegos' },
   { href: '/patio-de-practicas', label: 'Patio de prácticas' },
   { href: '/repaso', label: 'Escuelita de Rodolfo' },
+  { href: '/biblioteca', label: 'Biblioteca' },
   { href: '/finale', label: 'Final del Arquitecto' },
   { href: '/finale/proyecto', label: 'Proyecto final' },
   { href: '/admin', label: 'Panel admin' },

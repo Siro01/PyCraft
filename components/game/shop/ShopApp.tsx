@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import AppWindow from '@/components/ui/AppWindow'
 import { sfx } from '@/lib/game/architect/sound'
-import { DIAMONDS_PER_BOSS, SHOP_UNLOCK_BOSS_NUMBER, SHOP_CATALOG, STICKER_COLORWAYS, discountedPrice, getDailyFeatured, getShopItem } from '@/lib/game/shop'
+import { DIAMONDS_PER_BOSS, SHOP_UNLOCK_BOSS_NUMBER, SHOP_CATALOG, SHOP_FOR_SALE, STICKER_COLORWAYS, discountedPrice, getDailyFeatured, getShopItem } from '@/lib/game/shop'
 import { pickDialogue, type MercaderDialogueKind } from '@/lib/game/mercader-dialogue'
 import {
   addAdminDiamondBonus, buyShopItem, diamondsAvailable, getPlaygroundState, getShopDiscount, getShopOwned, playgroundLevel,
@@ -85,12 +85,12 @@ export default function ShopApp({ totalDefeated, username, battleNear = false, u
   const dailyFeatured = useMemo(() => getDailyFeatured(), [])
   const ownedIds = useMemo(() => new Set(owned.map((o) => o.id)), [owned])
   const sortedCatalog = useMemo(
-    () => [...SHOP_CATALOG]
+    () => [...SHOP_FOR_SALE]
       .sort((a, b) => (a.level !== b.level ? a.level - b.level : a.price - b.price))
       .map((i) => (discount > 0 ? { ...i, price: discountedPrice(i.price, discount) } : i)),
     [discount]
   )
-  const ownedStickers = owned.filter((o) => SHOP_CATALOG.find((i) => i.id === o.id)?.category === 'sticker')
+  const ownedStickers = owned.filter((o) => { const it = SHOP_CATALOG.find((i) => i.id === o.id); return it?.category === 'sticker' && !it.source })
 
   const handleBuy = (item: ShopItem): { ok: boolean } => {
     if (preview) {

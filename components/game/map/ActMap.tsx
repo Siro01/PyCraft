@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { sfx } from '@/lib/game/architect/sound'
-import { findPath, key, type ActMapDef, type MapPoint } from '@/lib/game/act-maps'
+import { findPath, key, type ActMapDef, type MapChest, type MapPoint } from '@/lib/game/act-maps'
 import { SHOP_UNLOCK_BOSS_NUMBER } from '@/lib/game/shop'
-import { getRepasoProgress } from '@/lib/storage/local-store'
+import { claimChestSticker, getRepasoProgress, getRevealedPaths, getShopOwned, revealSecretPath } from '@/lib/storage/local-store'
+import { getChestSticker } from '@/lib/game/chest-stickers'
+import ChestReveal from '@/components/game/stickers/ChestReveal'
+import { getActBooks } from '@/lib/game/biblioteca'
 import BossTopicIcon from './BossTopicIcon'
 import MapArt from './MapArt'
-import { BossNode, PlaceNode, SecretNode, type NodeState, type PlaceKind } from './MapNodeIcon'
+import { BossNode, ChestNode, PlaceNode, type NodeState, type PlaceKind } from './MapNodeIcon'
 import NodeDetailPopover from './NodeDetailPopover'
 import NodeSplash from './NodeSplash'
 import PlayerAvatar, { type Facing } from './PlayerAvatar'
@@ -39,7 +42,7 @@ const STATE_LABEL: Record<NodeState, string> = {
 type Spot =
   | { kind: 'boss'; p: MapPoint; bossId: string }
   | { kind: PlaceKind; p: MapPoint }
-  | { kind: 'secret'; p: MapPoint; tip: string }
+  | { kind: 'chest'; p: MapPoint; chest: MapChest }
 
 interface ActMapProps {
   act: ActMapDef
@@ -78,7 +81,12 @@ export default function ActMap({
   const [warning, setWarning] = useState<string | null>(null)
   const [hovered, setHovered] = useState<string | null>(null)
   const [splash, setSplash] = useState<MapPoint | null>(null)
-  const [opened, setOpened] = useState(false)
+  // ── Cofres: lo encontrado (los stickers ya son del alumno) y los caminos escondidos ya destapados.
+  const [found, setFound] = useState<Set<string>>(new Set())
+  const [revealed, setRevealed] = useState<string[]>([])
+  const revealedRef = useRef<string[]>([])
+  const [freshPath, setFreshPath] = useState<string | null>(null)
+  const [opening, setOpening] = useState<string | null>(null)
   const [blink, setBlink] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [box, setBox] = useState({ w: 0, h: 0 })
@@ -108,6 +116,15 @@ export default function ActMap({
     }, 900)
     return () => clearTimeout(t)
   }, [act.key, actRepasos])
+  useEffect(() => {
+    const owned = new Set(getShopOwned().map((o) => o.id))
+    setFound(owned)
+    // Un cofre secreto ya abierto (en esta PC o en otra) deja su camino destapado.
+    const paths = Array.from(new Set([...getRevealedPaths(), ...act.chests.filter((c) => c.kind === 'secreto' && owned.has(c.id)).map((c) => c.id)]))
+    revealedRef.current = paths
+    setRevealed(paths)
+  }, [act])
+
   // Traba mientras hay una transición en curso (entrar a un jefe, pasar de
   // acto) — mantener una tecla apretada no encola varios cambios.
   const busyRef = useRef(false)
@@ -137,16 +154,18 @@ export default function ActMap({
       { kind: 'playground', p: act.playground },
       { kind: 'practice', p: act.practice },
       { kind: 'shop', p: act.mercader },
+      { kind: 'library', p: act.library },
     ]
     if (actRepasos.length > 0) list.push({ kind: 'school', p: act.school })
-    if (act.secret) list.push({ kind: 'secret', p: { x: act.secret.x, y: act.secret.y }, tip: act.secret.tip })
+    // El cofre secreto no existe en el mapa hasta que se destapa su camino.
+    for (const c of act.chests) if (c.kind === 'cofre' || revealed.includes(c.id)) list.push({ kind: 'chest', p: { x: c.x, y: c.y }, chest: c })
     return list
-  }, [act, actRepasos.length])
+  }, [act, actRepasos.length, revealed])
   const spotAt = useMemo(() => new Map(spots.map((s) => [key(s.p.x, s.p.y), s])), [spots])
   const bossById = useMemo(() => new Map(act.bosses.map((b) => [b.id, b])), [act])
 
   const placeOpen = useCallback(
-    (kind: PlaceKind) => (kind === 'school' ? true : kind === 'shop' ? shopUnlocked : playgroundReachable),
+    (kind: PlaceKind) => (kind === 'school' || kind === 'library' ? true : kind === 'shop' ? shopUnlocked : playgroundReachable),
     [playgroundReachable, shopUnlocked],
   )
 
@@ -195,13 +214,30 @@ export default function ActMap({
       else sfx.select()
       return
     }
-    if (s.kind === 'secret') {
-      setOpened(true)
-      showWarning(s.tip, 'notify')
+    if (s.kind === 'chest') {
+      const def = getChestSticker(s.chest.id)
+      if (!def) return
+      if (found.has(def.id)) {
+        showWarning(`Este cofre ya está vacío: ${def.name} vive en tu inventario, en la solapa Stickers.${def.hint ? ` Y acordate de la pista: ${def.hint}` : ''}`, 'notify')
+        return
+      }
+      if (def.sealedUntil && bossStates[def.sealedUntil] !== 'defeated') {
+        sfx.chestSealed()
+        setWarning(def.sealedText ?? 'Este cofre está sellado. Volvé más adelante.')
+        return
+      }
+      stopWalk()
+      claimChestSticker(def.id)
+      setFound((f) => new Set(f).add(def.id))
+      setOpening(def.id)
       return
     }
     if (s.kind === 'school') {
       confirmAndGo(s.p, `/repaso?acto=${act.key}`)
+      return
+    }
+    if (s.kind === 'library') {
+      confirmAndGo(s.p, `/biblioteca?acto=${act.key}`)
       return
     }
     if (s.kind === 'shop') {
@@ -214,7 +250,7 @@ export default function ActMap({
       return
     }
     confirmAndGo(s.p, s.kind === 'playground' ? `/patio-de-juegos?acto=${act.key}` : '/patio-de-practicas')
-  }, [act.key, bossStates, confirmAndGo, playgroundReachable, reenterDefeated, shopUnlocked, showWarning])
+  }, [act.key, bossStates, confirmAndGo, found, playgroundReachable, reenterDefeated, shopUnlocked, showWarning, stopWalk])
 
   const moveTo = useCallback((next: MapPoint, dir: Facing) => {
     posRef.current = next
@@ -224,12 +260,21 @@ export default function ActMap({
     sfx.step()
     onPosChange?.(next)
     if (spotAt.has(key(next.x, next.y))) sfx.mapArrive()
+    // Pisar un camino escondido lo destapa: se dibuja solo hasta el cofre secreto.
+    const hiddenFor = act.hiddenTiles[key(next.x, next.y)]
+    if (hiddenFor && !revealedRef.current.includes(hiddenFor)) {
+      revealedRef.current = [...revealedRef.current, hiddenFor]
+      setRevealed(revealedRef.current)
+      setFreshPath(hiddenFor)
+      revealSecretPath(hiddenFor)
+      sfx.secretPath()
+    }
     if (act.exit && next.x === act.exit.x && next.y === act.exit.y) {
       busyRef.current = true
       stopWalk()
       setTimeout(() => { sfx.pageTurn(); onReachEdge('next') }, 200)
     }
-  }, [act.exit, onPosChange, onReachEdge, spotAt, stopWalk])
+  }, [act.exit, act.hiddenTiles, onPosChange, onReachEdge, spotAt, stopWalk])
 
   /** Un paso en una dirección. Devuelve false si no hay camino para ese lado. */
   const tryStep = useCallback((dx: number, dy: number): boolean => {
@@ -274,7 +319,7 @@ export default function ActMap({
 
   // ── Teclado
   useEffect(() => {
-    if (!keyboard) return
+    if (!keyboard || opening) return
     const handler = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
@@ -306,7 +351,7 @@ export default function ActMap({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [enterSpot, keyboard, spotAt, stopWalk, tryStep])
+  }, [enterSpot, keyboard, opening, spotAt, stopWalk, tryStep])
 
   // ── En celular el mapa puede ser más ancho que la ventana: sigue al avatar.
   useEffect(() => {
@@ -324,6 +369,9 @@ export default function ActMap({
     let best: MapPoint | null = null
     let bestD = 1.6
     for (const k of Object.keys(act.links)) {
+      // Un camino escondido no se puede elegir con el mouse hasta destaparlo: hay que pisarlo con las flechas.
+      const hid = act.hiddenTiles[k]
+      if (hid && !revealed.includes(hid)) continue
       const [x, y] = k.split(',').map(Number)
       const d = Math.hypot(x - fx, y - fy)
       if (d < bestD) { bestD = d; best = { x, y } }
@@ -368,14 +416,18 @@ export default function ActMap({
         />
       )
     }
-    if (s.kind === 'secret') {
+    if (s.kind === 'chest') {
+      const def = getChestSticker(s.chest.id)
+      const isFound = found.has(s.chest.id)
+      const sealed = !!def?.sealedUntil && bossStates[def.sealedUntil] !== 'defeated'
       return (
         <NodeDetailPopover
-          title="Cofre escondido"
-          status={opened ? 'Abierto' : '¿Qué habrá?'}
-          positive
+          title={s.chest.kind === 'secreto' ? 'Cofre secreto' : 'Cofre'}
+          body={isFound && def ? `Acá encontraste a ${def.name}.` : undefined}
+          status={isFound ? 'Vacío' : sealed ? 'Sellado' : '¿Qué habrá?'}
+          positive={!sealed}
           onEnter={standing ? () => enterSpot(s) : undefined}
-          enterLabel="Abrir"
+          enterLabel={isFound ? 'Mirar' : 'Abrir'}
           below={below}
           align={align}
         />
@@ -397,7 +449,22 @@ export default function ActMap({
         />
       )
     }
-    const info: Record<Exclude<PlaceKind, 'school'>, { title: string; body: string; locked: string }> = {
+    if (s.kind === 'library') {
+      const n = getActBooks(act.key).length
+      return (
+        <NodeDetailPopover
+          title="Biblioteca"
+          body={`${n} ${n === 1 ? 'libro' : 'libros'} con la teoría de este acto, ejemplos para probar y hechizos de práctica.`}
+          status="Siempre abierta"
+          positive
+          onEnter={standing ? () => enterSpot(s) : undefined}
+          enterLabel="Entrar"
+          below={below}
+          align={align}
+        />
+      )
+    }
+    const info: Record<Exclude<PlaceKind, 'school' | 'library'>, { title: string; body: string; locked: string }> = {
       playground: { title: 'Patio de juegos', body: 'Minijuegos cortos para practicar este acto.', locked: 'Todavía no' },
       practice: { title: 'Patio de prácticas', body: 'Bloc libre para escribir y correr Python.', locked: 'Todavía no' },
       shop: { title: 'Tienda del Mercader', body: 'Stickers e ítems a cambio de diamantes.', locked: `Abre tras el jefe ${SHOP_UNLOCK_BOSS_NUMBER}` },
@@ -438,7 +505,7 @@ export default function ActMap({
         onClick={onMapClick}
         onMouseLeave={() => setHovered(null)}
       >
-        <MapArt act={act} blink={blink} />
+        <MapArt act={act} blink={blink} revealed={revealed} fresh={freshPath} />
 
         {act.ascii && <div className="map-ascii-fx" aria-hidden="true"><span className="map-ascii-tear" /></div>}
 
@@ -459,11 +526,19 @@ export default function ActMap({
               </div>
             )
           }
-          if (s.kind === 'secret') {
+          if (s.kind === 'chest') {
             const sz = Math.round(placeSize * 0.62)
+            const def = getChestSticker(s.chest.id)
             return (
               <div key={k} {...common} className="map-spot" style={{ left: cx(s.p.x) - sz / 2, top: cy(s.p.y) - sz * 0.62, width: sz, height: sz, zIndex: 3 }}>
-                <SecretNode focused={focused} size={sz} opened={opened} />
+                <ChestNode
+                  focused={focused}
+                  size={sz}
+                  kind={s.chest.kind}
+                  opened={found.has(s.chest.id)}
+                  sealed={!!def?.sealedUntil && bossStates[def.sealedUntil] !== 'defeated'}
+                  fresh={freshPath === s.chest.id}
+                />
               </div>
             )
           }
@@ -502,6 +577,7 @@ export default function ActMap({
       </div>
 
       {warning && <RodolfoMapWarning message={warning} onClose={() => setWarning(null)} />}
+      {opening && <ChestReveal stickerId={opening} onClose={() => setOpening(null)} />}
     </div>
   )
 }

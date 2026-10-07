@@ -13,6 +13,7 @@ import { completeRepaso, getRepasoProgress, saveRepasoBeat } from '@/lib/storage
 import type { Boss } from '@/types'
 import FillEditor from './FillEditor'
 import PixelBurst from './PixelBurst'
+import { friendlyError } from '@/lib/game/friendly-error'
 import RodolfoTalk from './RodolfoTalk'
 
 const vt = 'var(--font-vt323), monospace'
@@ -43,18 +44,6 @@ async function runBeat(beat: FillBeat, values: string[]): Promise<RunResult> {
   if (error) return { ok: false, lines: [], table: null, error }
   const actual = rows.map((r) => r.join('|')).join('\n')
   return { ok: normalize(actual) === normalize(beat.expected), lines: [], table: { cols: columns, rows }, error: null }
-}
-
-/** Traduce el error crudo de Python/SQLite a algo que un chico de 10 años entienda. */
-function friendlyError(err: string): string {
-  if (/SyntaxError/i.test(err)) return 'Python no entendió cómo está escrito. Revisá que no falte ni sobre ningún signo.'
-  if (/NameError/i.test(err)) return 'Python no conoce ese nombre. ¿Está bien escrito, igual que arriba?'
-  if (/TypeError/i.test(err)) return 'Se mezclaron cosas que no van juntas (por ejemplo, texto con números).'
-  if (/IndexError/i.test(err)) return 'Esa posición no existe en la lista. Acordate que se cuenta desde 0.'
-  if (/KeyError/i.test(err)) return 'Esa etiqueta no existe en el diccionario. Fijate cómo está escrita.'
-  if (/no such column/i.test(err)) return 'Esa columna no existe en la tabla. Revisá el nombre.'
-  if (/syntax error/i.test(err)) return 'SQL no entendió la orden. Revisá que la palabra esté bien escrita.'
-  return 'Algo no salió. Revisá lo que escribiste y probá de nuevo.'
 }
 
 interface Props {

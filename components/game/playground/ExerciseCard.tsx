@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { sfx } from '@/lib/game/architect/sound'
+import { bookForExercise } from '@/lib/game/biblioteca'
 import type { PlaygroundExercise } from '@/lib/game/playground'
 
 interface Props {
@@ -22,6 +24,7 @@ export default function ExerciseCard({ exercise, onAnswered }: Props) {
   const [answered, setAnswered] = useState<Answered>(null)
   const [picked, setPicked] = useState<string | null>(null)
   const [fillValue, setFillValue] = useState('')
+  const libro = bookForExercise(exercise.id)
 
   const resolve = (given: string) => {
     if (answered) return
@@ -114,6 +117,11 @@ export default function ExerciseCard({ exercise, onAnswered }: Props) {
           <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, color: 'hsl(var(--tx2))', marginTop: 4 }}>
             {exercise.explain}
           </p>
+          {libro && (
+            <Link href={`/biblioteca?libro=${libro.book.id}&pagina=${libro.page}`} className="lib-from-playground">
+              {answered.correct ? 'Leer más en la Biblioteca' : '¿No te quedó claro? Leelo en la Biblioteca'}
+            </Link>
+          )}
         </div>
       )}
     </div>

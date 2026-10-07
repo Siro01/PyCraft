@@ -9,6 +9,7 @@
 
 import type { Boss } from '@/types'
 import { BOSSES } from './bosses'
+import { getChestSticker, type ChestKind } from './chest-stickers'
 
 export type MapTheme = 'light' | 'dark' | 'red'
 
@@ -76,13 +77,21 @@ export interface MapRoute {
   pts: P[]
   /** Sendero punteado (ruta por el agua, atajo secreto) — se camina igual. */
   dotted?: boolean
+  /** Camino escondido hacia un cofre secreto (id del sticker): se camina, pero
+   *  no se dibuja ni corta el terreno hasta que el alumno lo pisa. El primer
+   *  punto es la entrada y tiene que caer sobre una ruta visible. */
+  hidden?: string
 }
 
 export interface MapNode extends MapPoint { bossId: string }
 
-export interface MapSecret extends MapPoint {
-  /** Lo que dice Rodolfo al abrir el cofre — un tip corto del acto. */
-  tip: string
+/** Cofre del mapa — adentro hay un sticker especial (lib/game/chest-stickers.ts). */
+export interface MapChest extends MapPoint {
+  /** Id del sticker que guarda (también identifica al cofre). */
+  id: string
+  kind: ChestKind
+  /** Solo secretos: la casilla de la ruta visible donde nace su camino escondido. */
+  entrance: MapPoint | null
 }
 
 /** Fragmento de código roto del Acto IV, en celdas de la grilla ASCII. */
@@ -104,7 +113,12 @@ export interface ActMapDef {
   mercader: MapPoint
   /** La Escuelita de Rodolfo (repasos para ponerse al día) — solo aparece si el alumno tiene alguno habilitado. */
   school: MapPoint
-  secret: MapSecret | null
+  /** La Biblioteca del acto: teoría de cada tema, siempre abierta. */
+  library: MapPoint
+  /** Dos por acto: uno a la vista y uno secreto, al final de un camino escondido. */
+  chests: MapChest[]
+  /** Casillas de caminos escondidos ("x,y" → id del cofre al que llevan; sin la entrada). */
+  hiddenTiles: Record<string, string>
   entry: MapPoint
   /** Casilla del borde derecho que lleva al acto siguiente. */
   exit: MapPoint | null
@@ -133,7 +147,8 @@ interface Layout {
   practice: P
   mercader: P
   school: P
-  secret?: { at: P; tip: string }
+  library: P
+  chests: { sticker: string; at: P }[]
   routes: MapRoute[]
   dots: P[]
   blobs: MapBlob[]
@@ -172,13 +187,36 @@ function buildAct(meta: {
 
   if (process.env.NODE_ENV !== 'production') {
     const must: [string, P][] = [
-      ['entrada', l.entry], ['patio de juegos', l.playground], ['patio de prácticas', l.practice], ['tienda', l.mercader], ['escuelita', l.school],
+      ['entrada', l.entry], ['patio de juegos', l.playground], ['patio de prácticas', l.practice], ['tienda', l.mercader], ['escuelita', l.school], ['biblioteca', l.library],
       ...l.bosses.map((b, i) => [`jefe ${i + 1}`, b] as [string, P]),
     ]
     if (l.exit) must.push(['salida', l.exit])
-    if (l.secret) must.push(['cofre', l.secret.at])
+    for (const c of l.chests) must.push([`cofre ${c.sticker}`, c.at])
     for (const [name, p] of must) {
       if (!links[key(p[0], p[1])]) console.warn(`[act-maps] ${meta.key}: ${name} (${p}) no está sobre ninguna ruta`)
+    }
+  }
+
+  // Caminos escondidos: todas sus casillas menos la entrada (que es de una ruta visible).
+  const hiddenTiles: Record<string, string> = {}
+  const entrances: Record<string, MapPoint> = {}
+  for (const r of l.routes) {
+    if (!r.hidden) continue
+    entrances[r.hidden] = pt(r.pts[0])
+    for (let i = 0; i < r.pts.length - 1; i++) {
+      const [x1, y1] = r.pts[i]
+      const [x2, y2] = r.pts[i + 1]
+      const dx = Math.sign(x2 - x1), dy = Math.sign(y2 - y1)
+      for (let x = x1, y = y1; x !== x2 || y !== y2;) { x += dx; y += dy; hiddenTiles[key(x, y)] = r.hidden }
+    }
+  }
+  const chests: MapChest[] = l.chests.map((c) => {
+    const kind = getChestSticker(c.sticker)?.kind ?? 'cofre'
+    return { id: c.sticker, kind, ...pt(c.at), entrance: kind === 'secreto' ? entrances[c.sticker] ?? null : null }
+  })
+  if (process.env.NODE_ENV !== 'production') {
+    for (const c of chests) {
+      if (c.kind === 'secreto' && hiddenTiles[key(c.x, c.y)] !== c.id) console.warn(`[act-maps] ${meta.key}: el cofre secreto ${c.id} no está al final de su camino escondido`)
     }
   }
 
@@ -199,7 +237,9 @@ function buildAct(meta: {
     practice: pt(l.practice),
     mercader: pt(l.mercader),
     school: pt(l.school),
-    secret: l.secret ? { ...pt(l.secret.at), tip: l.secret.tip } : null,
+    library: pt(l.library),
+    chests,
+    hiddenTiles,
     entry: pt(l.entry),
     exit,
     exitApproach,
@@ -251,9 +291,11 @@ const ACT_I: Layout = {
   practice: [5, 12],
   mercader: [14, 10],
   school: [2, 8],
-  secret: { at: [1, 15], tip: 'Un cofre escondido... adentro dice: «print() es tu linterna: si no sabés qué pasa, imprimilo».' },
+  library: [2, 5],
+  chests: [{ sticker: 'sticker-cofre-py', at: [1, 15] }, { sticker: 'sticker-secreto-slime', at: [25, 16] }],
   routes: [
     { pts: [[0, 8], [9, 8]] },
+    { pts: [[2, 8], [2, 5]] },
     { pts: [[5, 3], [5, 12]] },
     { pts: [[9, 4], [19, 4], [19, 13], [9, 13], [9, 4]] },
     { pts: [[14, 4], [14, 1]] },
@@ -261,8 +303,10 @@ const ACT_I: Layout = {
     { pts: [[19, 8], [28, 8], [28, 12], [31, 12]] },
     { pts: [[24, 8], [24, 3]] },
     { pts: [[5, 12], [5, 15], [1, 15]], dotted: true },
+    // Secreto: baja desde el último jefe y se mete en el bosque del sureste.
+    { pts: [[28, 12], [28, 16], [25, 16]], hidden: 'sticker-secreto-slime' },
   ],
-  dots: [[5, 8], [9, 8], [14, 4], [19, 8], [14, 13], [24, 8], [28, 8]],
+  dots: [[2, 8], [5, 8], [9, 8], [14, 4], [19, 8], [14, 13], [24, 8], [28, 8]],
   blobs: [
     { kind: 'dither', c: [2.5, 2.5], r: [3.6, 2.6], seed: 3 },
     { kind: 'dither', c: [28, 3.5], r: [4.4, 4.2], seed: 11 },
@@ -298,11 +342,13 @@ const ACT_II: Layout = {
   practice: [15, 4],
   mercader: [28, 4],
   school: [2, 9],
-  secret: { at: [8, 16], tip: 'Un cofre flotando... adentro dice: «SELECT * trae todo; con WHERE elegís qué filas querés».' },
+  library: [2, 6],
+  chests: [{ sticker: 'sticker-cofre-botella', at: [8, 16] }, { sticker: 'sticker-secreto-null', at: [19, 17] }],
   routes: [
     { pts: [[0, 9], [4, 9]] },
     { pts: [[4, 9], [12, 9]], dotted: true },
     { pts: [[4, 9], [4, 4], [8, 4]] },
+    { pts: [[4, 6], [2, 6]] },
     { pts: [[4, 9], [4, 13]] },
     { pts: [[4, 13], [4, 16], [8, 16]], dotted: true },
     { pts: [[12, 4], [12, 14], [16, 14], [22, 14], [22, 9]] },
@@ -311,8 +357,10 @@ const ACT_II: Layout = {
     { pts: [[19, 9], [19, 4], [23, 4], [28, 4]] },
     { pts: [[19, 9], [27, 9]], dotted: true },
     { pts: [[27, 9], [27, 13], [31, 13]] },
+    // Secreto: desde el segundo jefe, al agua profunda del sur.
+    { pts: [[16, 14], [16, 17], [19, 17]], hidden: 'sticker-secreto-null' },
   ],
-  dots: [[4, 9], [12, 9], [19, 9], [22, 9], [27, 9], [12, 4]],
+  dots: [[4, 9], [4, 6], [12, 9], [19, 9], [22, 9], [27, 9], [12, 4]],
   blobs: [
     { kind: 'island', c: [6.2, 4.6], r: [4.2, 3.2], seed: 2 },
     { kind: 'island', c: [16.3, 12], r: [5.6, 4], seed: 9 },
@@ -348,13 +396,17 @@ const ACT_III: Layout = {
   practice: [20, 14],
   mercader: [27, 12],
   school: [7, 4],
-  secret: { at: [6, 16], tip: 'Un cofre en la orilla... adentro dice: «conn.commit() guarda los cambios: sin commit, no pasó».' },
+  library: [1, 10],
+  chests: [{ sticker: 'sticker-cofre-huevo', at: [6, 16] }, { sticker: 'sticker-secreto-nexo', at: [30, 15] }],
   routes: [
     { pts: [[0, 4], [10, 4], [10, 8], [15, 8], [27, 8], [27, 12]] },
     { pts: [[4, 1], [4, 14], [10, 14], [15, 14], [15, 8]] },
+    { pts: [[4, 10], [1, 10]] },
     { pts: [[20, 8], [20, 4], [26, 4], [31, 4]] },
     { pts: [[20, 8], [20, 14]] },
     { pts: [[10, 14], [10, 16], [6, 16]], dotted: true },
+    // Secreto: baja desde la tienda y se mete en el bosque del sureste.
+    { pts: [[27, 12], [27, 15], [30, 15]], hidden: 'sticker-secreto-nexo' },
   ],
   dots: [[4, 4], [10, 4], [4, 10], [20, 8], [15, 14], [27, 8], [20, 4]],
   blobs: [
@@ -393,15 +445,19 @@ const ACT_IV: Layout = {
   practice: [9, 1],
   mercader: [15, 2],
   school: [1, 9],
-  secret: { at: [21, 15], tip: 'Un cofre corrupto... adentro, entre basura, se lee: «el error no te borra nada. Leelo: te dice dónde mirar».' },
+  library: [12, 10],
+  chests: [{ sticker: 'sticker-cofre-ojo', at: [21, 15] }, { sticker: 'sticker-secreto-gato', at: [1, 1] }],
   routes: [
     { pts: [[0, 9], [3, 9], [3, 3], [9, 3], [9, 14], [15, 14], [15, 8], [25, 8]] },
     { pts: [[3, 9], [3, 15]] },
+    { pts: [[9, 10], [12, 10]] },
     { pts: [[9, 3], [9, 1]] },
     { pts: [[15, 8], [15, 2]] },
     { pts: [[15, 14], [21, 14], [21, 15]], dotted: true },
+    // Secreto: la esquina de arriba del sistema, «un archivo que no figura en ningún lado».
+    { pts: [[3, 3], [1, 3], [1, 1]], hidden: 'sticker-secreto-gato' },
   ],
-  dots: [[3, 9], [9, 3], [15, 14], [15, 8], [9, 9]],
+  dots: [[3, 9], [9, 3], [15, 14], [15, 8], [9, 10]],
   blobs: [],
   props: [],
   marks: [],
@@ -415,8 +471,8 @@ const ACT_IV: Layout = {
     { col: 8, row: 18, text: '  pass  #?' },
     { col: 20, row: 7, text: 'ERR 0x0E', hot: true },
     { col: 20, row: 8, text: 'mem.rota' },
-    { col: 20, row: 15, text: '01010000' },
-    { col: 20, row: 16, text: '01011001' },
+    { col: 20, row: 18, text: '01010000' },
+    { col: 20, row: 19, text: '01011001' },
     { col: 0, row: 25, text: 'SELECT * FROM realidad;  -- 0 filas' },
     { col: 0, row: 26, text: 'Traceback (most recent call last):' },
   ],

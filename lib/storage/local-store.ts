@@ -768,3 +768,114 @@ function mergeOwnedById(a: OwnedShopItem[], b: OwnedShopItem[]): OwnedShopItem[]
   }
   return [...byKey.values()]
 }
+
+// ─── Biblioteca: qué leyó, con qué experimentó y qué hechizos domina ─────────
+// Solo en este dispositivo por ahora (game_extras no tiene columna para esto
+// todavía): es teoría que se puede volver a leer, no progreso de jefes.
+const BIBLIOTECA_KEY = 'pysql:biblioteca'
+
+export interface BookProgress {
+  /** Páginas de teoría donde ejecutó el ejemplo al menos una vez. */
+  read: number[]
+  /** Páginas donde cambió el ejemplo y lo ejecutó ("experimentó"). */
+  tinkered: number[]
+  /** Ids de hechizos ya lanzados con éxito. */
+  spells: string[]
+  /** Hoja donde quedó (para reabrir el libro ahí). */
+  lastPage: number
+  masteredAt?: string
+}
+export type BibliotecaProgress = Record<string, BookProgress>
+
+export const EMPTY_BOOK_PROGRESS: BookProgress = { read: [], tinkered: [], spells: [], lastPage: 0 }
+
+export function getBibliotecaProgress(): BibliotecaProgress {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(BIBLIOTECA_KEY)
+    return raw ? (JSON.parse(raw) as BibliotecaProgress) : {}
+  } catch { return {} }
+}
+
+function updateBook(bookId: string, fn: (p: BookProgress) => BookProgress): BibliotecaProgress {
+  const all = getBibliotecaProgress()
+  all[bookId] = fn({ ...EMPTY_BOOK_PROGRESS, ...all[bookId] })
+  try { localStorage.setItem(BIBLIOTECA_KEY, JSON.stringify(all)) } catch { /* modo privado */ }
+  return all
+}
+
+const addOnce = <T,>(list: T[], v: T) => (list.includes(v) ? list : [...list, v])
+
+export function markBookPage(bookId: string, page: number, tinkered: boolean): BibliotecaProgress {
+  return updateBook(bookId, (p) => ({ ...p, read: addOnce(p.read, page), tinkered: tinkered ? addOnce(p.tinkered, page) : p.tinkered }))
+}
+
+export function setBookLastPage(bookId: string, page: number): BibliotecaProgress {
+  return updateBook(bookId, (p) => ({ ...p, lastPage: page }))
+}
+
+/** Devuelve también si con este hechizo el libro quedó dominado por primera vez. */
+export function castBookSpell(bookId: string, spellId: string, totalSpells: number): { all: BibliotecaProgress; justMastered: boolean } {
+  let justMastered = false
+  const all = updateBook(bookId, (p) => {
+    const spells = addOnce(p.spells, spellId)
+    const mastered = spells.length >= totalSpells
+    justMastered = mastered && !p.masteredAt
+    return { ...p, spells, masteredAt: p.masteredAt ?? (mastered ? new Date().toISOString() : undefined) }
+  })
+  return { all, justMastered }
+}
+
+// ─── Cofres del mapa: stickers que se encuentran explorando ──────────────────
+// Lo encontrado entra al MISMO registro que las compras (precio 0), así viaja
+// a la nube, aparece en el inventario y en ✦ Decorar como cualquier sticker.
+// Lo demás — cuántas veces tocó cada sticker (etapas, frases secretas) y qué
+// caminos escondidos ya destapó — es de esta PC, como la decoración.
+
+const STICKER_POKES_KEY = 'pysql:sticker-pokes'
+const SECRET_PATHS_KEY = 'pysql:secret-paths'
+
+/** Devuelve true si es la primera vez (el cofre estaba lleno). */
+export function claimChestSticker(itemId: string): boolean {
+  if (typeof window === 'undefined') return false
+  if (getShopOwned().some((o) => o.id === itemId)) return false
+  saveShopOwnedRaw([...getShopLedger(), { id: itemId, pricePaid: 0, acquiredAt: new Date().toISOString() }])
+  return true
+}
+
+export function getStickerPokes(): Record<string, number> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(STICKER_POKES_KEY)
+    return raw ? (JSON.parse(raw) as Record<string, number>) : {}
+  } catch { return {} }
+}
+
+/** Suma un toque y devuelve el total acumulado de ese sticker. */
+export function addStickerPoke(itemId: string): number {
+  const all = getStickerPokes()
+  all[itemId] = (all[itemId] ?? 0) + 1
+  try { localStorage.setItem(STICKER_POKES_KEY, JSON.stringify(all)) } catch { /* modo privado: cuenta solo en memoria */ }
+  return all[itemId]
+}
+
+export function getRevealedPaths(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(SECRET_PATHS_KEY)
+    return raw ? (JSON.parse(raw) as string[]) : []
+  } catch { return [] }
+}
+
+export function revealSecretPath(chestId: string): void {
+  const all = getRevealedPaths()
+  if (all.includes(chestId)) return
+  try { localStorage.setItem(SECRET_PATHS_KEY, JSON.stringify([...all, chestId])) } catch { /* modo privado */ }
+}
+
+/** Solo para las vistas de prueba del docente: vuelve a cerrar los cofres en este navegador. */
+export function resetChestsForDemo(itemIds: string[]): void {
+  if (typeof window === 'undefined') return
+  saveShopOwnedRaw(getShopLedger().filter((o) => !itemIds.includes(o.id)))
+  try { localStorage.removeItem(SECRET_PATHS_KEY); localStorage.removeItem(STICKER_POKES_KEY) } catch { /* modo privado */ }
+}

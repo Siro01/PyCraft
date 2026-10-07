@@ -5,10 +5,13 @@ import { ShopGlyph } from '@/components/game/shop/ShopIcons'
 import { AmuletIcon, IconCheck } from '@/components/ui/PixelIcons'
 import { AMULET_META } from '@/lib/game/amulets'
 import { SHOP_CATALOG, STICKER_COLORWAYS } from '@/lib/game/shop'
+import { ACT_LABEL, CHEST_STICKERS, getChestSticker, heardLines, type ChestSticker } from '@/lib/game/chest-stickers'
+import ChestStickerToy, { ChestSparkle, PixelStar, SecretTag, type ToySay } from '@/components/game/stickers/ChestStickerToy'
+import { CHEST_CLOSED, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
 import { PERK_SLOT_LIMIT, applyItem, ownedPerkItems, type ItemUseResult } from '@/lib/game/perk-effects'
 import { sfx } from '@/lib/game/architect/sound'
 import {
-  activateShopCoupon, consumePerk, getAmulets, getEquippedPerks, getShopOwned, setStickerColorway, togglePerkEquipped,
+  activateShopCoupon, consumePerk, getAmulets, getEquippedPerks, getShopOwned, getStickerPokes, setStickerColorway, togglePerkEquipped,
 } from '@/lib/storage/local-store'
 import InventoryConsole from '@/components/game/items/InventoryConsole'
 import { SixSevenOverlay } from '@/components/game/items/ItemOverlays'
@@ -59,6 +62,8 @@ interface Entry {
   item?: ShopItem
   owned?: OwnedShopItem
   equipped?: boolean
+  /** Sticker encontrado en un cofre del mapa: está vivo (reacciona al toque). */
+  chest?: ChestSticker
 }
 
 const TAB_HELP: Record<Tab, (inBattle: boolean) => string> = {
@@ -66,13 +71,13 @@ const TAB_HELP: Record<Tab, (inBattle: boolean) => string> = {
   perks: (inBattle) => inBattle
     ? 'Para usar un ítem, escribí print(nombre) en la ventana INVENTARIO.PY de la batalla.'
     : `Se compran en la tienda del Mercader del Abismo. Los de combate se usan en batalla; acá podés equipar hasta ${PERK_SLOT_LIMIT}, usar el Cupón o leer los objetos de historia — siempre con print().`,
-  stickers: () => 'Se compran con diamantes en la tienda del Mercader del Abismo. Elegí un color acá y pegalos en tu escritorio con ✦ Decorar.',
+  stickers: () => 'Se compran en la tienda del Mercader del Abismo o se encuentran en cofres escondidos del mapa (los de cofre están vivos: tocalos). Pegalos en tu escritorio con ✦ Decorar.',
 }
 
 const EMPTY_TEXT: Record<Tab, string> = {
   amulets: 'Sin amuletos. El Mercader Ambulante aparece cada 2 jefes.',
   perks: 'Sin ítems. Se consiguen en la tienda del Mercader del Abismo.',
-  stickers: 'Sin stickers. Se consiguen en la tienda del Mercader del Abismo.',
+  stickers: 'Sin stickers. Se compran en la tienda o se encuentran en los cofres del mapa.',
 }
 
 interface InventoryAppProps {
@@ -101,6 +106,9 @@ export default function InventoryApp({ inBattle = false, itemsOverride, equipped
   const [focusSignal, setFocusSignal] = useState(0)
   const [burst, setBurst] = useState(0)
   const [pop, setPop] = useState<string | null>(null)
+  const [pokes, setPokes] = useState<Record<string, number>>({})
+  const [say, setSay] = useState<{ key: string; say: ToySay } | null>(null)
+  const [pokeSignal, setPokeSignal] = useState(0)
   const gridRef = useRef<HTMLDivElement>(null)
   const uid = useId()
 
@@ -109,6 +117,7 @@ export default function InventoryApp({ inBattle = false, itemsOverride, equipped
       setAmulets(demo.amulets); setOwned(demo.owned); setEquipped(demo.equipped)
     } else {
       setAmulets(getAmulets()); setOwned(getShopOwned()); setEquipped(getEquippedPerks())
+      setPokes(getStickerPokes())
     }
     setLoaded(true)
   }, [demo])
@@ -139,6 +148,10 @@ export default function InventoryApp({ inBattle = false, itemsOverride, equipped
     const stickerEntries: Entry[] = owned.flatMap((o) => {
       const item = byId.get(o.id)
       if (!item || item.category !== 'sticker') return []
+      const chest = item.source === 'chest' ? getChestSticker(o.id) : undefined
+      if (chest) {
+        return [{ key: o.id, name: item.name, description: item.description, tag: `${chest.kind === 'secreto' ? 'Cofre secreto' : 'Cofre'} · ${ACT_LABEL[chest.act]}`, count: 1, item, owned: o, chest }]
+      }
       const colorway = STICKER_COLORWAYS.find((c) => c.value === o.colorway)
       return [{ key: o.id, name: item.name, description: item.description, tag: colorway ? `Color ${colorway.label}` : 'Sticker', count: 1, item, owned: o }]
     })
@@ -332,6 +345,7 @@ export default function InventoryApp({ inBattle = false, itemsOverride, equipped
                   <EntryIcon entry={entry} px={32} animated={isSel} />
                 </span>
                 {entry.count > 1 && <span className="inv-count">{entry.count}</span>}
+                {entry.chest && <ChestSparkle kind={entry.chest.kind} px={7} style={{ right: 3, top: 3 }} />}
                 {entry.equipped && (
                   <span className="inv-eq" aria-hidden><IconCheck size={9} color="hsl(var(--bg))" /></span>
                 )}
@@ -354,6 +368,7 @@ export default function InventoryApp({ inBattle = false, itemsOverride, equipped
               <span aria-hidden>&gt;_</span> inventario.py
             </button>
           )}
+          {tab === 'stickers' && <ChestCounter found={entries.stickers.filter((e) => e.chest).length} />}
           <span style={{ flex: 1 }} />
           {pages > 1 && (
             <div className="flex items-center gap-1.5" aria-label="Hojas">
@@ -383,9 +398,21 @@ export default function InventoryApp({ inBattle = false, itemsOverride, equipped
           <div key={current.key} className="inv-plate-in">
             <div className="flex items-center gap-2.5">
               <span className="inv-plate-icon">
-                <span className={pop === current.key ? 'inv-pop' : undefined} style={{ display: 'flex' }}>
-                  <EntryIcon entry={current} px={48} animated />
-                </span>
+                {current.chest ? (
+                  <ChestStickerToy
+                    key={current.key}
+                    id={current.key}
+                    size={48}
+                    bubble="none"
+                    demo={!!demo}
+                    pokeSignal={pokeSignal}
+                    onSay={(sy) => { setSay({ key: current.key, say: sy }); setPokes((p) => ({ ...p, [current.key]: sy.n })) }}
+                  />
+                ) : (
+                  <span className={pop === current.key ? 'inv-pop' : undefined} style={{ display: 'flex' }}>
+                    <EntryIcon entry={current} px={48} animated />
+                  </span>
+                )}
                 {burst > 0 && tab === 'stickers' && (
                   <span style={{ position: 'absolute', left: '50%', top: '50%' }}><PixelBurst key={burst} kind="chalk" /></span>
                 )}
@@ -411,12 +438,21 @@ export default function InventoryApp({ inBattle = false, itemsOverride, equipped
 
             {showInfo && <p className="inv-desc">{current.description}</p>}
 
-            <PlateAction
-              entry={current}
-              inBattle={inBattle}
-              onConsole={openConsole}
-              onColor={handleColorway}
-            />
+            {current.chest ? (
+              <ChestPlate
+                chest={current.chest}
+                pokes={pokes[current.key] ?? 0}
+                say={say?.key === current.key ? say.say : null}
+                onPoke={() => setPokeSignal((n) => n + 1)}
+              />
+            ) : (
+              <PlateAction
+                entry={current}
+                inBattle={inBattle}
+                onConsole={openConsole}
+                onColor={handleColorway}
+              />
+            )}
           </div>
         )}
       </div>
@@ -500,5 +536,38 @@ function PlateAction({ entry, inBattle, onConsole, onColor }: {
       </button>
       <span className="inv-hint" style={{ margin: 0 }}>se llama {code}</span>
     </div>
+  )
+}
+
+/** Pie de la solapa Stickers: cuántos cofres del mapa ya abrió (motiva a explorar). */
+function ChestCounter({ found }: { found: number }) {
+  return (
+    <span className="inv-chests" title="Stickers encontrados en cofres del mapa">
+      <PixelBitmap rows={CHEST_CLOSED} scale={1} />
+      Cofres {found}/{CHEST_STICKERS.length}
+    </span>
+  )
+}
+
+/** La placa de un sticker de cofre: lo último que dijo, cuántas frases le sacaste y el botón para tocarlo. */
+function ChestPlate({ chest, pokes, say, onPoke }: { chest: ChestSticker; pokes: number; say: ToySay | null; onPoke: () => void }) {
+  const { heard, total, secret } = heardLines(chest, pokes)
+  const plain = heard - (secret ? 1 : 0)
+  return (
+    <>
+      {say && (
+        <p key={say.n} className={`inv-say${say.secret ? ' is-secret' : ''}`} aria-live="polite">
+          {say.secret && <SecretTag />}
+          {say.text}
+        </p>
+      )}
+      <div className="inv-actions">
+        <button type="button" className="inv-go" onClick={onPoke}>Tocar</button>
+        <span className="inv-heard" role="img" aria-label={`Frases descubiertas: ${heard} de ${total}${secret ? ', incluida la secreta' : ''}`}>
+          {Array.from({ length: total - 1 }, (_, i) => <span key={i} className={`inv-pip${i < plain ? ' is-on' : ''}`} />)}
+          <span className={`inv-pip-star${secret ? ' is-on' : ''}`}><PixelStar px={9} /></span>
+        </span>
+      </div>
+    </>
   )
 }

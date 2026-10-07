@@ -12,6 +12,7 @@ interface PyodideInstance {
   }
   setStdin: (opts: { stdin: () => string | null }) => void
   setStdout: (opts: { batched: (msg: string) => void }) => void
+  loadPackage: (names: string | string[]) => Promise<unknown>
 }
 
 // Todo lo que Python imprime llega acá — Pyodide llama a `batched` una vez
@@ -173,8 +174,18 @@ finally:
     sys.stdout.flush()
 `
 
+// sqlite3 no viene en la biblioteca estándar de Pyodide: es un paquete aparte
+// que hay que cargar antes del primer `import sqlite3` (si no, tira
+// ModuleNotFoundError). Se baja una sola vez, y solo si el código lo usa —
+// los jefes del Acto III y los libros de la Biblioteca.
+let sqlitePromise: Promise<unknown> | null = null
+
 export async function runPython(code: string): Promise<PythonRunResult> {
   const py = await getPyodide()
+  if (/\bsqlite3\b/.test(code)) {
+    sqlitePromise ??= py.loadPackage('sqlite3').catch((e) => { sqlitePromise = null; throw e })
+    try { await sqlitePromise } catch { return { output: '', error: 'No se pudo cargar sqlite3. Revisá la conexión a internet y probá de nuevo.' } }
+  }
 
   // Pass user code as a Python variable to avoid any escaping issues
   py.globals.set('_user_code', code)

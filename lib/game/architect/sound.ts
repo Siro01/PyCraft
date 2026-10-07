@@ -294,6 +294,47 @@ export const sfx = {
       tone(f * 2.01, 0.25, 'sine', 0.018, { at: i * 0.22 })
     })
   },
+  // ── Biblioteca (grimorios) ─────────────────────────────────────────────────
+  /** El libro sale del estante: roce de lomo contra madera. */
+  bookPull() {
+    noise(0.07, 0.035, { highpass: 900 })
+    tone(220, 0.06, 'triangle', 0.03, { to: 330 })
+  },
+  /** La tapa se abre: golpe sordo de cartón + hojas que se acomodan. */
+  bookOpen() {
+    tone(110, 0.1, 'triangle', 0.07, { to: 70 })
+    noise(0.12, 0.03, { at: 0.08, highpass: 2600 })
+    noise(0.08, 0.022, { at: 0.18, highpass: 3600 })
+  },
+  /** Cerrar el libro: tapa que cae, más seco que abrir. */
+  bookClose() {
+    noise(0.05, 0.05, { highpass: 700 })
+    tone(130, 0.08, 'square', 0.04, { to: 80 })
+  },
+  /** Lanzar un hechizo: runa que se carga (sube) y estalla. */
+  spellCast() {
+    ;[392, 523, 659, 880].forEach((f, i) => tone(f, 0.07, 'triangle', 0.035, { at: i * 0.045 }))
+    noise(0.09, 0.04, { at: 0.2, highpass: 1800 })
+  },
+  /** El muñeco de práctica recibe el golpe: paja y madera. */
+  dummyHit() {
+    noise(0.06, 0.07, { highpass: 400 })
+    tone(180, 0.09, 'square', 0.05, { to: 90 })
+  },
+  /** El hechizo rebota: chispa que se apaga, nunca un buzz de castigo. */
+  spellFizzle() {
+    tone(587, 0.08, 'triangle', 0.04, { to: 392 })
+    tone(330, 0.14, 'triangle', 0.035, { at: 0.08, to: 247 })
+  },
+  /** Libro dominado: fanfarria corta de órgano + sello. */
+  bookMastered() {
+    ;[523, 659, 784, 1047].forEach((f, i) => {
+      tone(f, 0.18, 'square', 0.04, { at: i * 0.1 })
+      tone(f / 2, 0.18, 'triangle', 0.03, { at: i * 0.1 })
+    })
+    noise(0.05, 0.07, { at: 0.48, highpass: 600 })
+    tone(140, 0.1, 'square', 0.05, { at: 0.48, to: 70 })
+  },
   // ── INVENTARIO.EXE (grilla de casilleros) ─────────────────────────────────
   /** Cambiar de solapa: la mochila se abre (cuero + dos notas cortas). */
   invTab() {
@@ -323,5 +364,62 @@ export const sfx = {
   equip(on: boolean) {
     tone(on ? 587 : 349, 0.05, 'square', 0.05)
     tone(on ? 880 : 262, 0.08, 'square', 0.04, { at: 0.06 })
+  },
+  // ── Cofres del mapa y stickers que reaccionan ─────────────────────────────
+  /** Se destapa un camino escondido: arpegio que sube y queda colgado, como un secreto descubierto. */
+  secretPath() {
+    ;[784, 740, 622, 440, 415, 659, 831, 1047].forEach((f, i) => tone(f, 0.11, 'square', 0.04, { at: i * 0.085 }))
+  },
+  /** Bisagra que cruje, la tapa que golpea y un brillo. */
+  chestOpen() {
+    tone(160, 0.18, 'sawtooth', 0.035, { to: 260 })
+    noise(0.05, 0.06, { at: 0.2 })
+    tone(110, 0.08, 'square', 0.06, { at: 0.2, to: 70 })
+    ;[1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.16, 'triangle', 0.04, { at: 0.32 + i * 0.07 }))
+  },
+  /** Cofre sellado (el secreto del Acto IV antes del final). */
+  chestSealed() {
+    tone(220, 0.08, 'square', 0.05, { to: 180 })
+    tone(147, 0.16, 'square', 0.05, { at: 0.09, to: 98 })
+  },
+  /** Reacción de un sticker de cofre al toque, según quién es. */
+  poke(fx: 'hiss' | 'bounce' | 'uncork' | 'vanish' | 'wobble' | 'snap' | 'glitch' | 'purr', secret = false) {
+    switch (fx) {
+      case 'hiss':
+        noise(0.22, 0.05, { highpass: 5200 })
+        tone(jitter(1400, 200), 0.05, 'triangle', 0.02, { at: 0.02 })
+        break
+      case 'bounce':
+        tone(jitter(180, 30), 0.16, 'square', 0.05, { to: 720 })
+        tone(520, 0.05, 'triangle', 0.03, { at: 0.16, to: 260 })
+        break
+      case 'uncork':
+        tone(900, 0.05, 'square', 0.05, { to: 300 })
+        noise(0.03, 0.05, { highpass: 1500 })
+        tone(jitter(1600, 300), 0.05, 'sine', 0.03, { at: 0.12, to: 2200 })
+        break
+      case 'vanish':
+        tone(1100, 0.26, 'sine', 0.05, { to: 160 })
+        tone(jitter(240, 40), 0.06, 'sine', 0.04, { at: 0.22, to: 320 })
+        break
+      case 'wobble':
+        tone(jitter(196, 20), 0.06, 'triangle', 0.06)
+        tone(jitter(175, 20), 0.06, 'triangle', 0.05, { at: 0.08 })
+        break
+      case 'snap':
+        tone(1760, 0.02, 'square', 0.04)
+        tone(1760, 0.02, 'square', 0.04, { at: 0.05 })
+        tone(2349, 0.14, 'triangle', 0.04, { at: 0.09 })
+        break
+      case 'glitch':
+        noise(0.12, 0.06, { highpass: 900 })
+        for (let i = 0; i < 3; i++) tone(jitter(900, 700), 0.03, 'square', 0.03, { at: 0.04 * i })
+        break
+      case 'purr':
+        for (let i = 0; i < 5; i++) tone(jitter(70, 8), 0.07, 'sawtooth', 0.025, { at: i * 0.065 })
+        if (Math.random() < 0.5) { tone(520, 0.18, 'triangle', 0.06, { at: 0.12, to: 900 }); tone(900, 0.22, 'triangle', 0.05, { at: 0.28, to: 560 }) }
+        break
+    }
+    if (secret) [1319, 1661, 1976, 2637].forEach((f, i) => tone(f, 0.1, 'triangle', 0.035, { at: 0.18 + i * 0.07 }))
   },
 }

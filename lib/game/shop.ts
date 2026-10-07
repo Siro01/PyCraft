@@ -4,6 +4,7 @@
 // en components/game/items/ItemSprites.tsx.
 
 import type { ShopItem } from '@/types'
+import { CHEST_STICKER_ITEMS } from './chest-stickers'
 
 /** Diamantes que otorga derrotar un jefe — un lifetime de 14 jefes da 280. */
 export const DIAMONDS_PER_BOSS = 20
@@ -217,7 +218,13 @@ export const SHOP_CATALOG: ShopItem[] = [
     effectHint: 'Deja al jefe con el 3% de su vida. Un solo acierto más y cae.',
     level: 20, price: 220, glyph: 'item:mazo-diamante',
   },
+
+  // ── Stickers de cofre: no se venden, se encuentran explorando el mapa ────
+  ...CHEST_STICKER_ITEMS,
 ]
+
+/** Lo que el Mercader tiene a la venta (sin los stickers de cofre). */
+export const SHOP_FOR_SALE: ShopItem[] = SHOP_CATALOG.filter((i) => !i.source)
 
 /** Solo los ítems de batalla (los 14 del Mercader). */
 export const BATTLE_ITEMS: ShopItem[] = SHOP_CATALOG.filter((i) => i.category === 'perk')
@@ -231,7 +238,7 @@ export function discountedPrice(price: number, discount: number): number {
 
 /** Selección "de hoy" — determinística por fecha, para que todos los alumnos
  *  vean la misma vidriera en la misma clase y vuelva a cambiar mañana. */
-export function getDailyFeatured(catalog: ShopItem[] = SHOP_CATALOG, count = 3, date = new Date()): Set<string> {
+export function getDailyFeatured(catalog: ShopItem[] = SHOP_FOR_SALE, count = 3, date = new Date()): Set<string> {
   const seed = date.getFullYear() * 372 + date.getMonth() * 31 + date.getDate()
   const shuffled = [...catalog].sort((a, b) => {
     const ra = Math.sin(seed * 99991 + hashId(a.id))

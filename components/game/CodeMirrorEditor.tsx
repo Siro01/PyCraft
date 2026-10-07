@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view'
-import { EditorState, Compartment } from '@codemirror/state'
+import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, type DecorationSet } from '@codemirror/view'
+import { EditorState, Compartment, StateField, RangeSetBuilder } from '@codemirror/state'
 import { defaultKeymap, historyKeymap, history, indentWithTab } from '@codemirror/commands'
 import {
   indentOnInput,
@@ -62,6 +62,7 @@ function buildEditorTheme(accentColor: string, fillHeight: boolean) {
       '.cm-gutterElement': { padding: '0 10px 0 6px' },
       // Active line
       '.cm-activeLine': { background: `${accentColor}0F` },
+      '.cm-marked-line': { background: `${accentColor}1F`, borderLeft: `4px solid ${accentColor}`, paddingLeft: '2px' },
       '.cm-activeLineGutter': {
         background: `${accentColor}18`,
         color: 'hsl(var(--tx2))',
@@ -97,6 +98,23 @@ function buildHighlight(_accentColor: string) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+// Líneas marcadas (la Biblioteca resalta las líneas que importan en cada paso).
+// Viajan con el texto: si el alumno agrega una línea arriba, la marca baja con ella.
+const markedLine = Decoration.line({ class: 'cm-marked-line' })
+function markLinesField(lines: number[]) {
+  return StateField.define<DecorationSet>({
+    create(state) {
+      const b = new RangeSetBuilder<Decoration>()
+      for (const n of [...lines].sort((x, y) => x - y)) {
+        if (n >= 1 && n <= state.doc.lines) { const l = state.doc.line(n); b.add(l.from, l.from, markedLine) }
+      }
+      return b.finish()
+    },
+    update(deco, tr) { return deco.map(tr.changes) },
+    provide: (f) => EditorView.decorations.from(f),
+  })
+}
+
 interface CodeMirrorEditorProps {
   value: string
   onChange: (val: string) => void
@@ -109,6 +127,10 @@ interface CodeMirrorEditorProps {
   fillHeight?: boolean
   /** Pingüino Linux equipado: sugerencias de autocompletado con su ícono. */
   penguin?: boolean
+  /** Resaltar la línea del cursor (apagado en la Biblioteca, para no competir con las líneas marcadas). */
+  activeLine?: boolean
+  /** Líneas (desde 1) que arrancan resaltadas. Se leen al montar: para cambiarlas, remontá con otro `key`. */
+  markLines?: number[]
 }
 
 export default function CodeMirrorEditor({
@@ -120,6 +142,8 @@ export default function CodeMirrorEditor({
   accentColor,
   fillHeight = false,
   penguin = false,
+  markLines,
+  activeLine = true,
 }: CodeMirrorEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -166,10 +190,11 @@ export default function CodeMirrorEditor({
         bracketMatching(),
         closeBrackets(),
         lineNumbers(),
-        highlightActiveLine(),
+        ...(activeLine ? [highlightActiveLine()] : []),
         buildEditorTheme(accentColor, fillHeight),
         syntaxHighlighting(buildHighlight(accentColor)),
         penguinSlot.current.of(penguinRef.current ? penguinAutocomplete(language) : []),
+        ...(markLines?.length ? [markLinesField(markLines)] : []),
         onChange,
       ],
     })

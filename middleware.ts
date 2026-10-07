@@ -7,7 +7,7 @@ import { isLocalMode } from '@/lib/local-mode'
 const ADMIN_ONLY = [
   '/admin',
   '/demo/items', '/demo/tienda', '/demo/mercader-v2',
-  '/demo/mercader', '/demo/architect-lab', '/demo/victory', '/demo/mapa', '/demo/inventario',
+  '/demo/mercader', '/demo/architect-lab', '/demo/victory', '/demo/mapa', '/demo/inventario', '/demo/stickers',
 ]
 const PROTECTED = ['/dashboard', '/battle', '/repaso', ...ADMIN_ONLY]
 
