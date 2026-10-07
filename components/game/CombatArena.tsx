@@ -107,6 +107,13 @@ export default function CombatArena({
 
   // Inventario: amuletos + ítems/stickers de la tienda, consultable en medio de la batalla.
   const [showInventory, setShowInventory] = useState(false)
+  // El inventario de batalla se cierra también con Escape (como las ventanas de error).
+  useEffect(() => {
+    if (!showInventory) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { sfx.close(); setShowInventory(false) } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showInventory])
 
   // Boss state
   const [bossHp, setBossHp]                 = useState(initialHp ?? boss.hpMax)
@@ -616,9 +623,13 @@ export default function CombatArena({
       {showGuide && <MascotGuide tip={challenge?.tip} onOpenLesson={lesson ? openLesson : undefined} />}
       {showLesson && lesson && <LessonWindow lesson={lesson} bossName={boss.name} onClose={() => setShowLesson(false)} />}
       {showInventory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3" style={{ background: 'hsl(var(--bg) / 0.78)' }}>
-          <div className="w-full" style={{ maxWidth: 460 }}>
-            <Win title="INVENTARIO.EXE" active onClose={() => setShowInventory(false)} bodyStyle={{ padding: 16 }}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3"
+          style={{ background: 'hsl(var(--bg) / 0.78)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) { sfx.close(); setShowInventory(false) } }}
+        >
+          <div className="w-full win-pop" style={{ maxWidth: 460 }}>
+            <Win title="INVENTARIO.EXE" active onClose={() => { sfx.close(); setShowInventory(false) }} bodyStyle={{ padding: 16 }}>
               <InventoryApp inBattle itemsOverride={sandbox ? BATTLE_ITEMS : undefined} equippedOverride={equippedItems} />
             </Win>
           </div>
@@ -800,11 +811,6 @@ export default function CombatArena({
         </Win>
       )}
 
-      {/* INVENTARIO.PY — los ítems se usan escribiendo print(nombre) */}
-      {(ownedItems.length > 0 || sandbox) && !isDefeated && !isPlayerDefeated && (
-        <InventoryConsole items={ownedItems} equipped={equippedItems} onUse={handleUseItem} />
-      )}
-
       {/* Player defeated screen */}
       {isPlayerDefeated ? (
         <Win title="DERROTA.EXE" tone="danger" active bodyStyle={{ padding: 32 }}>
@@ -910,6 +916,11 @@ export default function CombatArena({
               </div>
             ) : null}
           />
+          {/* INVENTARIO.PY — cinturón de una fila debajo de Atacar: jefe, desafío y
+              script quedan juntos arriba; los ítems se usan escribiendo print(nombre). */}
+          {(ownedItems.length > 0 || sandbox) && (
+            <InventoryConsole hotbar items={ownedItems} equipped={equippedItems} onUse={handleUseItem} />
+          )}
         </div>
       ) : (
         <Win title="SIN_DESAFIOS.TXT" bodyStyle={{ padding: 24, textAlign: 'center', fontFamily: 'var(--font-vt323), monospace', fontSize: 20, color: 'hsl(var(--tx3))' }}>

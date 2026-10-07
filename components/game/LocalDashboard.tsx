@@ -6,6 +6,7 @@ import Header from '@/components/layout/Header'
 import BossMap from '@/components/game/BossMap'
 import { LoadingScreen } from '@/components/ui/LoadingBar'
 import { BOSSES } from '@/lib/game/bosses'
+import { REPASO_BOSS_IDS } from '@/lib/game/repasos'
 import {
   getLocalUser,
   getAllProgress,
@@ -90,6 +91,8 @@ export default function LocalDashboard() {
         username={user?.name}
         isAdmin={user?.role === 'admin'}
         totalDefeated={totalDefeated}
+        // Sin panel docente (modo local) no hay quién los habilite: quedan todos a mano.
+        repasoIds={REPASO_BOSS_IDS}
         headerExtra={
           <div className="flex flex-col items-end gap-2 self-end">
             {/* Tier selector */}

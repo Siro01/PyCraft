@@ -9,6 +9,7 @@ import { BOSSES } from '@/lib/game/bosses'
 import { TIER_COOKIE, pickTier } from '@/lib/game/tiers'
 import { getEnabledBossIds } from '@/lib/supabase/enabled-bosses'
 import { getEnabledTiers } from '@/lib/supabase/enabled-tiers'
+import { getEnabledRepasoIds } from '@/lib/supabase/enabled-repasos'
 import TestHud from '@/components/game/TestHud'
 import { isTestUser } from '@/lib/test-student/server'
 
@@ -48,6 +49,8 @@ async function SupabaseDashboard() {
     }
   }
 
+  const repasoIds = await getEnabledRepasoIds(supabase, user.id, profile?.role === 'admin')
+
   const isTest = await isTestUser(supabase, user.id)
   const username = profile?.username ?? user.email?.split('@')[0] ?? 'Jugador'
   const role = profile?.role ?? 'student'
@@ -70,6 +73,7 @@ async function SupabaseDashboard() {
         isAdmin={role === 'admin'}
         username={username}
         totalDefeated={totalDefeated}
+        repasoIds={repasoIds}
         headerExtra={tier && enabledTiers.length > 1 ? <TierSelector enabled={enabledTiers} current={tier} /> : undefined}
         emptyState={
           <div className="mb-12 card p-6 text-center">

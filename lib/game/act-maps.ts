@@ -102,6 +102,8 @@ export interface ActMapDef {
   playground: MapPoint
   practice: MapPoint
   mercader: MapPoint
+  /** La Escuelita de Rodolfo (repasos para ponerse al día) — solo aparece si el alumno tiene alguno habilitado. */
+  school: MapPoint
   secret: MapSecret | null
   entry: MapPoint
   /** Casilla del borde derecho que lleva al acto siguiente. */
@@ -130,6 +132,7 @@ interface Layout {
   playground: P
   practice: P
   mercader: P
+  school: P
   secret?: { at: P; tip: string }
   routes: MapRoute[]
   dots: P[]
@@ -169,7 +172,7 @@ function buildAct(meta: {
 
   if (process.env.NODE_ENV !== 'production') {
     const must: [string, P][] = [
-      ['entrada', l.entry], ['patio de juegos', l.playground], ['patio de prácticas', l.practice], ['tienda', l.mercader],
+      ['entrada', l.entry], ['patio de juegos', l.playground], ['patio de prácticas', l.practice], ['tienda', l.mercader], ['escuelita', l.school],
       ...l.bosses.map((b, i) => [`jefe ${i + 1}`, b] as [string, P]),
     ]
     if (l.exit) must.push(['salida', l.exit])
@@ -195,6 +198,7 @@ function buildAct(meta: {
     playground: pt(l.playground),
     practice: pt(l.practice),
     mercader: pt(l.mercader),
+    school: pt(l.school),
     secret: l.secret ? { ...pt(l.secret.at), tip: l.secret.tip } : null,
     entry: pt(l.entry),
     exit,
@@ -246,6 +250,7 @@ const ACT_I: Layout = {
   playground: [5, 3],
   practice: [5, 12],
   mercader: [14, 10],
+  school: [2, 8],
   secret: { at: [1, 15], tip: 'Un cofre escondido... adentro dice: «print() es tu linterna: si no sabés qué pasa, imprimilo».' },
   routes: [
     { pts: [[0, 8], [9, 8]] },
@@ -292,6 +297,7 @@ const ACT_II: Layout = {
   playground: [4, 13],
   practice: [15, 4],
   mercader: [28, 4],
+  school: [2, 9],
   secret: { at: [8, 16], tip: 'Un cofre flotando... adentro dice: «SELECT * trae todo; con WHERE elegís qué filas querés».' },
   routes: [
     { pts: [[0, 9], [4, 9]] },
@@ -341,6 +347,7 @@ const ACT_III: Layout = {
   playground: [4, 1],
   practice: [20, 14],
   mercader: [27, 12],
+  school: [7, 4],
   secret: { at: [6, 16], tip: 'Un cofre en la orilla... adentro dice: «conn.commit() guarda los cambios: sin commit, no pasó».' },
   routes: [
     { pts: [[0, 4], [10, 4], [10, 8], [15, 8], [27, 8], [27, 12]] },
@@ -385,6 +392,7 @@ const ACT_IV: Layout = {
   playground: [3, 15],
   practice: [9, 1],
   mercader: [15, 2],
+  school: [1, 9],
   secret: { at: [21, 15], tip: 'Un cofre corrupto... adentro, entre basura, se lee: «el error no te borra nada. Leelo: te dice dónde mirar».' },
   routes: [
     { pts: [[0, 9], [3, 9], [3, 3], [9, 3], [9, 14], [15, 14], [15, 8], [25, 8]] },

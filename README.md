@@ -18,7 +18,6 @@
 ![React](https://img.shields.io/badge/React-18-000000?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-000000?style=flat-square&logo=typescript)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-000000?style=flat-square&logo=tailwindcss)
-![Supabase](https://img.shields.io/badge/Supabase-opcional-000000?style=flat-square&logo=supabase)
 ![Uso](https://img.shields.io/badge/uso-educativo-DC143C?style=flat-square)
 
 </div>
@@ -62,7 +61,6 @@ Al vencer al último jefe, **El Arquitecto**, el alumno construye su propio inve
 - **Estilos**: Tailwind CSS + tokens propios en `app/globals.css` (3 temas por `data-theme`)
 - **Editor**: CodeMirror 6, cargado bajo demanda
 - **Motores**: Pyodide (Python) y sql.js (SQLite) en el navegador
-- **Backend opcional**: Supabase (autenticación, aulas, progreso)
 - **Gestor de paquetes**: pnpm
 
 ## Empezar
@@ -77,28 +75,7 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-La app queda en <http://localhost:3000>. Con `NEXT_PUBLIC_LOCAL_MODE=true` (el valor por defecto de `.env.example`) funciona **sin Supabase**: el alumno entra con un nombre y el progreso se guarda en su navegador.
-
-### Modo con cuentas (Supabase)
-
-1. Creá un proyecto en [Supabase](https://supabase.com).
-2. Ejecutá en orden los archivos de [`supabase/migrations`](supabase/migrations) (`001` a `007`) desde el editor SQL.
-3. Completá `.env.local`:
-
-   | Variable | Uso |
-   |---|---|
-   | `NEXT_PUBLIC_LOCAL_MODE` | `false` para usar Supabase |
-   | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave pública |
-   | `SUPABASE_SERVICE_ROLE_KEY` | Solo servidor: crear alumnos y reiniciar contraseñas |
-
-4. Creá tu usuario docente y otorgale el rol de administrador:
-
-   ```sql
-   update profiles set role = 'admin' where username = 'tu_usuario';
-   ```
-
-> ⚠️ `SUPABASE_SERVICE_ROLE_KEY` da acceso total a la base. No la subas al repositorio ni la uses en código del cliente.
+La app queda en <http://localhost:3000>.
 
 ## Scripts
 
@@ -121,7 +98,6 @@ components/
   layout/             Header y footer
   legal/  ui/         Páginas legales y piezas de interfaz (ventanas, sonidos)
 lib/                  Lógica de juego, ejecutores, almacenamiento local, sonido
-supabase/migrations/  Esquema de base de datos
 docs/                 Guías (por ejemplo, cómo cargar los sprites de los jefes)
 ```
 

@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { AmuletCard } from '@/components/game/MercaderModal'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ShopGlyph } from '@/components/game/shop/ShopIcons'
+import { AmuletIcon, IconCheck } from '@/components/ui/PixelIcons'
+import { AMULET_META } from '@/lib/game/amulets'
 import { SHOP_CATALOG, STICKER_COLORWAYS } from '@/lib/game/shop'
 import { PERK_SLOT_LIMIT, applyItem, ownedPerkItems, type ItemUseResult } from '@/lib/game/perk-effects'
 import { sfx } from '@/lib/game/architect/sound'
@@ -11,10 +12,19 @@ import {
 } from '@/lib/storage/local-store'
 import InventoryConsole from '@/components/game/items/InventoryConsole'
 import { SixSevenOverlay } from '@/components/game/items/ItemOverlays'
-import type { Amulet, OwnedShopItem, ShopItem, ShopItemCategory } from '@/types'
+import PixelBurst from '@/components/game/repaso/PixelBurst'
+import type { Amulet, AmuletType, OwnedShopItem, ShopItem } from '@/types'
 
 const jersey = 'var(--font-jersey), monospace'
 const vt = 'var(--font-vt323), monospace'
+const mono = "'Courier New', Courier, monospace"
+
+// INVENTARIO.EXE — compartido entre el escritorio (/dashboard) y la batalla.
+// Una grilla de casilleros, como la mochila de Minecraft: en reposo solo se ven
+// los dibujos (y un número si hay varios iguales). Todo lo demás — qué hace,
+// cómo se usa, de dónde sale — vive detrás de un toque: la placa de abajo
+// muestra el casillero elegido, ⓘ despliega la descripción, ? explica la
+// solapa y >_ abre INVENTARIO.PY. Crece en hojas de 6×3 casilleros.
 
 type Tab = 'amulets' | 'perks' | 'stickers'
 const TABS: { id: Tab; label: string }[] = [
@@ -23,12 +33,48 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'stickers', label: 'Stickers' },
 ]
 
-// Ventana de inventario compartida entre el escritorio (/dashboard) y la
-// batalla: todo lo que el alumno juntó en su partida en un solo lugar — los
-// amuletos que le da el Mercader Ambulante (de un solo uso, ver
-// AMULETOS.SYS en batalla para usarlos) y los ítems/stickers permanentes que
-// compra en la tienda del Mercader del Abismo. Mismo lenguaje visual que
-// MercaderModal/AmuletCard — no es una superficie nueva, extiende la que ya existe.
+const COLS = 6
+const ROWS = 3
+const PAGE = COLS * ROWS
+
+/** Qué se puede hacer con un ítem fuera de batalla (siempre escribiendo su print()). */
+type OutsideAction = 'use' | 'equip' | 'read' | null
+function outsideAction(item: ShopItem): OutsideAction {
+  if (item.perkKind === 'passive') return 'equip'
+  if (item.perkKind === 'key') return 'read'
+  if (item.effectId === 'six-seven' || item.effectId === 'cupon-descuento') return 'use'
+  return null
+}
+
+const KIND_TAG: Record<string, string> = { consumable: 'Se gasta', passive: 'Equipable', key: 'Historia' }
+
+/** Un casillero lleno: amuleto (apilable), ítem de batalla o sticker. */
+interface Entry {
+  key: string
+  name: string
+  description: string
+  tag: string
+  count: number
+  amulet?: AmuletType
+  item?: ShopItem
+  owned?: OwnedShopItem
+  equipped?: boolean
+}
+
+const TAB_HELP: Record<Tab, (inBattle: boolean) => string> = {
+  amulets: () => 'Te los regala el Mercader Ambulante cada 2 jefes. Son de un solo uso y se activan desde AMULETOS.SYS en medio de una batalla.',
+  perks: (inBattle) => inBattle
+    ? 'Para usar un ítem, escribí print(nombre) en la ventana INVENTARIO.PY de la batalla.'
+    : `Se compran en la tienda del Mercader del Abismo. Los de combate se usan en batalla; acá podés equipar hasta ${PERK_SLOT_LIMIT}, usar el Cupón o leer los objetos de historia — siempre con print().`,
+  stickers: () => 'Se compran con diamantes en la tienda del Mercader del Abismo. Elegí un color acá y pegalos en tu escritorio con ✦ Decorar.',
+}
+
+const EMPTY_TEXT: Record<Tab, string> = {
+  amulets: 'Sin amuletos. El Mercader Ambulante aparece cada 2 jefes.',
+  perks: 'Sin ítems. Se consiguen en la tienda del Mercader del Abismo.',
+  stickers: 'Sin stickers. Se consiguen en la tienda del Mercader del Abismo.',
+}
+
 interface InventoryAppProps {
   /** Abierto en medio de una batalla: los ítems se muestran, pero se usan desde INVENTARIO.PY de la arena. */
   inBattle?: boolean
@@ -36,169 +82,423 @@ interface InventoryAppProps {
   itemsOverride?: ShopItem[]
   /** Equipados según la batalla en curso (que puede haber cambiado sin pasar por acá). */
   equippedOverride?: string[]
+  /** Vista previa (/demo/inventario): datos en memoria, nada se lee ni se guarda en el navegador. */
+  demo?: { amulets: Amulet[]; owned: OwnedShopItem[]; equipped: string[] }
 }
 
-export default function InventoryApp({ inBattle = false, itemsOverride, equippedOverride }: InventoryAppProps = {}) {
+export default function InventoryApp({ inBattle = false, itemsOverride, equippedOverride, demo }: InventoryAppProps = {}) {
   const [loaded, setLoaded] = useState(false)
   const [show67, setShow67] = useState(false)
   const [tab, setTab] = useState<Tab>('amulets')
   const [amulets, setAmulets] = useState<Amulet[]>([])
   const [owned, setOwned] = useState<OwnedShopItem[]>([])
   const [equipped, setEquipped] = useState<string[]>([])
-  const [customizing, setCustomizing] = useState<string | null>(null)
+  const [sel, setSel] = useState(0)
+  const [pageDir, setPageDir] = useState<'next' | 'prev' | null>(null)
+  const [showInfo, setShowInfo] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
+  const [consoleOpen, setConsoleOpen] = useState(false)
+  const [focusSignal, setFocusSignal] = useState(0)
+  const [burst, setBurst] = useState(0)
+  const [pop, setPop] = useState<string | null>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
+  const uid = useId()
 
   useEffect(() => {
-    setAmulets(getAmulets())
-    setOwned(getShopOwned())
-    setEquipped(getEquippedPerks())
-    setLoaded(true)
-  }, [])
-
-  const ownedByCategory = useMemo(() => {
-    const byId = new Map(SHOP_CATALOG.map((i) => [i.id, i]))
-    const out: Record<ShopItemCategory, OwnedShopItem[]> = { perk: [], sticker: [] }
-    for (const o of owned) {
-      const item = byId.get(o.id)
-      if (item) out[item.category].push(o)
+    if (demo) {
+      setAmulets(demo.amulets); setOwned(demo.owned); setEquipped(demo.equipped)
+    } else {
+      setAmulets(getAmulets()); setOwned(getShopOwned()); setEquipped(getEquippedPerks())
     }
-    return out
-  }, [owned])
+    setLoaded(true)
+  }, [demo])
 
-  const handleColorway = (id: string, value: string) => {
-    setStickerColorway(id, value)
-    setOwned(getShopOwned())
-  }
-
-  const perkItems = useMemo(() => itemsOverride ?? ownedPerkItems(owned), [itemsOverride, owned])
   const equippedNow = equippedOverride ?? equipped
+  const perkItems = useMemo(() => itemsOverride ?? ownedPerkItems(owned), [itemsOverride, owned])
 
-  // Fuera de batalla: el Cupón, el 67, equipar pasivos y leer los objetos de historia.
+  const entries = useMemo<Record<Tab, Entry[]>>(() => {
+    // Amuletos iguales se apilan en un casillero (×N), en el orden en que llegaron.
+    const stacks = new Map<AmuletType, number>()
+    for (const a of amulets) stacks.set(a.type, (stacks.get(a.type) ?? 0) + 1)
+    const amuletEntries: Entry[] = Array.from(stacks, ([type, count]) => ({
+      key: `amulet:${type}`, name: AMULET_META[type].name, description: AMULET_META[type].description,
+      tag: 'Uso único', count, amulet: type,
+    }))
+
+    const perkEntries: Entry[] = [...perkItems]
+      .sort((a, b) => a.level - b.level || a.price - b.price)
+      .map((item) => {
+        const isEq = equippedNow.includes(item.id)
+        return {
+          key: item.id, name: item.name, description: item.effectHint ?? item.description,
+          tag: isEq ? 'Equipado' : KIND_TAG[item.perkKind ?? 'consumable'], count: 1, item, equipped: isEq,
+        }
+      })
+
+    const byId = new Map(SHOP_CATALOG.map((i) => [i.id, i]))
+    const stickerEntries: Entry[] = owned.flatMap((o) => {
+      const item = byId.get(o.id)
+      if (!item || item.category !== 'sticker') return []
+      const colorway = STICKER_COLORWAYS.find((c) => c.value === o.colorway)
+      return [{ key: o.id, name: item.name, description: item.description, tag: colorway ? `Color ${colorway.label}` : 'Sticker', count: 1, item, owned: o }]
+    })
+
+    return { amulets: amuletEntries, perks: perkEntries, stickers: stickerEntries }
+  }, [amulets, perkItems, owned, equippedNow])
+
+  const list = entries[tab]
+  const pages = Math.max(1, Math.ceil(list.length / PAGE))
+  const selIdx = Math.min(sel, Math.max(0, list.length - 1))
+  const page = Math.floor(selIdx / PAGE)
+  const current = list[selIdx] as Entry | undefined
+
+  // ── Acciones ──────────────────────────────────────────────────────────────
+  const refreshOwned = () => { if (!demo) setOwned(getShopOwned()) }
+
   const handleUseOutside = (item: ShopItem): ItemUseResult => {
     const result = applyItem(item, {
       battle: null,
       show67: () => { setShow67(true); sfx.jingle() },
-      activateCoupon: (pct) => activateShopCoupon(pct),
+      activateCoupon: (pct) => (demo ? true : activateShopCoupon(pct)),
       togglePassive: (it) => {
         const wasOn = equipped.includes(it.id)
-        const ok = togglePerkEquipped(it.id, PERK_SLOT_LIMIT)
-        if (ok) { setEquipped(getEquippedPerks()); sfx.equip(!wasOn) }
+        let ok: boolean
+        if (demo) {
+          ok = wasOn || equipped.length < PERK_SLOT_LIMIT
+          if (ok) setEquipped((e) => (wasOn ? e.filter((id) => id !== it.id) : [...e, it.id]))
+        } else {
+          ok = togglePerkEquipped(it.id, PERK_SLOT_LIMIT)
+          if (ok) setEquipped(getEquippedPerks())
+        }
+        if (ok) { sfx.equip(!wasOn); flashSlot(it.id) }
         return { ok, equipped: ok ? !wasOn : wasOn }
       },
     })
     if (result.status === 'used') {
       sfx.perkUse()
-      consumePerk(item.id)
-      setOwned(getShopOwned())
+      if (demo) setOwned((o) => o.filter((x) => x.id !== item.id))
+      else { consumePerk(item.id); refreshOwned() }
     }
     return result
   }
 
+  const handleColorway = (o: OwnedShopItem, value: string) => {
+    if (o.colorway === value) return
+    if (demo) setOwned((list) => list.map((x) => (x.id === o.id ? { ...x, colorway: value } : x)))
+    else { setStickerColorway(o.id, value); refreshOwned() }
+    sfx.invDye()
+    flashSlot(o.id)
+    setBurst((b) => b + 1)
+  }
+
+  const flashSlot = (key: string) => {
+    setPop(null)
+    requestAnimationFrame(() => setPop(key))
+  }
+
+  // Abre INVENTARIO.PY con el cursor listo pero el prompt vacío: el print lo tipea el alumno.
+  const openConsole = () => {
+    if (!consoleOpen) sfx.open()
+    setConsoleOpen(true)
+    setFocusSignal((n) => n + 1)
+  }
+
+  // ── Navegación ────────────────────────────────────────────────────────────
+  const changeTab = (t: Tab) => {
+    if (t === tab) return
+    sfx.invTab()
+    setTab(t); setSel(0); setPageDir(null); setShowInfo(false); setShowHelp(false)
+  }
+
+  const select = useCallback((i: number, opts: { focus?: boolean } = {}) => {
+    const next = Math.max(0, Math.min(list.length - 1, i))
+    const nextPage = Math.floor(next / PAGE)
+    if (nextPage !== page) { setPageDir(nextPage > page ? 'next' : 'prev'); sfx.pageFlip() } else sfx.invSlot()
+    setSel(next)
+    if (opts.focus) requestAnimationFrame(() => gridRef.current?.querySelector<HTMLElement>(`[data-slot="${next}"]`)?.focus())
+  }, [list.length, page])
+
+  const goPage = (p: number) => {
+    if (p < 0 || p >= pages || p === page) return
+    setPageDir(p > page ? 'next' : 'prev')
+    sfx.pageFlip()
+    setSel(p * PAGE)
+  }
+
+  const onGridKey = (e: React.KeyboardEvent) => {
+    if (!list.length) return
+    const local = selIdx - page * PAGE
+    const move: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: COLS, ArrowUp: -COLS }
+    if (e.key in move) {
+      e.preventDefault()
+      let to = selIdx + move[e.key]
+      // Arriba/abajo se quedan en la hoja; izquierda/derecha pasan de hoja en los bordes.
+      if (e.key === 'ArrowDown' && (local + COLS >= PAGE || to >= list.length)) return
+      if (e.key === 'ArrowUp' && local - COLS < 0) return
+      to = Math.max(0, Math.min(list.length - 1, to))
+      if (to !== selIdx) select(to, { focus: true })
+    } else if (e.key === 'PageDown') { e.preventDefault(); goPage(page + 1) }
+    else if (e.key === 'PageUp') { e.preventDefault(); goPage(page - 1) }
+    else if (e.key === 'i' || e.key === 'I') { e.preventDefault(); toggleInfo() }
+  }
+
+  const toggleInfo = () => {
+    sfx.invInfo(!showInfo)
+    setShowInfo(!showInfo)
+  }
+
   if (!loaded) return null
 
+  const slots = Array.from({ length: PAGE }, (_, i) => list[page * PAGE + i])
+  const counts: Record<Tab, number> = {
+    amulets: amulets.length,
+    perks: entries.perks.length,
+    stickers: entries.stickers.length,
+  }
+  const canConsole = tab === 'perks' && !inBattle
+
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2" role="tablist" aria-label="Secciones del inventario">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
-            className="label-mono"
-            style={{
-              padding: '5px 10px', cursor: 'pointer', border: '2px solid hsl(var(--tx))',
-              background: tab === t.id ? 'hsl(var(--tx))' : 'transparent',
-              color: tab === t.id ? 'hsl(var(--bg))' : 'hsl(var(--tx2))',
-            }}
-          >
-            {t.label}
-            {t.id === 'amulets' && ` (${amulets.length})`}
-            {t.id === 'perks' && ` (${(itemsOverride ?? ownedByCategory.perk).length})`}
-            {t.id === 'stickers' && ` (${ownedByCategory.sticker.length})`}
-          </button>
-        ))}
+    <div className="inv flex flex-col">
+      {/* Solapas tipo carpeta, pegadas al marco de la grilla */}
+      <div className="flex items-end gap-1" style={{ marginBottom: -2, position: 'relative', zIndex: 1 }}>
+        <div className="flex items-end gap-1 min-w-0" role="tablist" aria-label="Secciones del inventario">
+          {TABS.map((t) => {
+            const on = tab === t.id
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                id={`${uid}-tab-${t.id}`}
+                aria-selected={on}
+                aria-controls={`${uid}-panel`}
+                onClick={() => changeTab(t.id)}
+                className={`inv-tab${on ? ' is-on' : ''}`}
+              >
+                {t.label}
+                <span className="inv-tab-n">{counts[t.id]}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      {tab === 'amulets' && (
-        amulets.length === 0 ? (
-          <p style={{ fontFamily: vt, fontSize: 18, color: 'hsl(var(--tx3))' }}>
-            Todavía no tenés amuletos. El Mercader Ambulante te ofrece uno cada 2 jefes que derrotás.
+      {/* Marco con la grilla */}
+      <div id={`${uid}-panel`} role="tabpanel" aria-labelledby={`${uid}-tab-${tab}`} className="inv-frame">
+        {showHelp && (
+          <p className="inv-note" role="note">
+            {TAB_HELP[tab](inBattle)}
           </p>
-        ) : (
-          <>
-            <p style={{ fontFamily: vt, fontSize: 15, color: 'hsl(var(--tx3))' }}>
-              De un solo uso — se activan desde AMULETOS.SYS durante la batalla.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              {amulets.map((a) => <AmuletCard key={a.id} type={a.type} compact />)}
-            </div>
-          </>
-        )
-      )}
+        )}
 
-      {tab === 'perks' && (
-        <div className="flex flex-col gap-2">
-          <p style={{ fontFamily: vt, fontSize: 15, color: 'hsl(var(--tx3))' }}>
-            {inBattle
-              ? 'Tus ítems de batalla. Se usan escribiendo print(nombre) en INVENTARIO.PY.'
-              : `Los de combate se usan en batalla. Acá podés usar el Cupón, equipar hasta ${PERK_SLOT_LIMIT} ítems o mirar los objetos de historia.`}
-          </p>
+        <div
+          ref={gridRef}
+          key={`${tab}-${page}`}
+          role="listbox"
+          aria-label={`${TABS.find((t) => t.id === tab)?.label}, hoja ${page + 1} de ${pages}`}
+          onKeyDown={onGridKey}
+          className={`inv-grid${pageDir ? ` inv-grid--${pageDir}` : ''}`}
+          style={{ gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))` }}
+        >
+          {slots.map((entry, i) => {
+            const idx = page * PAGE + i
+            if (!entry) {
+              return (
+                <span
+                  key={`empty-${i}`}
+                  className="inv-slot inv-slot--empty"
+                  style={{ ['--i' as string]: i }}
+                  onClick={() => sfx.invEmpty()}
+                  aria-hidden
+                />
+              )
+            }
+            const isSel = idx === selIdx
+            return (
+              <button
+                key={entry.key}
+                                data-slot={idx}
+                type="button"
+                role="option"
+                aria-selected={isSel}
+                aria-label={`${entry.name}${entry.count > 1 ? `, ${entry.count}` : ''}${entry.equipped ? ', equipado' : ''}`}
+                tabIndex={isSel ? 0 : -1}
+                onClick={() => { if (!isSel) select(idx); else toggleInfo() }}
+                onMouseEnter={() => sfx.hover()}
+                className={`inv-slot${isSel ? ' is-sel' : ''}${entry.equipped ? ' is-eq' : ''}`}
+                style={{ ['--i' as string]: i }}
+              >
+                <span className={`inv-sprite${pop === entry.key ? ' inv-pop' : ''}`} onAnimationEnd={() => setPop(null)}>
+                  <EntryIcon entry={entry} px={32} animated={isSel} />
+                </span>
+                {entry.count > 1 && <span className="inv-count">{entry.count}</span>}
+                {entry.equipped && (
+                  <span className="inv-eq" aria-hidden><IconCheck size={9} color="hsl(var(--bg))" /></span>
+                )}
+                {isSel && <span className="inv-cursor" aria-hidden />}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Pie del marco: consola, hojas y la ayuda de la solapa */}
+        <div className="flex items-center gap-2" style={{ marginTop: 8 }}>
+          {canConsole && (
+            <button
+              type="button"
+              onClick={() => { setConsoleOpen((v) => !v); if (consoleOpen) sfx.close(); else sfx.open() }}
+              aria-expanded={consoleOpen}
+              className={`inv-tool inv-tool--wide${consoleOpen ? ' is-on' : ''}`}
+              title="Abrir INVENTARIO.PY"
+            >
+              <span aria-hidden>&gt;_</span> inventario.py
+            </button>
+          )}
+          <span style={{ flex: 1 }} />
+          {pages > 1 && (
+            <div className="flex items-center gap-1.5" aria-label="Hojas">
+              <button type="button" className="inv-tool" onClick={() => goPage(page - 1)} disabled={page === 0} aria-label="Hoja anterior">‹</button>
+              <span className="inv-pages" aria-live="polite">{page + 1}/{pages}</span>
+              <button type="button" className="inv-tool" onClick={() => goPage(page + 1)} disabled={page >= pages - 1} aria-label="Hoja siguiente">›</button>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => { sfx.invInfo(!showHelp); setShowHelp(!showHelp) }}
+            aria-expanded={showHelp}
+            aria-label="¿Para qué sirve esta solapa?"
+            title="¿Para qué sirve?"
+            className={`inv-tool${showHelp ? ' is-on' : ''}`}
+          >
+            ?
+          </button>
+        </div>
+      </div>
+
+      {/* Placa del casillero elegido */}
+      <div className="inv-plate" aria-live="polite">
+        {!current ? (
+          <p style={{ fontFamily: vt, fontSize: 18, lineHeight: 1.1, color: 'hsl(var(--tx3))', padding: '2px 2px' }}>{EMPTY_TEXT[tab]}</p>
+        ) : (
+          <div key={current.key} className="inv-plate-in">
+            <div className="flex items-center gap-2.5">
+              <span className="inv-plate-icon">
+                <span className={pop === current.key ? 'inv-pop' : undefined} style={{ display: 'flex' }}>
+                  <EntryIcon entry={current} px={48} animated />
+                </span>
+                {burst > 0 && tab === 'stickers' && (
+                  <span style={{ position: 'absolute', left: '50%', top: '50%' }}><PixelBurst key={burst} kind="chalk" /></span>
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div style={{ fontFamily: jersey, fontSize: 19, lineHeight: 1.05, color: 'hsl(var(--tx))', overflowWrap: 'anywhere' }}>
+                  {current.name}
+                  {current.count > 1 && <span style={{ color: 'hsl(var(--tx3))' }}> ×{current.count}</span>}
+                </div>
+                <div className={`inv-tag${current.equipped ? ' is-eq' : ''}`}>{current.tag}</div>
+              </div>
+              <button
+                type="button"
+                onClick={toggleInfo}
+                aria-expanded={showInfo}
+                aria-label={showInfo ? 'Ocultar descripción' : 'Ver qué hace'}
+                title="Qué hace (I)"
+                className={`inv-tool inv-tool--info${showInfo ? ' is-on' : ''}`}
+              >
+                i
+              </button>
+            </div>
+
+            {showInfo && <p className="inv-desc">{current.description}</p>}
+
+            <PlateAction
+              entry={current}
+              inBattle={inBattle}
+              onConsole={openConsole}
+              onColor={handleColorway}
+            />
+          </div>
+        )}
+      </div>
+
+      {canConsole && consoleOpen && (
+        <div className="inv-console-in" style={{ marginTop: 10 }}>
           <InventoryConsole
             items={perkItems}
             equipped={equippedNow}
             onUse={handleUseOutside}
             inBattle={false}
-            readOnly={inBattle}
+            showList={false}
+            focusSignal={focusSignal}
           />
-          {show67 && <SixSevenOverlay onDone={() => setShow67(false)} />}
         </div>
       )}
 
-      {tab === 'stickers' && (
-        ownedByCategory.sticker.length === 0 ? (
-          <p style={{ fontFamily: vt, fontSize: 18, color: 'hsl(var(--tx3))' }}>
-            Todavía no tenés stickers. Se compran con diamantes en la tienda del Mercader del Abismo.
-          </p>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {ownedByCategory.sticker.map((o) => {
-              const item = SHOP_CATALOG.find((i) => i.id === o.id)
-              if (!item) return null
-              const tint = o.colorway ? `hsl(${o.colorway})` : 'hsl(var(--accent))'
-              return (
-                <div key={o.id} className="flex flex-col items-center gap-1.5 p-2.5" style={{ border: '2px solid hsl(var(--tx))', background: 'hsl(var(--surface))', boxShadow: '3px 3px 0 hsl(var(--tx) / 0.15)' }}>
-                  <span className="flex items-center justify-center" style={{ width: 40, height: 40, border: '2px solid hsl(var(--tx))', background: 'hsl(var(--surface2))' }}>
-                    <ShopGlyph glyph={item.glyph} size={20} color={tint} animated />
-                  </span>
-                  <span style={{ fontFamily: jersey, fontSize: 12, color: 'hsl(var(--tx))', textAlign: 'center', lineHeight: 1.1 }}>{item.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => setCustomizing((c) => (c === o.id ? null : o.id))}
-                    className="label-mono"
-                    style={{ color: 'hsl(var(--accent))', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                  >
-                    {customizing === o.id ? 'Cerrar' : 'Personalizar'}
-                  </button>
-                  {customizing === o.id && (
-                    <div className="flex items-center gap-1.5 mt-1" role="group" aria-label="Elegir color">
-                      {STICKER_COLORWAYS.map((c) => (
-                        <button
-                          key={c.value}
-                          type="button"
-                          title={c.label}
-                          onClick={() => handleColorway(o.id, c.value)}
-                          style={{ width: 16, height: 16, background: `hsl(${c.value})`, border: o.colorway === c.value ? '2px solid hsl(var(--tx))' : '2px solid hsl(var(--border2))', cursor: 'pointer' }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )
-      )}
+      {show67 && <SixSevenOverlay onDone={() => setShow67(false)} />}
+    </div>
+  )
+}
+
+/** `px` = lado final del dibujo; los sprites de 16×16 quedan nítidos en múltiplos de 16. */
+function EntryIcon({ entry, px, animated }: { entry: Entry; px: number; animated: boolean }) {
+  if (entry.amulet) return <AmuletIcon type={entry.amulet} size={Math.round(px * 0.8)} color="hsl(var(--tx))" />
+  if (!entry.item) return null
+  const tint = entry.owned?.colorway ? `hsl(${entry.owned.colorway})` : undefined
+  // ShopGlyph agranda ×1.5 los sprites ("item:*"), así que se le pasa px/1.5.
+  return <ShopGlyph glyph={entry.item.glyph} size={px / 1.5} color={tint} animated={animated} />
+}
+
+/** La única acción del casillero, según qué es y dónde se abrió el inventario. */
+function PlateAction({ entry, inBattle, onConsole, onColor }: {
+  entry: Entry
+  inBattle: boolean
+  onConsole: (item: ShopItem) => void
+  onColor: (o: OwnedShopItem, value: string) => void
+}) {
+  if (entry.owned && entry.item?.category === 'sticker') {
+    const o = entry.owned
+    return (
+      <div className="inv-actions" role="group" aria-label="Color del sticker">
+        {STICKER_COLORWAYS.map((c) => {
+          const on = o.colorway === c.value
+          return (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => onColor(o, c.value)}
+              aria-pressed={on}
+              className={`inv-dye${on ? ' is-on' : ''}`}
+              style={{ ['--dye' as string]: c.value }}
+            >
+              <span className="inv-dye-chip" aria-hidden />
+              {c.label}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
+  if (entry.amulet) {
+    return <p className="inv-hint">{inBattle ? 'Se activa desde AMULETOS.SYS.' : 'Se usa en batalla.'}</p>
+  }
+
+  const item = entry.item
+  if (!item) return null
+  // Solo el nombre: el print( ) lo arma y lo tipea el alumno, nunca se autocompleta.
+  const code = <code style={{ fontFamily: mono, fontSize: 13, color: 'hsl(var(--accent))' }}>{item.printName}</code>
+
+  if (inBattle) return <p className="inv-hint">Se usa con print(item) · se llama {code}</p>
+
+  const action = outsideAction(item)
+  if (!action) return <p className="inv-hint">Se usa en batalla · se llama {code}</p>
+  const label = action === 'equip' ? (entry.equipped ? 'Desequipar' : 'Equipar') : action === 'read' ? 'Leer' : 'Usar'
+  return (
+    <div className="inv-actions">
+      <button type="button" className="inv-go" onClick={() => onConsole(item)}>
+        <span aria-hidden>&gt;_</span> {label}
+      </button>
+      <span className="inv-hint" style={{ margin: 0 }}>se llama {code}</span>
     </div>
   )
 }

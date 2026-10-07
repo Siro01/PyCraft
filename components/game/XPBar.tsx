@@ -103,7 +103,7 @@ export default function XPBar({ current, max, label, sound = true }: XPBarProps)
           aria-label={`Vida del jefe: ${current} de ${max}`}
           style={{ ['--seg' as string]: `${100 / SEGMENTS}%` }}
         >
-          <span className="xpbar-fill" style={{ width: `${pct}%` }} />
+          <span className="xpbar-fill" style={{ transform: `scaleX(${pct / 100})` }} />
           {ghost && (
             <span key={ghost.key} className="xpbar-ghost" style={{ left: `${ghost.to}%`, width: `${ghost.from - ghost.to}%` }} />
           )}

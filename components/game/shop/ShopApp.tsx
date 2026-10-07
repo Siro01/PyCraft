@@ -7,7 +7,7 @@ import { sfx } from '@/lib/game/architect/sound'
 import { DIAMONDS_PER_BOSS, SHOP_UNLOCK_BOSS_NUMBER, SHOP_CATALOG, STICKER_COLORWAYS, discountedPrice, getDailyFeatured, getShopItem } from '@/lib/game/shop'
 import { pickDialogue, type MercaderDialogueKind } from '@/lib/game/mercader-dialogue'
 import {
-  buyShopItem, diamondsAvailable, getPlaygroundState, getShopDiscount, getShopOwned, playgroundLevel,
+  addAdminDiamondBonus, buyShopItem, diamondsAvailable, getPlaygroundState, getShopDiscount, getShopOwned, playgroundLevel,
   setStickerColorway, startCouponVisit, PLAYGROUND_MAX_LEVEL,
 } from '@/lib/storage/local-store'
 import type { OwnedShopItem, ShopItem } from '@/types'
@@ -48,6 +48,7 @@ interface Props {
 export default function ShopApp({ totalDefeated, username, battleNear = false, unlocked = true, preview, adminView = false }: Props) {
   const [loaded, setLoaded] = useState(false)
   const [level, setLevel] = useState(1)
+  const [, setBonusTick] = useState(0)
   const [owned, setOwned] = useState<OwnedShopItem[]>([])
   const [customizing, setCustomizing] = useState<string | null>(null)
   const [dialogueLines, setDialogueLines] = useState<string[]>([])
@@ -59,7 +60,8 @@ export default function ShopApp({ totalDefeated, username, battleNear = false, u
       setLoaded(true)
       return
     }
-    setLevel(playgroundLevel(getPlaygroundState().xp).level)
+    // El docente compra sin traba de nivel, para poder probar cualquier ítem.
+    setLevel(adminView ? PLAYGROUND_MAX_LEVEL : playgroundLevel(getPlaygroundState().xp).level)
     setOwned(getShopOwned())
     // Un Cupón usado en batalla empieza a correr acá: vale para toda esta visita.
     startCouponVisit()
@@ -132,6 +134,17 @@ export default function ShopApp({ totalDefeated, username, battleNear = false, u
           <span className="label-mono" title="Los alumnos la ven recién después de derrotar al jefe 2" style={{ padding: '1px 6px', border: '2px solid hsl(var(--accent))', color: 'hsl(var(--accent))' }}>
             Vista docente
           </span>
+        )}
+        {adminView && !preview && (
+          <button
+            type="button"
+            onClick={() => { addAdminDiamondBonus(150); setBonusTick((t) => t + 1); sfx.mercader() }}
+            className="label-mono"
+            title="Bono de prueba del docente: solo en este navegador"
+            style={{ padding: '1px 6px', border: '2px solid hsl(var(--accent))', background: 'hsl(var(--accent))', color: 'hsl(var(--bg))', cursor: 'pointer' }}
+          >
+            <span className="flex items-center gap-1">+150 <ShopGlyph glyph="crystal" size={10} color="hsl(var(--bg))" /></span>
+          </button>
         )}
         <span className="hidden sm:block" style={{ flex: 1 }} />
         <div className="flex items-center gap-1" title={`Nivel ${level} de ${PLAYGROUND_MAX_LEVEL} — jugá el patio de juegos para subir`}>

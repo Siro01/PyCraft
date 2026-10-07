@@ -36,6 +36,12 @@ interface Props {
   showList?: boolean
   /** Solo la lista, sin consola (el inventario abierto en batalla: se usan desde la ventana de abajo). */
   readOnly?: boolean
+  /** Número nuevo = enfocar el prompt (vacío: el alumno siempre tipea el print, nunca se autocompleta). */
+  focusSignal?: number
+  /** Contenido extra a la derecha de la barra (ej. el botón para cerrar la consola). */
+  titleRight?: React.ReactNode
+  /** Batalla: cinturón de una fila (solo dibujos + prompt) y una sola línea de respuesta. */
+  hotbar?: boolean
   className?: string
 }
 
@@ -113,7 +119,7 @@ export function parseInventoryCommand(raw: string, owned: ShopItem[]): Parsed {
 
 const KIND_LABEL: Record<string, string> = { consumable: 'Se gasta', passive: 'Equipable', key: 'Historia' }
 
-export default function InventoryConsole({ items, equipped, onUse, inBattle = true, showList = true, readOnly = false, className }: Props) {
+export default function InventoryConsole({ items, equipped, onUse, inBattle = true, showList = true, readOnly = false, focusSignal, titleRight, hotbar = false, className }: Props) {
   const [input, setInput] = useState('')
   const [lines, setLines] = useState<Line[]>([])
   const [history, setHistory] = useState<string[]>([])
@@ -121,6 +127,9 @@ export default function InventoryConsole({ items, equipped, onUse, inBattle = tr
   const [rodolfo, setRodolfo] = useState(false)
   const [shake, setShake] = useState(false)
   const [flashId, setFlashId] = useState<string | null>(null)
+  const [peek, setPeek] = useState<ShopItem | null>(null)
+  const [chosen, setChosen] = useState<ShopItem | null>(null)
+  const [showResult, setShowResult] = useState(false)
   const idRef = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const outRef = useRef<HTMLDivElement>(null)
@@ -132,6 +141,10 @@ export default function InventoryConsole({ items, equipped, onUse, inBattle = tr
   useEffect(() => {
     outRef.current?.scrollTo({ top: outRef.current.scrollHeight })
   }, [lines])
+
+  useEffect(() => {
+    if (focusSignal) inputRef.current?.focus()
+  }, [focusSignal])
 
   const sorted = useMemo(
     () => [...items].sort((a, b) => a.level - b.level || a.price - b.price),
@@ -152,6 +165,7 @@ export default function InventoryConsole({ items, equipped, onUse, inBattle = tr
     setHistory((h) => [...h, cmd].slice(-20))
     setHistIdx(null)
     setInput('')
+    setShowResult(true)
     const parsed = parseInventoryCommand(cmd, items)
     if (!parsed.ok) {
       sfx.error()
@@ -193,11 +207,135 @@ export default function InventoryConsole({ items, equipped, onUse, inBattle = tr
     inputRef.current?.focus()
   }
 
+  if (hotbar) {
+    // Lo último que pasó: desde el último comando escrito en adelante.
+    const lastIn = lines.map((l) => l.kind).lastIndexOf('in')
+    const last = lastIn >= 0 ? lines.slice(lastIn) : []
+    // Tocar un ítem NO escribe nada: lo deja marcado con su nombre abajo y
+    // pone el cursor en el prompt — el print lo tipea siempre el alumno.
+    const pick = (item: ShopItem) => {
+      sfx.invSlot()
+      setChosen(item)
+      setShowResult(false)
+      inputRef.current?.focus()
+    }
+    const shown = peek ?? chosen
+    return (
+      <Win
+        title="INVENTARIO.PY"
+        className={className}
+        right={
+          <button
+            type="button"
+            onClick={() => { sfx.invInfo(!rodolfo); if (rodolfo) closeRodolfo(); else setRodolfo(true) }}
+            aria-label="Cómo se usa inventario.py"
+            aria-expanded={rodolfo}
+            title="¿Cómo se usa?"
+            className={`inv-tool${rodolfo ? ' is-on' : ''}`}
+            style={{ height: 20, minWidth: 20, fontSize: 15 }}
+          >
+            ?
+          </button>
+        }
+        bodyStyle={{ padding: 0 }}
+      >
+        {rodolfo && (
+          <div className="flex items-center gap-2.5 inv-note" style={{ margin: 0, border: 'none', borderBottom: '2px solid hsl(var(--border2))', padding: '6px 10px' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/rodolfo/rodolfo.gif" alt="" width={28} height={28} style={{ imageRendering: 'pixelated', flexShrink: 0 }} />
+            <span className="flex-1" style={{ color: 'hsl(var(--tx))' }}>
+              Tocá un ítem y apretá <b>Enter</b>: se usa con <code style={{ fontFamily: mono, fontSize: 14 }}>print(nombre)</code>, sin comillas. Mal escrito no se gasta.
+            </span>
+            <button type="button" onClick={closeRodolfo} className="inv-tool" style={{ height: 22, fontSize: 15 }}>Entendido</button>
+          </div>
+        )}
+        <div
+          className={`inv-belt${shake ? ' console-shake' : ''}`}
+          onAnimationEnd={(e) => { if (e.target === e.currentTarget) setShake(false) }}
+        >
+          <ul className="inv-belt-slots" aria-label="Tus ítems" onMouseLeave={() => setPeek(null)}>
+            {sorted.map((item) => {
+              const sprite = itemSpriteKey(item.glyph)
+              const isEq = equipped.includes(item.id)
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => pick(item)}
+                    onMouseEnter={() => { setPeek(item); sfx.hover() }}
+                    onFocus={() => setPeek(item)}
+                    onBlur={() => setPeek(null)}
+                    aria-label={`${item.name}${isEq ? ', equipado' : ''}. Se escribe ${item.printName}`}
+                    aria-pressed={chosen?.id === item.id}
+                    className={`inv-belt-slot${isEq ? ' is-eq' : ''}${chosen?.id === item.id ? ' is-sel' : ''}${flashId === item.id ? ' item-use-pop' : ''}`}
+                  >
+                    {sprite && <ItemSprite sprite={sprite} size={24} />}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+          <label className="inv-belt-prompt" onClick={() => inputRef.current?.focus()}>
+            <span aria-hidden style={{ color: 'hsl(var(--accent))', fontWeight: 700 }}>&gt;&gt;&gt;</span>
+            <span className="sr-only">Comando de inventario</span>
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onKey}
+              spellCheck={false}
+              autoComplete="off"
+              autoCapitalize="off"
+              placeholder="print(item)"
+              className="inv-input"
+              style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: 'hsl(var(--tx))', fontFamily: mono, fontSize: 14, caretColor: 'hsl(var(--accent))' }}
+            />
+            <button
+              type="button"
+              onClick={run}
+              disabled={!input.trim()}
+              className="inv-tool"
+              style={{ height: 24, fontSize: 15 }}
+            >
+              Enter
+            </button>
+          </label>
+        </div>
+        {(shown || last.length > 0) && (
+          <div className="inv-belt-status" aria-live="polite">
+            {shown && (peek || !showResult || !last.length) ? (
+              <span key={`p-${shown.id}`} className="item-status-in">
+                <b style={{ fontFamily: jersey, fontWeight: 400, color: 'hsl(var(--tx))' }}>{shown.name}</b>
+                <span style={{ color: 'hsl(var(--tx2))' }}> — {shown.effectHint ?? shown.description}</span>
+                <span style={{ color: 'hsl(var(--tx3))' }}> · se llama </span>
+                <code style={{ fontFamily: mono, fontSize: 14, color: 'hsl(var(--accent))' }}>{shown.printName}</code>
+              </span>
+            ) : last.filter((l) => l.kind !== 'in').map((l) => (
+              <span
+                key={l.id}
+                className="item-status-in"
+                style={{
+                  display: 'block',
+                  color: l.kind === 'err' ? 'hsl(var(--danger))' : l.kind === 'note' ? 'hsl(var(--tx3))' : 'hsl(var(--tx))',
+                  fontFamily: l.kind === 'err' ? mono : vt, fontSize: l.kind === 'err' ? 13 : l.kind === 'out' ? 22 : 18,
+                  fontWeight: l.kind === 'err' ? 700 : 400,
+                }}
+              >
+                {l.text}
+              </span>
+            ))}
+          </div>
+        )}
+      </Win>
+    )
+  }
+
   return (
     <Win
       title="INVENTARIO.PY"
       className={className}
       right={
+        <>
         <button
           type="button"
           onClick={() => setRodolfo((r) => !r)}
@@ -207,6 +345,8 @@ export default function InventoryConsole({ items, equipped, onUse, inBattle = tr
         >
           ?
         </button>
+        {titleRight}
+        </>
       }
       bodyStyle={{ padding: 0 }}
     >
@@ -306,7 +446,7 @@ export default function InventoryConsole({ items, equipped, onUse, inBattle = tr
             spellCheck={false}
             autoComplete="off"
             autoCapitalize="off"
-            placeholder={inBattle ? 'print(nombre_del_item)' : 'print(nombre_del_item)  ·  fuera de batalla'}
+            placeholder={inBattle ? 'print(item)' : 'print(item)  ·  fuera de batalla'}
             className="inv-input"
             style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: 'hsl(var(--tx))', fontFamily: mono, fontSize: 14, caretColor: 'hsl(var(--accent))' }}
           />

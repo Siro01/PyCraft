@@ -38,6 +38,8 @@ interface BossMapProps {
   isAdmin?: boolean
   /** Diseño del personaje del mapa (por defecto, el explorador). */
   avatar?: AvatarId
+  /** Repasos con Rodolfo habilitados (ids de jefe) — hacen aparecer la Escuelita en el mapa. */
+  repasoIds?: string[]
 }
 
 const PALETTE_LABEL: Record<MapTheme, string> = { light: 'BLANCO', dark: 'NEGRO', red: 'COLOR' }
@@ -51,7 +53,7 @@ interface WinState { mode: WindowMode; x: number; y: number; z: number }
 const WIN_TITLE: Record<WinId, string> = { stats: 'PROGRESO.TXT', log: 'BITÁCORA.LOG', controls: 'CONTROLES.TXT', inventory: 'INVENTARIO.EXE' }
 
 export default function BossMap({
-  bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, emptyState, testMode, isAdmin = false, avatar,
+  bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, emptyState, testMode, isAdmin = false, avatar, repasoIds,
 }: BossMapProps) {
   const firstAvailableId = useMemo(
     () => bosses.find((b) => enabledIds.has(b.id) && !progress[b.id]?.defeated)?.id,
@@ -363,6 +365,7 @@ export default function BossMap({
                     onPosChange={(p) => { posByAct.current[act.key] = p }}
                     keyboard={mapMode === 'open'}
                     avatar={avatar}
+                    repasoIds={repasoIds}
                   />
                 )}
               </div>

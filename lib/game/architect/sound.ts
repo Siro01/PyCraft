@@ -257,6 +257,68 @@ export const sfx = {
   xpGain(orbs = 4) {
     for (let i = 0; i < orbs; i++) this.xpOrb(i * 0.055 + Math.random() * 0.02)
   },
+  // ── Escuelita de Rodolfo (repasos) ────────────────────────────────────────
+  /** Voz de Rodolfo: un "blip" por sílaba, con el tono según la letra (vocales más agudas). */
+  rodolfoBlip(ch = 'a') {
+    const c = ch.toLowerCase()
+    const vowel = 'aeiouáéíóú'.includes(c)
+    const base = vowel ? 520 : 380
+    tone(jitter(base + (c.charCodeAt(0) % 7) * 18, 30), 0.045, 'square', 0.028, { to: base * 0.86 })
+  },
+  /** Tiza sobre el pizarrón: rasguido corto (cada tecla en un hueco). */
+  chalk() {
+    noise(jitter(0.035, 0.02), 0.035, { highpass: jitter(3400, 900) })
+  },
+  /** Acierto en un repaso: tiza + tres notas que suben + el "oink" de Rodolfo. */
+  repasoOk() {
+    noise(0.05, 0.04, { highpass: 3200 })
+    ;[659, 784, 1047].forEach((f, i) => tone(f, 0.09, 'square', 0.05, { at: 0.04 + i * 0.07 }))
+    tone(330, 0.12, 'square', 0.04, { at: 0.3, to: 230 })
+    tone(300, 0.1, 'square', 0.035, { at: 0.42, to: 210 })
+  },
+  /** Error en un repaso: Rodolfo dice "mmm…" — grave y suave, nunca un buzz de castigo. */
+  repasoHmm() {
+    tone(262, 0.16, 'triangle', 0.05, { to: 247 })
+    tone(220, 0.22, 'triangle', 0.045, { at: 0.17, to: 196 })
+  },
+  /** Pasar al paso siguiente: sello que cae sobre el cuaderno. */
+  repasoStamp() {
+    noise(0.04, 0.07, { highpass: 600 })
+    tone(140, 0.09, 'square', 0.06, { to: 70 })
+    tone(880, 0.05, 'triangle', 0.03, { at: 0.06 })
+  },
+  /** Campana de la Escuelita: entrar y terminar un repaso. */
+  schoolBell() {
+    ;[1568, 1568].forEach((f, i) => {
+      tone(f, 0.35, 'triangle', 0.05, { at: i * 0.22 })
+      tone(f * 2.01, 0.25, 'sine', 0.018, { at: i * 0.22 })
+    })
+  },
+  // ── INVENTARIO.EXE (grilla de casilleros) ─────────────────────────────────
+  /** Cambiar de solapa: la mochila se abre (cuero + dos notas cortas). */
+  invTab() {
+    noise(0.03, 0.025, { highpass: 1800 })
+    tone(392, 0.04, 'square', 0.035, { at: 0.02 })
+    tone(523, 0.05, 'square', 0.03, { at: 0.06 })
+  },
+  /** Tocar un casillero: "toc" de madera, con el tono un poco al azar para que no canse. */
+  invSlot() {
+    tone(jitter(880, 60), 0.025, 'square', 0.03, { to: 620 })
+    noise(0.012, 0.02, { highpass: 5000 })
+  },
+  /** Casillero vacío: golpe hueco y grave. */
+  invEmpty() { tone(180, 0.04, 'triangle', 0.035, { to: 140 }) },
+  /** Re-teñir un sticker: gota que cae y salpica. */
+  invDye() {
+    tone(1200, 0.06, 'sine', 0.05, { to: 420 })
+    noise(0.06, 0.035, { at: 0.05, highpass: 2600 })
+    tone(1568, 0.05, 'triangle', 0.025, { at: 0.09 })
+  },
+  /** Abrir/cerrar la placa de info (ⓘ): papelito que se despliega. */
+  invInfo(open: boolean) {
+    noise(0.025, 0.02, { highpass: 4200 })
+    tone(open ? 990 : 740, 0.03, 'triangle', 0.03, { at: 0.015 })
+  },
   /** Equipar/desequipar un ítem pasivo: clic mecánico con eco corto. */
   equip(on: boolean) {
     tone(on ? 587 : 349, 0.05, 'square', 0.05)

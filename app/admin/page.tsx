@@ -41,11 +41,30 @@ export default async function AdminPage() {
     .order('username')
   const students = (allProfiles ?? []).filter((p: { id: string }) => !testIds.has(p.id))
 
-  // Fetch all aulas
+  // Fetch all aulas — con '*' para traer también el horario (migración 011)
+  // sin romper si esa migración todavía no se corrió.
   const { data: aulas } = await supabase
     .from('aulas')
-    .select('id, nombre, turno, created_at')
+    .select('*')
     .order('nombre')
+
+  // Repasos con Rodolfo: habilitados por aula / por alumno, y hasta dónde llegó
+  // cada alumno (game_extras.repasos). Si la migración 011 falta, quedan vacíos.
+  const { data: aulaRepasoRows } = await supabase.from('aula_repasos').select('aula_id, boss_id, is_enabled')
+  const aulaRepasoMap: Record<string, Record<string, boolean>> = {}
+  ;(aulaRepasoRows ?? []).forEach((r: { aula_id: string; boss_id: string; is_enabled: boolean }) => {
+    ;(aulaRepasoMap[r.aula_id] ??= {})[r.boss_id] = r.is_enabled
+  })
+  const { data: alumnoRepasoRows } = await supabase.from('alumno_repasos').select('user_id, boss_id, is_enabled')
+  const alumnoRepasoMap: Record<string, Record<string, boolean>> = {}
+  ;(alumnoRepasoRows ?? []).forEach((r: { user_id: string; boss_id: string; is_enabled: boolean }) => {
+    ;(alumnoRepasoMap[r.user_id] ??= {})[r.boss_id] = r.is_enabled
+  })
+  const { data: repasoProgressRows } = await supabase.from('game_extras').select('user_id, repasos')
+  const repasoProgress: Record<string, Record<string, { beat: number; done: boolean }>> = {}
+  ;(repasoProgressRows ?? []).forEach((r: { user_id: string; repasos: Record<string, { beat: number; done: boolean }> | null }) => {
+    if (r.repasos) repasoProgress[r.user_id] = r.repasos
+  })
 
   // Fetch boss states from DB
   const { data: bossRows } = await supabase
@@ -122,7 +141,7 @@ export default async function AdminPage() {
       <main className="max-w-6xl mx-auto px-4 py-8">
         <Win active title="PANEL_DOCENTE.EXE" style={{ marginBottom: 24, maxWidth: 420 }} bodyStyle={{ padding: '12px 16px' }}>
           <h1 className="text-3xl tracking-wide" style={{ color: 'hsl(var(--tx))', lineHeight: 1 }}>Admin</h1>
-          <div className="label-mono mt-2">Aulas, alumnos, jefes y estadísticas</div>
+          <div className="label-mono mt-2">Aulas, alumnos, jefes, repasos y estadísticas</div>
         </Win>
 
         <AdminPanel
@@ -134,6 +153,9 @@ export default async function AdminPage() {
           aulaBossMap={aulaBossMap}
           activeIds={activeIds}
           aulaTierMap={aulaTierMap}
+          aulaRepasoMap={aulaRepasoMap}
+          alumnoRepasoMap={alumnoRepasoMap}
+          repasoProgress={repasoProgress}
           battles={battles}
           attacks={attacks}
         />

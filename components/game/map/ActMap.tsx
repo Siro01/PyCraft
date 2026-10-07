@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { sfx } from '@/lib/game/architect/sound'
 import { findPath, key, type ActMapDef, type MapPoint } from '@/lib/game/act-maps'
 import { SHOP_UNLOCK_BOSS_NUMBER } from '@/lib/game/shop'
+import { getRepasoProgress } from '@/lib/storage/local-store'
 import BossTopicIcon from './BossTopicIcon'
 import MapArt from './MapArt'
 import { BossNode, PlaceNode, SecretNode, type NodeState, type PlaceKind } from './MapNodeIcon'
@@ -58,10 +59,13 @@ interface ActMapProps {
   keyboard?: boolean
   /** Diseño del personaje (avatars.ts). */
   avatar?: AvatarId
+  /** Repasos con Rodolfo habilitados para este alumno (ids de jefe, de todos los actos). */
+  repasoIds?: string[]
 }
 
 export default function ActMap({
   act, bossStates, playgroundReachable, onReachEdge, fillHeight, shopUnlocked = false, startAt, onPosChange, keyboard = true, avatar,
+  repasoIds = [],
 }: ActMapProps) {
   const router = useRouter()
   const start = startAt && act.links[key(startAt.x, startAt.y)] ? startAt : act.entry
@@ -76,6 +80,32 @@ export default function ActMap({
   const [blink, setBlink] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [box, setBox] = useState({ w: 0, h: 0 })
+
+  // ── Escuelita de Rodolfo: solo existe en el mapa si el docente le habilitó
+  // a este alumno algún repaso de un jefe de ESTE acto.
+  const actRepasos = useMemo(() => {
+    const here = new Set(act.bosses.map((b) => b.id))
+    return repasoIds.filter((id) => here.has(id))
+  }, [act, repasoIds])
+  const [repasosPending, setRepasosPending] = useState(0)
+  useEffect(() => {
+    if (actRepasos.length === 0) { setRepasosPending(0); return }
+    const prog = getRepasoProgress()
+    const pending = actRepasos.filter((id) => !prog[id]?.done).length
+    setRepasosPending(pending)
+    // Rodolfo avisa una sola vez por sesión y por acto, solo si hay algo sin hacer.
+    if (pending === 0) return
+    const k = `pysql:repaso-nudge-${act.key}`
+    try { if (sessionStorage.getItem(k)) return } catch { /* sin sessionStorage, avisa igual */ }
+    const t = setTimeout(() => {
+      try { sessionStorage.setItem(k, '1') } catch { /* idem */ }
+      setWarning(pending === 1
+        ? '¡Psst! Tu docente te dejó un repaso en mi Escuelita, cerca de la entrada. Pasá antes de pelear, que lo hacemos juntos.'
+        : `¡Psst! Tu docente te dejó ${pending} repasos en mi Escuelita, cerca de la entrada. Pasá antes de pelear, que los hacemos juntos.`)
+      sfx.notify()
+    }, 900)
+    return () => clearTimeout(t)
+  }, [act.key, actRepasos])
   // Traba mientras hay una transición en curso (entrar a un jefe, pasar de
   // acto) — mantener una tecla apretada no encola varios cambios.
   const busyRef = useRef(false)
@@ -106,13 +136,17 @@ export default function ActMap({
       { kind: 'practice', p: act.practice },
       { kind: 'shop', p: act.mercader },
     ]
+    if (actRepasos.length > 0) list.push({ kind: 'school', p: act.school })
     if (act.secret) list.push({ kind: 'secret', p: { x: act.secret.x, y: act.secret.y }, tip: act.secret.tip })
     return list
-  }, [act])
+  }, [act, actRepasos.length])
   const spotAt = useMemo(() => new Map(spots.map((s) => [key(s.p.x, s.p.y), s])), [spots])
   const bossById = useMemo(() => new Map(act.bosses.map((b) => [b.id, b])), [act])
 
-  const placeOpen = useCallback((kind: PlaceKind) => (kind === 'shop' ? shopUnlocked : playgroundReachable), [playgroundReachable, shopUnlocked])
+  const placeOpen = useCallback(
+    (kind: PlaceKind) => (kind === 'school' ? true : kind === 'shop' ? shopUnlocked : playgroundReachable),
+    [playgroundReachable, shopUnlocked],
+  )
 
   // ── Acto IV: el Arquitecto parpadea de vez en cuando, y su entrada suena a interferencia.
   useEffect(() => {
@@ -160,6 +194,10 @@ export default function ActMap({
     if (s.kind === 'secret') {
       setOpened(true)
       showWarning(s.tip, 'notify')
+      return
+    }
+    if (s.kind === 'school') {
+      confirmAndGo(s.p, `/repaso?acto=${act.key}`)
       return
     }
     if (s.kind === 'shop') {
@@ -339,7 +377,22 @@ export default function ActMap({
       )
     }
     const open = placeOpen(s.kind)
-    const info: Record<PlaceKind, { title: string; body: string; locked: string }> = {
+    if (s.kind === 'school') {
+      const n = actRepasos.length
+      return (
+        <NodeDetailPopover
+          title="Escuelita de Rodolfo"
+          body={`${n === 1 ? 'Un repaso' : `${n} repasos`} para ponerte al día, paso a paso.`}
+          status={repasosPending > 0 ? (repasosPending === 1 ? 'Te espera 1 repaso' : `Te esperan ${repasosPending}`) : 'Todo repasado'}
+          positive
+          onEnter={standing ? () => enterSpot(s) : undefined}
+          enterLabel="Entrar"
+          below={below}
+          align={align}
+        />
+      )
+    }
+    const info: Record<Exclude<PlaceKind, 'school'>, { title: string; body: string; locked: string }> = {
       playground: { title: 'Patio de juegos', body: 'Minijuegos cortos para practicar este acto.', locked: 'Todavía no' },
       practice: { title: 'Patio de prácticas', body: 'Bloc libre para escribir y correr Python.', locked: 'Todavía no' },
       shop: { title: 'Tienda del Mercader', body: 'Stickers e ítems a cambio de diamantes.', locked: `Abre tras el jefe ${SHOP_UNLOCK_BOSS_NUMBER}` },
@@ -411,7 +464,7 @@ export default function ActMap({
           }
           return (
             <div key={k} {...common} className="map-spot" style={{ left: cx(s.p.x) - placeSize / 2, top: cy(s.p.y) + tile * 0.3 - placeSize, width: placeSize, height: placeSize, zIndex: 3 }}>
-              <PlaceNode kind={s.kind} open={placeOpen(s.kind)} focused={focused} size={placeSize} />
+              <PlaceNode kind={s.kind} open={placeOpen(s.kind)} focused={focused} size={placeSize} pending={s.kind === 'school' && repasosPending > 0} />
             </div>
           )
         })}

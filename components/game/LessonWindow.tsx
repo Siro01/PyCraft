@@ -19,7 +19,7 @@ const monoLabel = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 1
 const PY_KW = /^(def|return|if|elif|else|for|while|in|import|not|is|None|True|False|and|or|print|input|range|type|break|continue)$/
 const SQL_KW = /^(SELECT|FROM|WHERE|ORDER|BY|DESC|ASC|LIMIT|INSERT|INTO|VALUES|CREATE|TABLE|UPDATE|SET|DELETE|GROUP|COUNT|SUM|AVG|PRIMARY|KEY|INTEGER|TEXT|AND|OR)$/i
 
-function tokenize(line: string, lang: LessonLang): { t: string; c?: string }[] {
+export function tokenize(line: string, lang: LessonLang): { t: string; c?: string }[] {
   const out: { t: string; c?: string }[] = []
   const re = /(#.*$)|("[^"]*"|'[^']*')|(\b\d+(?:\.\d+)?\b)|([A-Za-z_][A-Za-z_0-9]*)|(\s+)|(.)/g
   let m: RegExpExecArray | null
@@ -35,7 +35,7 @@ function tokenize(line: string, lang: LessonLang): { t: string; c?: string }[] {
   return out
 }
 
-function CodeBlock({ code, lang, highlight }: { code: string; lang: LessonLang; highlight?: number[] }) {
+export function CodeBlock({ code, lang, highlight }: { code: string; lang: LessonLang; highlight?: number[] }) {
   const lines = code.split('\n')
   return (
     <div style={{ border: '2px solid hsl(var(--tx))', background: 'hsl(var(--bg))', overflowX: 'auto' }} aria-label="Código de ejemplo">
@@ -65,7 +65,7 @@ function CodeBlock({ code, lang, highlight }: { code: string; lang: LessonLang; 
   )
 }
 
-function MiniTable({ table, caption, maxRows }: { table: LessonTable; caption?: string; maxRows?: number }) {
+export function MiniTable({ table, caption, maxRows }: { table: LessonTable; caption?: string; maxRows?: number }) {
   const rows = maxRows === undefined ? table.rows : table.rows.slice(0, maxRows)
   return (
     <div style={{ border: '2px solid hsl(var(--tx))', overflowX: 'auto' }}>

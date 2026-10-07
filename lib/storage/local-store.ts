@@ -22,6 +22,7 @@ const PRACTICE_INTRO_KEY = 'pysql:practice-intro-hidden'
 const SHOP_OWNED_KEY = 'pysql:shop-owned'
 const STICKER_PLACEMENTS_KEY = 'pysql:sticker-placements'
 const EQUIPPED_PERKS_KEY = 'pysql:equipped-perks'
+const REPASOS_KEY = 'pysql:repasos'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 export interface LocalUser {
@@ -398,9 +399,25 @@ function saveShopOwnedRaw(list: OwnedShopItem[]): void {
   import('@/lib/storage/cloud-sync').then(({ queueCloudSync }) => queueCloudSync('shop', list))
 }
 
-/** Jefes (20💎 c/u, la fuente principal) + logros del patio de juegos (fuente chica, ver playground-rewards.ts). */
+// Bono del docente: diamantes extra que el admin se carga desde la tienda
+// ("Vista docente") para comprar y probar ítems. Solo en este navegador, a
+// propósito sin nube: es para pruebas, no progreso de un alumno.
+const ADMIN_DIAMOND_BONUS_KEY = 'pysql:admin-diamond-bonus'
+
+export function getAdminDiamondBonus(): number {
+  if (typeof window === 'undefined') return 0
+  try { return Math.max(0, Number(localStorage.getItem(ADMIN_DIAMOND_BONUS_KEY)) || 0) } catch { return 0 }
+}
+
+export function addAdminDiamondBonus(amount: number): number {
+  const next = getAdminDiamondBonus() + amount
+  try { localStorage.setItem(ADMIN_DIAMOND_BONUS_KEY, String(next)) } catch { /* modo privado */ }
+  return next
+}
+
+/** Jefes (20💎 c/u, la fuente principal) + logros del patio de juegos (fuente chica, ver playground-rewards.ts) + bono del docente. */
 export function diamondsEarned(bossesDefeated: number): number {
-  return bossesDefeated * DIAMONDS_PER_BOSS + playgroundDiamonds(getPlaygroundState())
+  return bossesDefeated * DIAMONDS_PER_BOSS + playgroundDiamonds(getPlaygroundState()) + getAdminDiamondBonus()
 }
 
 // Gastado = todo lo comprado (también lo ya usado: usar un ítem no devuelve
@@ -607,6 +624,61 @@ export function removeStickerPlacement(itemId: string): void {
 // corre una vez por sesión y llama acá con lo que haya guardado en la tabla
 // `game_extras`; esta función lo combina con lo que ya haya en el dispositivo,
 // quedándose siempre con el mayor avance de cada lado en vez de pisar ninguno.
+
+// ─── Repasos con Rodolfo: hasta qué paso llegó el alumno en cada uno ─────────
+// `beat` es el próximo paso a mostrar (para retomar donde quedó); `done` se
+// marca al terminar y no se des-marca nunca — volver a repasar es libre. Viaja
+// a la nube (game_extras.repasos) para que el docente vea quién se puso al día.
+
+export interface RepasoProgress { beat: number; done: boolean; doneAt?: string }
+export type RepasoProgressMap = Record<string, RepasoProgress>
+
+export function getRepasoProgress(): RepasoProgressMap {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(REPASOS_KEY)
+    return raw ? (JSON.parse(raw) as RepasoProgressMap) : {}
+  } catch { return {} }
+}
+
+function saveRepasoProgressRaw(all: RepasoProgressMap): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(REPASOS_KEY, JSON.stringify(all)) } catch { /* ignore quota errors */ }
+  import('@/lib/storage/cloud-sync').then(({ queueCloudSync }) => queueCloudSync('repasos', all))
+}
+
+export function saveRepasoBeat(bossId: string, beat: number): void {
+  const all = getRepasoProgress()
+  const cur = all[bossId] ?? { beat: 0, done: false }
+  if (cur.done || beat <= cur.beat) return
+  all[bossId] = { ...cur, beat }
+  saveRepasoProgressRaw(all)
+}
+
+export function completeRepaso(bossId: string, beats: number): void {
+  const all = getRepasoProgress()
+  const cur = all[bossId]
+  all[bossId] = { beat: beats, done: true, doneAt: cur?.doneAt ?? new Date().toISOString() }
+  saveRepasoProgressRaw(all)
+}
+
+/** Une el progreso de la nube con el de este dispositivo: el paso más avanzado y "terminado" si algún lado lo terminó. */
+export function hydrateRepasosFromCloud(cloud: RepasoProgressMap | null): void {
+  if (typeof window === 'undefined') return
+  const local = getRepasoProgress()
+  if (!cloud) {
+    if (Object.keys(local).length > 0) saveRepasoProgressRaw(local)
+    return
+  }
+  const out: RepasoProgressMap = { ...cloud }
+  for (const [id, p] of Object.entries(local)) {
+    const c = out[id]
+    out[id] = c
+      ? { beat: Math.max(c.beat, p.beat), done: c.done || p.done, doneAt: c.doneAt ?? p.doneAt }
+      : p
+  }
+  saveRepasoProgressRaw(out)
+}
 
 export interface CloudExtras {
   amulets: Amulet[] | null

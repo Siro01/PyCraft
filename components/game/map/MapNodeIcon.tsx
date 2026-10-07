@@ -135,21 +135,47 @@ const TERMINAL = [
   '................',
 ]
 
-export type PlaceKind = 'shop' | 'playground' | 'practice'
-const PLACE_ROWS: Record<PlaceKind, string[]> = { shop: SHOP_FRONT, playground: SWING, practice: TERMINAL }
+// La Escuelita de Rodolfo: techo a dos aguas con campana (acento) y un
+// pizarrón con tiza adentro — se lee como "escuela" aun a 28px.
+const SCHOOL = [
+  '.......kk.......',
+  '......kaak......',
+  '......kkkk......',
+  '.....kkffkk.....',
+  '....kkffffkk....',
+  '...kkffffffkk...',
+  '..kkkkkkkkkkkk..',
+  '..kffffffffffk..',
+  '..kfkkkkkkkkfk..',
+  '..kfkwawwwwkfk..',
+  '..kfkwwwwawkfk..',
+  '..kfkkkkkkkkfk..',
+  '..kfffkkkffffk..',
+  '..kfffkakffffk..',
+  'kkkkkkkkkkkkkkkk',
+  '................',
+]
+
+export type PlaceKind = 'shop' | 'playground' | 'practice' | 'school'
+const PLACE_ROWS: Record<PlaceKind, string[]> = { shop: SHOP_FRONT, playground: SWING, practice: TERMINAL, school: SCHOOL }
+
+// "!" para un repaso esperando — mismo lenguaje que el candado, pero en acento.
+const BANG = ['##', '##', '##', '##', '..', '##']
 
 interface PlaceNodeProps {
   kind: PlaceKind
   open: boolean
   focused: boolean
   size: number
+  /** Escuelita: hay un repaso habilitado que el alumno todavía no terminó. */
+  pending?: boolean
 }
 
-export function PlaceNode({ kind, open, focused, size }: PlaceNodeProps) {
+export function PlaceNode({ kind, open, focused, size, pending = false }: PlaceNodeProps) {
   const badge = Math.max(12, Math.round(size * 0.3))
   return (
     <div
-      className={`map-place${open ? ' map-place--open' : ''}${focused ? ' map-place--focused' : ''}${kind === 'shop' && open ? ' shop-node--open' : ''}`}
+      className={`map-place${open ? ' map-place--open' : ''}${focused ? ' map-place--focused' : ''}${kind === 'shop' && open ? ' shop-node--open' : ''}${pending ? ' school-node--pending' : ''}`}
       style={{ position: 'relative', width: size, height: size, opacity: open ? 1 : 0.55 }}
       aria-hidden="true"
     >
@@ -157,6 +183,11 @@ export function PlaceNode({ kind, open, focused, size }: PlaceNodeProps) {
       {!open && (
         <span className="absolute" style={{ top: -badge / 4, right: -badge / 4, width: badge, height: badge, background: 'hsl(var(--bg))', border: '2px solid hsl(var(--tx))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <IconLock size={Math.round(badge * 0.6)} color="hsl(var(--tx))" />
+        </span>
+      )}
+      {open && pending && (
+        <span className="absolute school-bang" style={{ top: -badge / 3, right: -badge / 3, width: badge, height: badge, background: 'hsl(var(--accent))', border: '2px solid hsl(var(--tx))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <PixelBitmap rows={BANG} scale={Math.max(1, Math.round(badge / 9))} ink="var(--on-accent)" />
         </span>
       )}
     </div>

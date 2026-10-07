@@ -8,6 +8,8 @@ import BossSprite from '@/components/game/BossSprite'
 import ChallengesBrowser from './ChallengesBrowser'
 import StatsPanel from './StatsPanel'
 import TestStudentPanel from './TestStudentPanel'
+import RepasosPanel from './RepasosPanel'
+import { aulaHorario, aulaLabel, hhmm, type AdminAula } from './aula-label'
 import { TEST_USERNAME } from '@/lib/test-student/constants'
 import { DEFAULT_TIER_ENABLED, TIER_META, TIER_ORDER } from '@/lib/game/tiers'
 import type { AttackRow, BattleRow } from '@/lib/admin/stats'
@@ -21,12 +23,7 @@ interface Student {
   created_at: string
 }
 
-interface Aula {
-  id: string
-  nombre: string
-  turno: string
-  created_at: string
-}
+type Aula = AdminAula
 
 interface AdminPanelProps {
   bosses: Boss[]
@@ -37,6 +34,9 @@ interface AdminPanelProps {
   aulaBossMap: Record<string, Record<string, boolean>>
   activeIds: string[]
   aulaTierMap: Record<string, Record<string, boolean>>
+  aulaRepasoMap: Record<string, Record<string, boolean>>
+  alumnoRepasoMap: Record<string, Record<string, boolean>>
+  repasoProgress: Record<string, Record<string, { beat: number; done: boolean }>>
   battles: BattleRow[]
   attacks: AttackRow[]
 }
@@ -47,7 +47,7 @@ const TURNO_LABEL: Record<string, string> = {
   'otro': 'Otro',
 }
 
-export default function AdminPanel({ bosses, bossEnabledMap, students: initialStudents, scoreMap, aulas: initialAulas, aulaBossMap, activeIds, aulaTierMap: initialTierMap, battles, attacks }: AdminPanelProps) {
+export default function AdminPanel({ bosses, bossEnabledMap, students: initialStudents, scoreMap, aulas: initialAulas, aulaBossMap, activeIds, aulaTierMap: initialTierMap, aulaRepasoMap, alumnoRepasoMap, repasoProgress, battles, attacks }: AdminPanelProps) {
   const router = useRouter()
   const [tierMap, setTierMap] = useState<Record<string, Record<string, boolean>>>(initialTierMap)
   const [enabledMap, setEnabledMap] = useState<Record<string, boolean>>(bossEnabledMap)
@@ -69,6 +69,8 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
 
   const [newAulaNombre, setNewAulaNombre] = useState('')
   const [newAulaTurno, setNewAulaTurno] = useState<'mañana' | 'tarde' | 'otro'>('mañana')
+  const [newAulaDesde, setNewAulaDesde] = useState('')
+  const [newAulaHasta, setNewAulaHasta] = useState('')
   const [aulaStatus, setAulaStatus] = useState('')
 
   const [aulaFilter, setAulaFilter] = useState('')
@@ -76,7 +78,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
   const [resetPassword, setResetPassword] = useState('')
   const [resetStatus, setResetStatus] = useState('')
 
-  const [tab, setTab] = useState<'bosses' | 'exercises' | 'aulas' | 'students' | 'stats' | 'test'>('bosses')
+  const [tab, setTab] = useState<'bosses' | 'repasos' | 'exercises' | 'aulas' | 'students' | 'stats' | 'test'>('bosses')
 
   const isTierEnabled = (aulaId: string, tier: ChallengeTier) =>
     tierMap[aulaId]?.[tier] ?? DEFAULT_TIER_ENABLED[tier]
@@ -151,7 +153,12 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
     const supabase = createClient()
     const { data, error } = await supabase
       .from('aulas')
-      .insert({ nombre: newAulaNombre, turno: newAulaTurno })
+      .insert({
+        nombre: newAulaNombre, turno: newAulaTurno,
+        // El horario es opcional: sin la migración 011 no se manda, así crear aula sigue andando.
+        ...(newAulaDesde ? { hora_inicio: newAulaDesde } : {}),
+        ...(newAulaHasta ? { hora_fin: newAulaHasta } : {}),
+      })
       .select()
       .single()
 
@@ -161,6 +168,8 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
       setAulas((prev) => [...prev, data as Aula].sort((a, b) => a.nombre.localeCompare(b.nombre)))
       setAulaStatus('✓ Aula creada')
       setNewAulaNombre('')
+      setNewAulaDesde('')
+      setNewAulaHasta('')
     }
   }
 
@@ -172,6 +181,13 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
       setAulas((prev) => prev.filter((a) => a.id !== aulaId))
       setStudents((prev) => prev.map((s) => (s.aula_id === aulaId ? { ...s, aula_id: null } : s)))
     }
+  }
+
+  const saveHorario = async (aulaId: string, field: 'hora_inicio' | 'hora_fin', value: string) => {
+    const supabase = createClient()
+    const { error } = await supabase.from('aulas').update({ [field]: value || null }).eq('id', aulaId)
+    if (!error) setAulas((prev) => prev.map((a) => (a.id === aulaId ? { ...a, [field]: value || null } : a)))
+    else setAulaStatus('Error: ' + (/column/i.test(error.message) ? 'falta correr la migración 011_repasos.sql' : error.message))
   }
 
   const reassignAula = async (studentId: string, aulaId: string) => {
@@ -213,6 +229,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
 
   const tabs = [
     { key: 'bosses', label: 'Jefes' },
+    { key: 'repasos', label: 'Repasos' },
     { key: 'exercises', label: 'Ejercicios' },
     { key: 'aulas', label: 'Aulas' },
     { key: 'students', label: 'Alumnos' },
@@ -266,7 +283,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
             >
               <option value="">Sin aula (alumnos sin asignar)</option>
               {aulas.map((a) => (
-                <option key={a.id} value={a.id}>{a.nombre} ({TURNO_LABEL[a.turno] ?? a.turno})</option>
+                <option key={a.id} value={a.id}>{aulaLabel(a)}</option>
               ))}
             </select>
           </div>
@@ -298,6 +315,17 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
             })}
           </div>
         </div>
+      )}
+
+      {/* ── REPASOS TAB ── */}
+      {tab === 'repasos' && (
+        <RepasosPanel
+          aulas={aulas}
+          students={students}
+          aulaRepasoMap={aulaRepasoMap}
+          alumnoRepasoMap={alumnoRepasoMap}
+          repasoProgress={repasoProgress}
+        />
       )}
 
       {/* ── EXERCISES TAB ── */}
@@ -352,6 +380,14 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
                     <option value="otro">Otro</option>
                   </select>
                 </div>
+                <div>
+                  <span className="label-mono mb-1 block">Horario (opcional)</span>
+                  <div className="flex items-center gap-2">
+                    <input className="input" type="time" aria-label="Desde" value={newAulaDesde} onChange={(e) => setNewAulaDesde(e.target.value)} />
+                    <span className="font-mono text-xs text-tx3">a</span>
+                    <input className="input" type="time" aria-label="Hasta" value={newAulaHasta} onChange={(e) => setNewAulaHasta(e.target.value)} />
+                  </div>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <button type="submit" className="btn-primary font-mono">
@@ -375,8 +411,24 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
                   <div className="flex-1 min-w-[180px]">
                     <div className="font-mono text-sm font-bold text-tx truncate">{a.nombre}</div>
                     <div className="text-xs text-tx3">
-                      {TURNO_LABEL[a.turno] ?? a.turno} · {count} alumno{count === 1 ? '' : 's'} · {activeIn(a.id)} activo{activeIn(a.id) === 1 ? '' : 's'}
+                      {TURNO_LABEL[a.turno] ?? a.turno}{aulaHorario(a) ? ` · ${aulaHorario(a)}` : ''} · {count} alumno{count === 1 ? '' : 's'} · {activeIn(a.id)} activo{activeIn(a.id) === 1 ? '' : 's'}
                     </div>
+                  </div>
+                  <div className="flex items-center gap-1.5" role="group" aria-label={`Horario de ${a.nombre}`}>
+                    <span className="label-mono mr-1">Horario</span>
+                    <input
+                      className="input text-xs py-1" type="time" aria-label="Desde"
+                      defaultValue={hhmm(a.hora_inicio)}
+                      onBlur={(e) => { if (e.target.value !== hhmm(a.hora_inicio)) saveHorario(a.id, 'hora_inicio', e.target.value) }}
+                      style={{ width: 104 }}
+                    />
+                    <span className="font-mono text-xs text-tx3">a</span>
+                    <input
+                      className="input text-xs py-1" type="time" aria-label="Hasta"
+                      defaultValue={hhmm(a.hora_fin)}
+                      onBlur={(e) => { if (e.target.value !== hhmm(a.hora_fin)) saveHorario(a.id, 'hora_fin', e.target.value) }}
+                      style={{ width: 104 }}
+                    />
                   </div>
                   <div className="flex items-center gap-1.5" role="group" aria-label={`Dificultades habilitadas en ${a.nombre}`}>
                     <span className="label-mono mr-1">Dificultades</span>

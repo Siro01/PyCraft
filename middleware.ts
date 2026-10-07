@@ -7,9 +7,9 @@ import { isLocalMode } from '@/lib/local-mode'
 const ADMIN_ONLY = [
   '/admin',
   '/demo/items', '/demo/tienda', '/demo/mercader-v2',
-  '/demo/mercader', '/demo/architect-lab', '/demo/victory', '/demo/mapa',
+  '/demo/mercader', '/demo/architect-lab', '/demo/victory', '/demo/mapa', '/demo/inventario',
 ]
-const PROTECTED = ['/dashboard', '/battle', ...ADMIN_ONLY]
+const PROTECTED = ['/dashboard', '/battle', '/repaso', ...ADMIN_ONLY]
 
 function matches(pathname: string, routes: string[]) {
   return routes.some((r) => pathname === r || pathname.startsWith(`${r}/`))
