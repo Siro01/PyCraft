@@ -34,7 +34,7 @@ interface BossMapProps {
   notice?: React.ReactNode
   emptyState?: React.ReactNode
   testMode?: boolean
-  /** El docente: la tienda del mapa le queda abierta siempre, para poder revisarla. */
+  /** El docente: tienda, patios y jefes (también los ya derrotados) le quedan abiertos para probarlos. */
   isAdmin?: boolean
   /** Diseño del personaje del mapa (por defecto, el explorador). */
   avatar?: AvatarId
@@ -357,8 +357,9 @@ export default function BossMap({
                     key={act.key}
                     act={act}
                     bossStates={bossStates}
-                    playgroundReachable={actIndex <= reachedActIndex}
+                    playgroundReachable={isAdmin || actIndex <= reachedActIndex}
                     shopUnlocked={isAdmin || !!progress[SHOP_UNLOCK_BOSS_ID]?.defeated}
+                    reenterDefeated={isAdmin}
                     onReachEdge={handleReachEdge}
                     fillHeight={mapMaximized}
                     startAt={startAt}

@@ -12,6 +12,8 @@ import { getEnabledTiers } from '@/lib/supabase/enabled-tiers'
 import { getEnabledRepasoIds } from '@/lib/supabase/enabled-repasos'
 import TestHud from '@/components/game/TestHud'
 import { isTestUser } from '@/lib/test-student/server'
+import AdminViewBar from '@/components/game/AdminViewBar'
+import { ADMIN_VIEW_COOKIE, parseAdminView } from '@/lib/admin/view-mode'
 
 // ─── Supabase mode ────────────────────────────────────────────────────────────
 // createClient is dynamically imported so the module doesn't crash when
@@ -29,11 +31,17 @@ async function SupabaseDashboard() {
     .eq('id', user.id)
     .single()
 
-  const enabledTiers = await getEnabledTiers(supabase, user.id, profile?.role === 'admin')
-  const tier = pickTier(enabledTiers, (await cookies()).get(TIER_COOKIE)?.value)
+  const isAdmin = profile?.role === 'admin'
+  const cookieStore = await cookies()
+  const enabledTiers = await getEnabledTiers(supabase, user.id, isAdmin)
+  const tier = pickTier(enabledTiers, cookieStore.get(TIER_COOKIE)?.value)
+  const adminView = parseAdminView(cookieStore.get(ADMIN_VIEW_COOKIE)?.value)
 
   // Sin ninguna dificultad habilitada el alumno no puede combatir: no se muestra ningún jefe.
-  const enabledIds = tier ? await getEnabledBossIds(supabase, user.id) : new Set<string>()
+  // El docente tiene todo abierto, para poder probar cualquier jefe.
+  const enabledIds = isAdmin
+    ? new Set(BOSSES.map((b) => b.id))
+    : tier ? await getEnabledBossIds(supabase, user.id) : new Set<string>()
 
   const { data: battles } = await supabase
     .from('battle_records')
@@ -49,7 +57,7 @@ async function SupabaseDashboard() {
     }
   }
 
-  const repasoIds = await getEnabledRepasoIds(supabase, user.id, profile?.role === 'admin')
+  const repasoIds = await getEnabledRepasoIds(supabase, user.id, isAdmin)
 
   const isTest = await isTestUser(supabase, user.id)
   const username = profile?.username ?? user.email?.split('@')[0] ?? 'Jugador'
@@ -69,8 +77,8 @@ async function SupabaseDashboard() {
         bosses={BOSSES}
         progress={progress}
         enabledIds={enabledIds}
-        testMode={isTest}
-        isAdmin={role === 'admin'}
+        testMode={isTest || (isAdmin && adminView === 'admin')}
+        isAdmin={isAdmin}
         username={username}
         totalDefeated={totalDefeated}
         repasoIds={repasoIds}
@@ -85,6 +93,7 @@ async function SupabaseDashboard() {
         }
       />
       {isTest && <TestHud />}
+      {isAdmin && <AdminViewBar view={adminView} tier={tier} />}
     </div>
   )
 }

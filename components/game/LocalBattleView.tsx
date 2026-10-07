@@ -21,6 +21,8 @@ import type { Boss, ChallengeTier, Amulet } from '@/types'
 interface Props {
   boss: Boss
   victoryHref?: string
+  /** Pidió `?practica=1` — se respeta solo si el jefe ya figura derrotado en este navegador. */
+  practiceRequested?: boolean
 }
 
 const TIER_LABELS: Record<ChallengeTier, string> = {
@@ -29,7 +31,7 @@ const TIER_LABELS: Record<ChallengeTier, string> = {
   senior: 'SENIOR',
 }
 
-export default function LocalBattleView({ boss, victoryHref }: Props) {
+export default function LocalBattleView({ boss, victoryHref, practiceRequested = false }: Props) {
   const router = useRouter()
   const [username, setUsername]         = useState<string | null>(null)
   const [role, setRole]                 = useState<string | undefined>()
@@ -37,6 +39,7 @@ export default function LocalBattleView({ boss, victoryHref }: Props) {
   const [arenaKey, setArenaKey]         = useState(0)
   const [amulets, setAmulets]           = useState<Amulet[]>([])
   const [amuletNotice, setAmuletNotice] = useState<string | null>(null)
+  const [practice, setPractice]         = useState(false)
 
   useEffect(() => {
     const user = getLocalUser()
@@ -45,6 +48,7 @@ export default function LocalBattleView({ boss, victoryHref }: Props) {
     setRole(user.role)
     const t = getLocalTier()
     setTier(t)
+    setPractice(practiceRequested && !!getBossProgress(boss.id)?.defeated)
 
     // Load amulets and apply boss-hp-reduction if boss hasn't started yet
     const currentAmulets = getAmulets()
@@ -64,7 +68,7 @@ export default function LocalBattleView({ boss, victoryHref }: Props) {
         setTimeout(() => setAmuletNotice(null), 5000)
       }
     }
-  }, [router, boss.id, boss.hpMax, boss.name])
+  }, [router, boss.id, boss.hpMax, boss.name, practiceRequested])
 
   const handleReset = useCallback(() => {
     saveBossProgress(boss.id, boss.hpMax, false)
@@ -178,10 +182,11 @@ export default function LocalBattleView({ boss, victoryHref }: Props) {
           </div>
         ) : (
           <CombatArena
-            key={arenaKey}
+            key={`${arenaKey}-${practice ? 'p' : 'n'}`}
             boss={boss}
             challenges={challenges}
-            victoryHref={victoryHref}
+            victoryHref={practice ? undefined : victoryHref}
+            practice={practice}
             localMode
             showGuide={tier !== 'senior'}
             tier={tier}

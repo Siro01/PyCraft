@@ -11,9 +11,13 @@ import { getEnabledTiers } from '@/lib/supabase/enabled-tiers'
 import { TIER_COOKIE, pickTier } from '@/lib/game/tiers'
 import TestHud from '@/components/game/TestHud'
 import { isTestUser } from '@/lib/test-student/server'
+import AdminViewBar from '@/components/game/AdminViewBar'
+import { ADMIN_VIEW_COOKIE, parseAdminView } from '@/lib/admin/view-mode'
 
 interface PageProps {
   params: Promise<{ bossId: string }>
+  /** `?practica=1`: revancha contra un jefe ya derrotado — no guarda nada ni da premios. */
+  searchParams: Promise<{ practica?: string }>
 }
 
 export async function generateMetadata({ params }: PageProps) {
@@ -23,7 +27,7 @@ export async function generateMetadata({ params }: PageProps) {
 }
 
 // ── Local mode: client component reads user + HP + tier from localStorage ──
-function LocalBattlePage({ bossId }: { bossId: string }) {
+function LocalBattlePage({ bossId, practice }: { bossId: string; practice: boolean }) {
   const boss = getBossById(bossId)
   if (!boss) notFound()
 
@@ -31,12 +35,13 @@ function LocalBattlePage({ bossId }: { bossId: string }) {
     <LocalBattleView
       boss={boss}
       victoryHref={boss.classNumber === 14 ? '/finale/proyecto' : undefined}
+      practiceRequested={practice}
     />
   )
 }
 
 // ── Supabase mode ─────────────────────────────────────────────────────────────
-async function SupabaseBattlePage({ bossId }: { bossId: string }) {
+async function SupabaseBattlePage({ bossId, practiceRequested }: { bossId: string; practiceRequested: boolean }) {
   const { createClient } = await import('@/lib/supabase/server')
 
   const supabase = await createClient()
@@ -54,12 +59,29 @@ async function SupabaseBattlePage({ bossId }: { bossId: string }) {
 
   const isAdmin = profile?.role === 'admin'
   const enabledTiers = await getEnabledTiers(supabase, user.id, isAdmin)
-  const tier = pickTier(enabledTiers, (await cookies()).get(TIER_COOKIE)?.value)
+  const cookieStore = await cookies()
+  const tier = pickTier(enabledTiers, cookieStore.get(TIER_COOKIE)?.value)
+  const adminView = parseAdminView(cookieStore.get(ADMIN_VIEW_COOKIE)?.value)
+  const adminTools = isAdmin && adminView === 'admin'
   if (!tier) redirect('/dashboard')
 
   if (!isAdmin) {
     const enabledIds = await getEnabledBossIds(supabase, user.id)
     if (!enabledIds.has(bossId)) redirect('/dashboard')
+  }
+
+  // Práctica: solo si de verdad ya lo derrotó. No se crea ni se toca ningún
+  // battle_record (así no cambian diamantes, Mercader ni estadísticas del docente).
+  let practice = false
+  if (practiceRequested) {
+    const { data: won } = await supabase
+      .from('battle_records')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('boss_id', bossId)
+      .eq('is_completed', true)
+      .limit(1)
+    practice = (won ?? []).length > 0
   }
 
   // Reutiliza el registro existente (en curso o completado); solo crea uno si no hay ninguno.
@@ -74,7 +96,7 @@ async function SupabaseBattlePage({ bossId }: { bossId: string }) {
 
   let battle = existing?.[0] ?? null
 
-  if (!battle) {
+  if (!battle && !practice) {
     const { data: newBattle } = await supabase
       .from('battle_records')
       .insert({
@@ -120,21 +142,25 @@ async function SupabaseBattlePage({ bossId }: { bossId: string }) {
           challenges={challenges}
           tier={tier}
           showGuide={tier !== 'senior'}
-          initialHp={battle?.hp_current ?? boss.hpMax}
-          initialDefeated={battle?.is_completed ?? false}
-          victoryHref={boss.classNumber === 14 ? '/finale/proyecto' : undefined}
+          initialHp={practice ? boss.hpMax : battle?.hp_current ?? boss.hpMax}
+          initialDefeated={practice ? false : battle?.is_completed ?? false}
+          victoryHref={!practice && boss.classNumber === 14 ? '/finale/proyecto' : undefined}
+          practice={practice}
           defeatedBefore={defeatedBefore}
-          testMode={isTest}
-          persist={battle ? { battleId: battle.id, userId: user.id, attacksCount: battle.attacks_count } : undefined}
+          testMode={isTest || adminTools}
+          adminTools={adminTools}
+          persist={battle && !practice ? { battleId: battle.id, userId: user.id, attacksCount: battle.attacks_count } : undefined}
         />
       </main>
       {isTest && <TestHud />}
+      {isAdmin && <AdminViewBar view={adminView} tier={tier} />}
     </div>
   )
 }
 
-export default async function BattlePage({ params }: PageProps) {
+export default async function BattlePage({ params, searchParams }: PageProps) {
   const { bossId } = await params
-  if (isLocalMode()) return <LocalBattlePage bossId={bossId} />
-  return <SupabaseBattlePage bossId={bossId} />
+  const practice = (await searchParams).practica === '1'
+  if (isLocalMode()) return <LocalBattlePage bossId={bossId} practice={practice} />
+  return <SupabaseBattlePage bossId={bossId} practiceRequested={practice} />
 }

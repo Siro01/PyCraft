@@ -1,4 +1,7 @@
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
+import AdminViewBar from '@/components/game/AdminViewBar'
+import { ADMIN_VIEW_COOKIE, parseAdminView } from '@/lib/admin/view-mode'
 import { createClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
 import Win from '@/components/ui/Win'
@@ -160,6 +163,7 @@ export default async function AdminPage() {
           attacks={attacks}
         />
       </main>
+      <AdminViewBar view={parseAdminView((await cookies()).get(ADMIN_VIEW_COOKIE)?.value)} />
     </div>
   )
 }

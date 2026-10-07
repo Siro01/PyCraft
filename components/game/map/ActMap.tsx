@@ -52,6 +52,8 @@ interface ActMapProps {
   fillHeight?: boolean
   /** La tienda del Mercader abre después de derrotar al jefe #2 (en todos los actos a la vez). */
   shopUnlocked?: boolean
+  /** El docente puede volver a entrar a jefes ya derrotados. */
+  reenterDefeated?: boolean
   /** Dónde aparece el avatar (por defecto, la entrada). */
   startAt?: MapPoint
   onPosChange?: (p: MapPoint) => void
@@ -64,7 +66,7 @@ interface ActMapProps {
 }
 
 export default function ActMap({
-  act, bossStates, playgroundReachable, onReachEdge, fillHeight, shopUnlocked = false, startAt, onPosChange, keyboard = true, avatar,
+  act, bossStates, playgroundReachable, onReachEdge, fillHeight, shopUnlocked = false, reenterDefeated = false, startAt, onPosChange, keyboard = true, avatar,
   repasoIds = [],
 }: ActMapProps) {
   const router = useRouter()
@@ -186,7 +188,9 @@ export default function ActMap({
   const enterSpot = useCallback((s: Spot) => {
     if (s.kind === 'boss') {
       const state = bossStates[s.bossId]
-      if (state === 'available' || state === 'current') confirmAndGo(s.p, `/battle/${s.bossId}`)
+      if (state === 'available' || state === 'current' || (reenterDefeated && state === 'defeated')) confirmAndGo(s.p, `/battle/${s.bossId}`)
+      // Jefe ya derrotado: revancha para practicar (sin premios ni cambios de progreso).
+      else if (state === 'defeated') confirmAndGo(s.p, `/battle/${s.bossId}?practica=1`)
       else if (state === 'locked') showWarning(LOCKED_LINES[Math.floor(Math.random() * LOCKED_LINES.length)])
       else sfx.select()
       return
@@ -210,7 +214,7 @@ export default function ActMap({
       return
     }
     confirmAndGo(s.p, s.kind === 'playground' ? `/patio-de-juegos?acto=${act.key}` : '/patio-de-practicas')
-  }, [act.key, bossStates, confirmAndGo, playgroundReachable, shopUnlocked, showWarning])
+  }, [act.key, bossStates, confirmAndGo, playgroundReachable, reenterDefeated, shopUnlocked, showWarning])
 
   const moveTo = useCallback((next: MapPoint, dir: Facing) => {
     posRef.current = next
@@ -348,16 +352,17 @@ export default function ActMap({
       const boss = bossById.get(s.bossId)
       if (!boss) return null
       const state = bossStates[s.bossId] ?? 'locked'
-      const canEnter = state === 'available' || state === 'current'
+      const canEnter = state === 'available' || state === 'current' || state === 'defeated'
+      const replay = state === 'defeated' && !reenterDefeated
       return (
         <NodeDetailPopover
           icon={<BossTopicIcon bossId={boss.id} size={12} color={ink} />}
           title={`${boss.title} · ${boss.name}`}
-          body={boss.topic}
+          body={replay ? `${boss.topic} · Revancha para practicar, sin premios.` : boss.topic}
           status={STATE_LABEL[state]}
           positive={canEnter}
           onEnter={standing && canEnter ? () => enterSpot(s) : undefined}
-          enterLabel="Pelear"
+          enterLabel={replay ? 'Practicar' : 'Pelear'}
           below={below}
           align={align}
         />
