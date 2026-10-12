@@ -94,6 +94,16 @@ export interface MapChest extends MapPoint {
   entrance: MapPoint | null
 }
 
+/** Guarida de un jefe secreto (lib/game/secret/bosses.ts): al final de un camino
+ *  escondido que nace en el cofre secreto del acto y que recién se puede pisar
+ *  después de abrir ese cofre. */
+export interface MapLair extends MapPoint {
+  /** Id del jefe secreto (también es el id de su camino escondido). */
+  id: string
+  /** Cofre que hay que abrir antes de poder pisar el camino. */
+  afterChest: string
+}
+
 /** Fragmento de código roto del Acto IV, en celdas de la grilla ASCII. */
 export interface AsciiFragment { col: number; row: number; text: string; hot?: boolean }
 
@@ -115,8 +125,12 @@ export interface ActMapDef {
   school: MapPoint
   /** La Biblioteca del acto: teoría de cada tema, siempre abierta. */
   library: MapPoint
+  /** Mi Reino (solo el acto de SQL): la base de datos propia del alumno. */
+  reino: MapPoint | null
   /** Dos por acto: uno a la vista y uno secreto, al final de un camino escondido. */
   chests: MapChest[]
+  /** Jefes secretos (uno por acto). */
+  lairs: MapLair[]
   /** Casillas de caminos escondidos ("x,y" → id del cofre al que llevan; sin la entrada). */
   hiddenTiles: Record<string, string>
   entry: MapPoint
@@ -148,7 +162,9 @@ interface Layout {
   mercader: P
   school: P
   library: P
+  reino?: P
   chests: { sticker: string; at: P }[]
+  lairs?: { secret: string; at: P; afterChest: string }[]
   routes: MapRoute[]
   dots: P[]
   blobs: MapBlob[]
@@ -191,6 +207,7 @@ function buildAct(meta: {
       ...l.bosses.map((b, i) => [`jefe ${i + 1}`, b] as [string, P]),
     ]
     if (l.exit) must.push(['salida', l.exit])
+    if (l.reino) must.push(['mi reino', l.reino])
     for (const c of l.chests) must.push([`cofre ${c.sticker}`, c.at])
     for (const [name, p] of must) {
       if (!links[key(p[0], p[1])]) console.warn(`[act-maps] ${meta.key}: ${name} (${p}) no está sobre ninguna ruta`)
@@ -220,6 +237,13 @@ function buildAct(meta: {
     }
   }
 
+  const lairs: MapLair[] = (l.lairs ?? []).map((lr) => ({ id: lr.secret, afterChest: lr.afterChest, ...pt(lr.at) }))
+  if (process.env.NODE_ENV !== 'production') {
+    for (const lr of lairs) {
+      if (hiddenTiles[key(lr.x, lr.y)] !== lr.id) console.warn(`[act-maps] ${meta.key}: la guarida ${lr.id} no está al final de su camino escondido`)
+    }
+  }
+
   const exit = l.exit ? pt(l.exit) : null
   let exitApproach: MapPoint | null = null
   if (exit) {
@@ -238,7 +262,9 @@ function buildAct(meta: {
     mercader: pt(l.mercader),
     school: pt(l.school),
     library: pt(l.library),
+    reino: l.reino ? pt(l.reino) : null,
     chests,
+    lairs,
     hiddenTiles,
     entry: pt(l.entry),
     exit,
@@ -293,6 +319,7 @@ const ACT_I: Layout = {
   school: [2, 8],
   library: [2, 5],
   chests: [{ sticker: 'sticker-cofre-py', at: [1, 15] }, { sticker: 'sticker-secreto-slime', at: [25, 16] }],
+  lairs: [{ secret: 'secreto-errante', at: [19, 17], afterChest: 'sticker-secreto-slime' }],
   routes: [
     { pts: [[0, 8], [9, 8]] },
     { pts: [[2, 8], [2, 5]] },
@@ -305,6 +332,8 @@ const ACT_I: Layout = {
     { pts: [[5, 12], [5, 15], [1, 15]], dotted: true },
     // Secreto: baja desde el último jefe y se mete en el bosque del sureste.
     { pts: [[28, 12], [28, 16], [25, 16]], hidden: 'sticker-secreto-slime' },
+    // Más allá del cofre secreto, a oscuras hacia la orilla del lago: el Errante.
+    { pts: [[25, 16], [22, 16], [22, 17], [19, 17]], hidden: 'secreto-errante' },
   ],
   dots: [[2, 8], [5, 8], [9, 8], [14, 4], [19, 8], [14, 13], [24, 8], [28, 8]],
   blobs: [
@@ -343,7 +372,9 @@ const ACT_II: Layout = {
   mercader: [28, 4],
   school: [2, 9],
   library: [2, 6],
+  reino: [22, 7],
   chests: [{ sticker: 'sticker-cofre-botella', at: [8, 16] }, { sticker: 'sticker-secreto-null', at: [19, 17] }],
+  lairs: [{ secret: 'secreto-polilla', at: [24, 17], afterChest: 'sticker-secreto-null' }],
   routes: [
     { pts: [[0, 9], [4, 9]] },
     { pts: [[4, 9], [12, 9]], dotted: true },
@@ -356,9 +387,13 @@ const ACT_II: Layout = {
     { pts: [[12, 9], [19, 9]] },
     { pts: [[19, 9], [19, 4], [23, 4], [28, 4]] },
     { pts: [[19, 9], [27, 9]], dotted: true },
+    // Mi Reino: un muelle corto desde el cruce, al pie de la isla del Mercader.
+    { pts: [[22, 9], [22, 7]] },
     { pts: [[27, 9], [27, 13], [31, 13]] },
     // Secreto: desde el segundo jefe, al agua profunda del sur.
     { pts: [[16, 14], [16, 17], [19, 17]], hidden: 'sticker-secreto-null' },
+    // Siguiendo por el agua profunda: la Polilla.
+    { pts: [[19, 17], [24, 17]], hidden: 'secreto-polilla' },
   ],
   dots: [[4, 9], [4, 6], [12, 9], [19, 9], [22, 9], [27, 9], [12, 4]],
   blobs: [
@@ -398,6 +433,7 @@ const ACT_III: Layout = {
   school: [7, 4],
   library: [1, 10],
   chests: [{ sticker: 'sticker-cofre-huevo', at: [6, 16] }, { sticker: 'sticker-secreto-nexo', at: [30, 15] }],
+  lairs: [{ secret: 'secreto-ouroboros', at: [24, 17], afterChest: 'sticker-secreto-nexo' }],
   routes: [
     { pts: [[0, 4], [10, 4], [10, 8], [15, 8], [27, 8], [27, 12]] },
     { pts: [[4, 1], [4, 14], [10, 14], [15, 14], [15, 8]] },
@@ -407,6 +443,8 @@ const ACT_III: Layout = {
     { pts: [[10, 14], [10, 16], [6, 16]], dotted: true },
     // Secreto: baja desde la tienda y se mete en el bosque del sureste.
     { pts: [[27, 12], [27, 15], [30, 15]], hidden: 'sticker-secreto-nexo' },
+    // Una vuelta más por el bosque: el Ouroboros.
+    { pts: [[30, 15], [30, 17], [24, 17]], hidden: 'secreto-ouroboros' },
   ],
   dots: [[4, 4], [10, 4], [4, 10], [20, 8], [15, 14], [27, 8], [20, 4]],
   blobs: [
@@ -447,6 +485,7 @@ const ACT_IV: Layout = {
   school: [1, 9],
   library: [12, 10],
   chests: [{ sticker: 'sticker-cofre-ojo', at: [21, 15] }, { sticker: 'sticker-secreto-gato', at: [1, 1] }],
+  lairs: [{ secret: 'secreto-vigia', at: [5, 1], afterChest: 'sticker-secreto-gato' }],
   routes: [
     { pts: [[0, 9], [3, 9], [3, 3], [9, 3], [9, 14], [15, 14], [15, 8], [25, 8]] },
     { pts: [[3, 9], [3, 15]] },
@@ -456,6 +495,8 @@ const ACT_IV: Layout = {
     { pts: [[15, 14], [21, 14], [21, 15]], dotted: true },
     // Secreto: la esquina de arriba del sistema, «un archivo que no figura en ningún lado».
     { pts: [[3, 3], [1, 3], [1, 1]], hidden: 'sticker-secreto-gato' },
+    // Detrás del archivo del gato hay otro que tampoco figura: el Vigía.
+    { pts: [[1, 1], [5, 1]], hidden: 'secreto-vigia' },
   ],
   dots: [[3, 9], [9, 3], [15, 14], [15, 8], [9, 10]],
   blobs: [],

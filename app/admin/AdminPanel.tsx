@@ -9,6 +9,7 @@ import ChallengesBrowser from './ChallengesBrowser'
 import StatsPanel from './StatsPanel'
 import TestStudentPanel from './TestStudentPanel'
 import RepasosPanel from './RepasosPanel'
+import ReinosPanel from './ReinosPanel'
 import { aulaHorario, aulaLabel, hhmm, type AdminAula } from './aula-label'
 import { TEST_USERNAME } from '@/lib/test-student/constants'
 import { DEFAULT_TIER_ENABLED, TIER_META, TIER_ORDER } from '@/lib/game/tiers'
@@ -78,7 +79,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
   const [resetPassword, setResetPassword] = useState('')
   const [resetStatus, setResetStatus] = useState('')
 
-  const [tab, setTab] = useState<'bosses' | 'repasos' | 'exercises' | 'aulas' | 'students' | 'stats' | 'test'>('bosses')
+  const [tab, setTab] = useState<'bosses' | 'repasos' | 'exercises' | 'aulas' | 'students' | 'reinos' | 'stats' | 'test'>('bosses')
 
   const isTierEnabled = (aulaId: string, tier: ChallengeTier) =>
     tierMap[aulaId]?.[tier] ?? DEFAULT_TIER_ENABLED[tier]
@@ -233,6 +234,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
     { key: 'exercises', label: 'Ejercicios' },
     { key: 'aulas', label: 'Aulas' },
     { key: 'students', label: 'Alumnos' },
+    { key: 'reinos', label: 'Reinos SQL' },
     { key: 'stats', label: 'Estadísticas' },
     { key: 'test', label: 'Alumno TEST' },
   ] as const
@@ -347,6 +349,8 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
 
       {/* ── TEST TAB ── */}
       {tab === 'test' && <TestStudentPanel />}
+
+      {tab === 'reinos' && <ReinosPanel aulas={aulas} students={students} />}
 
       {/* ── AULAS TAB ── */}
       {tab === 'aulas' && (

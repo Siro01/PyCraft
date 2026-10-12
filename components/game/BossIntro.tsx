@@ -10,6 +10,8 @@ interface Props {
   onDone: () => void
   /** Apuntes con ejemplos paso a paso de este jefe (si existen). */
   onOpenLesson?: () => void
+  /** Dentro de la arena: el jefe ya está a la izquierda, acá va solo el diálogo, sin caja. */
+  arena?: boolean
 }
 
 // ── Sonido de tipeo ──────────────────────────────────────────────────────────
@@ -53,7 +55,7 @@ function WaveText({ text, bossColor }: { text: string; bossColor: string }) {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function BossIntro({ boss, lines, onDone, onOpenLesson }: Props) {
+export default function BossIntro({ boss, lines, onDone, onOpenLesson, arena = false }: Props) {
   const [idx, setIdx] = useState(0)
   const [shown, setShown] = useState('')
   const [done, setDone] = useState(false)
@@ -129,6 +131,33 @@ export default function BossIntro({ boss, lines, onDone, onOpenLesson }: Props) 
     window.addEventListener('pointerdown', unlock, { once: true })
     return () => window.removeEventListener('pointerdown', unlock)
   }, [ensureAudio])
+
+  if (arena) {
+    return (
+      <div className="arena-speech" onClick={skipOrAdvance}>
+        <span className="arena-speech-who">{currentLine?.speaker ?? boss.name}</span>
+        {lines.slice(0, idx).map((l, k) => <p key={k} className="arena-speech-old">{l.text}</p>)}
+        <p>
+          {done ? <WaveText text={shown} bossColor={boss.color} /> : <>{shown}<span className="animate-caret" style={{ color: 'hsl(var(--accent))' }}>█</span></>}
+        </p>
+        <div className="arena-choices">
+          {isLast && done ? (
+            <>
+              <button type="button" className="arena-go" onClick={(e) => { e.stopPropagation(); onDone() }}>¡a combatir! ▸</button>
+              {onOpenLesson && (
+                <button type="button" className="arena-go arena-go--ghost" onClick={(e) => { e.stopPropagation(); onOpenLesson() }}>ver ejemplos paso a paso</button>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="arena-num">{done ? 'enter para seguir' : 'enter para saltar'}</span>
+              <button type="button" className="arena-link" onClick={(e) => { e.stopPropagation(); onDone() }}>ir al combate →</button>
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col items-center gap-6 py-4 select-none">

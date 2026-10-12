@@ -5,10 +5,14 @@ import type { Boss } from '@/types'
 import ArchitectCanvas from './architect/ArchitectCanvas'
 import { MercaderPortrait } from './shop/MercaderPortrait'
 import StripSprite from './StripSprite'
+import FalsificadorSprite from './falsificador/FalsificadorSprite'
+import NexoCanvas from './nexo/NexoCanvas'
+import { ACTIVE_NEXO, NEXO_PX } from '@/lib/game/nexo-art'
 import { ACTIVE_GUARDIAN, GUARDIAN_FRAMES, GUARDIAN_FRAME_MS, guardianSrc } from '@/lib/game/guardian-sprite'
 import { ACTIVE_GOLEM, GOLEM_FRAMES, GOLEM_FRAME_MS, golemSrc } from '@/lib/game/golem-sprite'
 import { ACTIVE_CRAFTERO, CRAFTERO_FRAMES, CRAFTERO_FRAME_MS, crafteroSrc } from '@/lib/game/craftero-sprite'
 import { ACTIVE_ARCHIVISTA, ARCHIVISTA_FRAMES, ARCHIVISTA_FRAME_MS, archivistaSrc } from '@/lib/game/archivista-sprite'
+import { ACTIVE_ORACULO, ORACULO_FRAMES, ORACULO_FRAME_MS, oraculoSrc } from '@/lib/game/oraculo-sprite'
 
 // Jefes rediseñados en tiras de cuadros de 64×64 (scripts/sprites/*.py): cada uno
 // tiene su animación idle y su propio cuadro de derrota, así que no se agrisan.
@@ -17,7 +21,21 @@ const STRIP_SPRITES: Record<string, { src: (defeated: boolean) => string; frames
   'golem-infinito': { src: (d) => golemSrc(ACTIVE_GOLEM, d), frames: GOLEM_FRAMES, frameMs: GOLEM_FRAME_MS },
   'maestro-craftero': { src: (d) => crafteroSrc(ACTIVE_CRAFTERO, d), frames: CRAFTERO_FRAMES, frameMs: CRAFTERO_FRAME_MS },
   archivista: { src: (d) => archivistaSrc(ACTIVE_ARCHIVISTA, d), frames: ARCHIVISTA_FRAMES, frameMs: ARCHIVISTA_FRAME_MS },
+  'oraculo-oscuro': { src: (d) => oraculoSrc(ACTIVE_ORACULO, d), frames: ORACULO_FRAMES, frameMs: ORACULO_FRAME_MS },
 }
+
+// Jefes dibujados a mano como GIF animado (scripts/sprites/import_gifs.py los deja
+// a tamaño nativo). `grid` es la densidad de píxel con la que fueron dibujados:
+// 64 = mismo píxel que las tiras de arriba (los jefes grandes del Acto IV ocupan
+// más lugar que 64×64 a propósito); 32 = píxel doble, como el creeper.
+const GIF_SPRITES: Record<string, { w: number; h: number; grid: 32 | 64 }> = {
+  'constructor-vacio': { w: 32, h: 32, grid: 32 },
+  'contador-almas': { w: 32, h: 32, grid: 32 },
+  'la-hydra': { w: 72, h: 56, grid: 64 },
+  'dragon-rojo': { w: 88, h: 70, grid: 64 },
+}
+// Escalas enteras para que los píxeles queden nítidos.
+const GIF_SCALE = { 32: { sm: 2, md: 3, lg: 4 }, 64: { sm: 1, md: 1, lg: 2 } } as const
 
 interface BossSpriteProps {
   boss: Boss
@@ -250,6 +268,18 @@ export default function BossSprite({ boss, size = 'md', defeated = false, animat
   if (boss.id === 'mercader-abismo') {
     return <MercaderBossSprite size={size} defeated={defeated} animated={animated} />
   }
+  if (boss.id === 'el-nexo') {
+    // Calamar ASCII (motor del Arquitecto): tiembla con cada golpe y pierde conexiones.
+    return <NexoCanvas variant={ACTIVE_NEXO} width={NEXO_PX[size]} defeated={defeated} animated={animated} hpRatio={hpRatio} label={boss.name} />
+  }
+  if (boss.id === 'falsificador') {
+    // Cambiaformas de cursores: cambia de forma con cada golpe (y con un clic en la batalla).
+    return <FalsificadorSprite px={DISPLAY_PX[size]} defeated={defeated} animated={animated} hpRatio={hpRatio} clickable={animated && size === 'lg'} label={boss.name} />
+  }
+  const gif = GIF_SPRITES[boss.id]
+  if (gif) {
+    return <GifBossSprite boss={boss} {...gif} size={size} defeated={defeated} animated={animated} />
+  }
   const strip = STRIP_SPRITES[boss.id]
   if (strip) {
     return (
@@ -268,13 +298,38 @@ export default function BossSprite({ boss, size = 'md', defeated = false, animat
   return <StaticBossSprite boss={boss} size={size} defeated={defeated} animated={animated} />
 }
 
+// Quieto (primer cuadro en PNG) si está derrotado, si no se pidió animación o con
+// prefers-reduced-motion: un GIF no se puede pausar.
+function GifBossSprite({ boss, w, h, grid, size, defeated, animated }: { boss: Boss; w: number; h: number; grid: 32 | 64; size: 'sm' | 'md' | 'lg'; defeated: boolean; animated: boolean }) {
+  const [reducedMotion, setReducedMotion] = useState(false)
+  useEffect(() => { setReducedMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches) }, [])
+  const k = GIF_SCALE[grid][size]
+  const still = defeated || !animated || reducedMotion
+  return (
+    <img
+      src={`/sprites/${boss.id}${still ? '-defeated.png' : '.gif'}`}
+      alt={boss.name}
+      width={w * k}
+      height={h * k}
+      style={{
+        imageRendering: 'pixelated',
+        display: 'block',
+        flexShrink: 0,
+        maxWidth: 'none',
+        opacity: defeated ? 0.6 : 1,
+        filter: defeated ? 'grayscale(0.8)' : 'none',
+      }}
+    />
+  )
+}
+
 // El Mercader del Abismo (jefe 4) usa el mismo dibujo que la tienda (56×64),
 // a la altura de los otros sprites de jefe: 64 / 96 / 128 px de alto.
 function MercaderBossSprite({ size, defeated, animated }: { size: 'sm' | 'md' | 'lg'; defeated: boolean; animated: boolean }) {
   const scale = DISPLAY_PX[size] / 64
   return (
-    <div style={{ opacity: defeated ? 0.5 : 1, filter: defeated ? 'grayscale(0.8)' : 'none' }}>
-      <MercaderPortrait scale={scale} animated={animated && !defeated} />
+    <div style={{ opacity: defeated ? 0.85 : 1 }}>
+      <MercaderPortrait scale={scale} animated={animated && !defeated} defeated={defeated} />
     </div>
   )
 }

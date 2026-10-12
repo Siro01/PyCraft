@@ -93,79 +93,10 @@ export default function LocalBattleView({ boss, victoryHref, practiceRequested =
     <div className="min-h-screen flex flex-col desk-theme">
       <Header username={username} role={role} />
 
-      <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">
-
-        {/* Breadcrumb + tier badge + admin reset + skip-boss */}
-        <div className="flex items-center gap-2 mb-4 font-mono text-xs flex-wrap" style={{ color: 'hsl(var(--tx3))' }}>
-          <a href="/dashboard" className="hover:text-tx transition-colors">← Mapa</a>
-          <span>/</span>
-          <span style={{ color: 'hsl(var(--tx2))' }}>{boss.title}</span>
-          <span>/</span>
-          <span className="text-tx">{boss.name}</span>
-
-          {/* Tier badge */}
-          <span
-            className="ml-2 px-2 py-0.5 pixel-corners-sm font-mono text-[10px] tracking-widest font-bold"
-            style={{
-              background: tier === 'junior'  ? 'hsl(var(--python) / 0.15)'
-                        : tier === 'trainee' ? 'hsl(var(--accent) / 0.15)'
-                        : 'hsl(var(--danger) / 0.15)',
-              color: tier === 'junior'  ? 'hsl(var(--python))'
-                   : tier === 'trainee' ? 'hsl(var(--accent))'
-                   : 'hsl(var(--danger))',
-            }}
-          >
-            {TIER_LABELS[tier]}
-          </span>
-
-          {/* Skip boss amulet button */}
-          {skipAmulet && (
-            <button
-              onClick={handleSkipBoss}
-              className="ml-2 px-2 py-0.5 pixel-corners-sm border font-mono text-[10px] tracking-wide transition-all"
-              style={{ borderColor: '#FFB800', color: '#FFB800', background: 'transparent' }}
-              title={AMULET_META['skip-boss'].description}
-            >
-              <span className="inline-flex items-center gap-1">
-                <IconCrystal size={10} color="#FFB800" />
-                Teletransportador
-              </span>
-            </button>
-          )}
-
-          {role === 'admin' && (
-            <button
-              onClick={handleReset}
-              className="ml-auto px-2 py-1 pixel-corners-sm border font-mono text-[10px] tracking-wide transition-all"
-              style={{ borderColor: 'hsl(var(--border2))', color: 'hsl(var(--tx3))', background: 'transparent' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'hsl(var(--danger) / 0.5)'
-                e.currentTarget.style.color = 'hsl(var(--danger))'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'hsl(var(--border2))'
-                e.currentTarget.style.color = 'hsl(var(--tx3))'
-              }}
-              title="Reinicia el HP de este jefe al máximo (solo admin)"
-            >
-              ↺ Reiniciar jefe
-            </button>
-          )}
-        </div>
+      <main className="flex-1 mx-auto w-full px-4 py-5" style={{ maxWidth: 1180 }}>
 
         {/* Amulet activation notice */}
-        {amuletNotice && (
-          <div
-            className="mb-4 px-3 py-2 pixel-corners-sm border font-mono text-xs"
-            style={{
-              background: 'hsl(var(--danger) / 0.08)',
-              borderColor: 'hsl(var(--danger) / 0.4)',
-              color: 'hsl(var(--danger))',
-            }}
-          >
-            {amuletNotice}
-          </div>
-        )}
+        {amuletNotice && <p className="arena-note" role="status" style={{ marginBottom: 12 }}>{amuletNotice}</p>}
 
         {challenges.length === 0 ? (
           <div className="card p-10 text-center">
@@ -190,6 +121,21 @@ export default function LocalBattleView({ boss, victoryHref, practiceRequested =
             localMode
             showGuide={tier !== 'senior'}
             tier={tier}
+            topExtra={
+              <>
+                <span className="arena-tag">{TIER_LABELS[tier]}</span>
+                {skipAmulet && (
+                  <button type="button" className="arena-link" onClick={handleSkipBoss} title={AMULET_META['skip-boss'].description}>
+                    teletransportador
+                  </button>
+                )}
+                {role === 'admin' && (
+                  <button type="button" className="arena-link" onClick={handleReset} title="Reinicia el HP de este jefe al máximo (solo admin)">
+                    ↺ reiniciar jefe
+                  </button>
+                )}
+              </>
+            }
           />
         )}
       </main>

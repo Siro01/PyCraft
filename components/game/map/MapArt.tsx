@@ -120,7 +120,7 @@ export function clearRects(act: ActMapDef): [number, number, number, number][] {
     }
   }
   const nodeR = 10
-  const pts = [...act.nodes, act.playground, act.practice, act.mercader, act.library, ...act.chests.filter((c) => c.kind === 'cofre')]
+  const pts = [...act.nodes, act.playground, act.practice, act.mercader, act.library, ...(act.reino ? [act.reino] : []), ...act.chests.filter((c) => c.kind === 'cofre')]
   for (const p of pts) rects.push([c(p.x) - nodeR, c(p.y) - nodeR - 6, c(p.x) + nodeR, c(p.y) + nodeR])
   for (const p of act.props) {
     const b = PROP_BITMAPS[p.kind]
@@ -185,7 +185,7 @@ function routePath(pts: [number, number][]): string {
 /** Acto IV: tramos que parpadean como si el camino estuviera roto. */
 function brokenGaps(act: ActMapDef): { x: number; y: number; d: number }[] {
   const gaps: { x: number; y: number; d: number }[] = []
-  const nodeKeys = new Set([...act.nodes, act.playground, act.practice, act.mercader, act.library, act.entry].map((p) => `${p.x},${p.y}`))
+  const nodeKeys = new Set([...act.nodes, act.playground, act.practice, act.mercader, act.library, ...(act.reino ? [act.reino] : []), act.entry].map((p) => `${p.x},${p.y}`))
   for (const [k, ns] of Object.entries(act.links)) {
     const [x, y] = k.split(',').map(Number)
     for (const n of ns) {
@@ -271,7 +271,7 @@ function MapArt({ act, blink = false, revealed = [], fresh = null }: Props) {
       {act.routes.map((r, i) => {
         if (!r.hidden || !revealed.includes(r.hidden)) return null
         const steps = hiddenSteps(r.pts)
-        const chest = act.chests.find((c) => c.id === r.hidden)
+        const chest = act.chests.find((c) => c.id === r.hidden) ?? act.lairs.find((lr) => lr.id === r.hidden)
         const isFresh = fresh === r.hidden
         return (
           <g key={`h${i}`} fill="none">

@@ -3,15 +3,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { sfx } from '@/lib/game/architect/sound'
-import { findPath, key, type ActMapDef, type MapChest, type MapPoint } from '@/lib/game/act-maps'
+import { findPath, key, type ActMapDef, type MapChest, type MapLair, type MapPoint } from '@/lib/game/act-maps'
+import { getSecretBoss } from '@/lib/game/secret/bosses'
 import { SHOP_UNLOCK_BOSS_NUMBER } from '@/lib/game/shop'
-import { claimChestSticker, getRepasoProgress, getRevealedPaths, getShopOwned, revealSecretPath } from '@/lib/storage/local-store'
+
+// Mi Reino abre cuando el alumno ya sabe crear tablas (Constructor del Vacío, jefe 7).
+const REINO_UNLOCK_BOSS = 'constructor-vacio'
+const REINO_UNLOCK_NAME = 'Constructor del Vacío'
+import { claimChestSticker, getRepasoProgress, getRevealedPaths, getShopOwned, revealSecretPath, secretDefeated } from '@/lib/storage/local-store'
 import { getChestSticker } from '@/lib/game/chest-stickers'
 import ChestReveal from '@/components/game/stickers/ChestReveal'
 import { getActBooks } from '@/lib/game/biblioteca'
 import BossTopicIcon from './BossTopicIcon'
 import MapArt from './MapArt'
-import { BossNode, ChestNode, PlaceNode, type NodeState, type PlaceKind } from './MapNodeIcon'
+import { BossNode, ChestNode, LairNode, PlaceNode, type NodeState, type PlaceKind } from './MapNodeIcon'
 import NodeDetailPopover from './NodeDetailPopover'
 import NodeSplash from './NodeSplash'
 import PlayerAvatar, { type Facing } from './PlayerAvatar'
@@ -43,6 +48,7 @@ type Spot =
   | { kind: 'boss'; p: MapPoint; bossId: string }
   | { kind: PlaceKind; p: MapPoint }
   | { kind: 'chest'; p: MapPoint; chest: MapChest }
+  | { kind: 'lair'; p: MapPoint; lair: MapLair }
 
 interface ActMapProps {
   act: ActMapDef
@@ -66,11 +72,15 @@ interface ActMapProps {
   avatar?: AvatarId
   /** Repasos con Rodolfo habilitados para este alumno (ids de jefe, de todos los actos). */
   repasoIds?: string[]
+  /** Jefes derrotados en total: abre las guaridas de los jefes secretos. */
+  defeatedCount?: number
+  /** Docente: guaridas abiertas y caminos sin traba. */
+  secretsOpen?: boolean
 }
 
 export default function ActMap({
   act, bossStates, playgroundReachable, onReachEdge, fillHeight, shopUnlocked = false, reenterDefeated = false, startAt, onPosChange, keyboard = true, avatar,
-  repasoIds = [],
+  repasoIds = [], defeatedCount = 0, secretsOpen = false,
 }: ActMapProps) {
   const router = useRouter()
   const start = startAt && act.links[key(startAt.x, startAt.y)] ? startAt : act.entry
@@ -83,11 +93,14 @@ export default function ActMap({
   const [splash, setSplash] = useState<MapPoint | null>(null)
   // ── Cofres: lo encontrado (los stickers ya son del alumno) y los caminos escondidos ya destapados.
   const [found, setFound] = useState<Set<string>>(new Set())
+  const foundRef = useRef<Set<string>>(new Set())
+  useEffect(() => { foundRef.current = found }, [found])
   const [revealed, setRevealed] = useState<string[]>([])
   const revealedRef = useRef<string[]>([])
   const [freshPath, setFreshPath] = useState<string | null>(null)
   const [opening, setOpening] = useState<string | null>(null)
   const [blink, setBlink] = useState(false)
+  const [lairsBeaten, setLairsBeaten] = useState<Set<string>>(new Set())
   const wrapRef = useRef<HTMLDivElement>(null)
   const [box, setBox] = useState({ w: 0, h: 0 })
 
@@ -120,7 +133,13 @@ export default function ActMap({
     const owned = new Set(getShopOwned().map((o) => o.id))
     setFound(owned)
     // Un cofre secreto ya abierto (en esta PC o en otra) deja su camino destapado.
-    const paths = Array.from(new Set([...getRevealedPaths(), ...act.chests.filter((c) => c.kind === 'secreto' && owned.has(c.id)).map((c) => c.id)]))
+    const beaten = new Set(act.lairs.filter((lr) => secretDefeated(lr.id)).map((lr) => lr.id))
+    setLairsBeaten(beaten)
+    const paths = Array.from(new Set([
+      ...getRevealedPaths(),
+      ...act.chests.filter((c) => c.kind === 'secreto' && owned.has(c.id)).map((c) => c.id),
+      ...beaten,
+    ]))
     revealedRef.current = paths
     setRevealed(paths)
   }, [act])
@@ -156,17 +175,20 @@ export default function ActMap({
       { kind: 'shop', p: act.mercader },
       { kind: 'library', p: act.library },
     ]
+    if (act.reino) list.push({ kind: 'reino', p: act.reino })
     if (actRepasos.length > 0) list.push({ kind: 'school', p: act.school })
     // El cofre secreto no existe en el mapa hasta que se destapa su camino.
     for (const c of act.chests) if (c.kind === 'cofre' || revealed.includes(c.id)) list.push({ kind: 'chest', p: { x: c.x, y: c.y }, chest: c })
+    for (const lr of act.lairs) if (revealed.includes(lr.id)) list.push({ kind: 'lair', p: { x: lr.x, y: lr.y }, lair: lr })
     return list
   }, [act, actRepasos.length, revealed])
   const spotAt = useMemo(() => new Map(spots.map((s) => [key(s.p.x, s.p.y), s])), [spots])
   const bossById = useMemo(() => new Map(act.bosses.map((b) => [b.id, b])), [act])
+  const reinoUnlocked = bossStates[REINO_UNLOCK_BOSS] === 'defeated'
 
   const placeOpen = useCallback(
-    (kind: PlaceKind) => (kind === 'school' || kind === 'library' ? true : kind === 'shop' ? shopUnlocked : playgroundReachable),
-    [playgroundReachable, shopUnlocked],
+    (kind: PlaceKind) => (kind === 'school' || kind === 'library' ? true : kind === 'shop' ? shopUnlocked : kind === 'reino' ? reinoUnlocked : playgroundReachable),
+    [playgroundReachable, shopUnlocked, reinoUnlocked],
   )
 
   // ── Acto IV: el Arquitecto parpadea de vez en cuando, y su entrada suena a interferencia.
@@ -232,12 +254,30 @@ export default function ActMap({
       setOpening(def.id)
       return
     }
+    if (s.kind === 'lair') {
+      const def = getSecretBoss(s.lair.id)
+      if (!def) return
+      const missing = def.minDefeated - defeatedCount
+      if (missing > 0 && !secretsOpen) {
+        sfx.chestSealed()
+        setWarning(def.sealed.replace('{n}', String(missing)))
+        return
+      }
+      sfx.glitch()
+      confirmAndGo(s.p, `/secreto/${def.id}`)
+      return
+    }
     if (s.kind === 'school') {
       confirmAndGo(s.p, `/repaso?acto=${act.key}`)
       return
     }
     if (s.kind === 'library') {
       confirmAndGo(s.p, `/biblioteca?acto=${act.key}`)
+      return
+    }
+    if (s.kind === 'reino') {
+      if (reinoUnlocked) confirmAndGo(s.p, '/reino')
+      else showWarning(`Mi Reino se funda cuando derrotes al ${REINO_UNLOCK_NAME}: ahí aprendés a crear tablas.`)
       return
     }
     if (s.kind === 'shop') {
@@ -250,7 +290,7 @@ export default function ActMap({
       return
     }
     confirmAndGo(s.p, s.kind === 'playground' ? `/patio-de-juegos?acto=${act.key}` : '/patio-de-practicas')
-  }, [act.key, bossStates, confirmAndGo, found, playgroundReachable, reenterDefeated, shopUnlocked, showWarning, stopWalk])
+  }, [act.key, bossStates, confirmAndGo, found, playgroundReachable, reenterDefeated, shopUnlocked, reinoUnlocked, showWarning, stopWalk, defeatedCount, secretsOpen])
 
   const moveTo = useCallback((next: MapPoint, dir: Facing) => {
     posRef.current = next
@@ -290,7 +330,10 @@ export default function ActMap({
       return true
     }
     const next = { x: cur.x + dx, y: cur.y + dy }
-    if (!(act.links[key(cur.x, cur.y)] ?? []).includes(key(next.x, next.y))) {
+    // El camino a una guarida no existe hasta abrir el cofre secreto de donde nace.
+    const lairPath = act.lairs.find((lr) => lr.id === act.hiddenTiles[key(next.x, next.y)])
+    const lairBlocked = !!lairPath && !secretsOpen && !foundRef.current.has(lairPath.afterChest) && !revealedRef.current.includes(lairPath.id)
+    if (lairBlocked || !(act.links[key(cur.x, cur.y)] ?? []).includes(key(next.x, next.y))) {
       setFacing(dir)
       const now = Date.now()
       if (now - lastBumpRef.current > 260) { lastBumpRef.current = now; sfx.bump() }
@@ -298,7 +341,7 @@ export default function ActMap({
     }
     moveTo(next, dir)
     return true
-  }, [act, moveTo, onReachEdge, stopWalk])
+  }, [act, moveTo, onReachEdge, stopWalk, secretsOpen])
 
   const walkTo = useCallback((target: MapPoint) => {
     if (busyRef.current) return
@@ -416,6 +459,25 @@ export default function ActMap({
         />
       )
     }
+    if (s.kind === 'lair') {
+      const def = getSecretBoss(s.lair.id)
+      if (!def) return null
+      const beaten = lairsBeaten.has(def.id)
+      const missing = def.minDefeated - defeatedCount
+      const sealed = missing > 0 && !secretsOpen
+      return (
+        <NodeDetailPopover
+          title={beaten ? def.name : '???'}
+          body={beaten ? 'Ya lo derrotaste. Podés volver sin premio ni castigo.' : sealed ? 'Algo se mueve en la oscuridad.' : 'Sin ayuda. Si perdés, perdés diamantes.'}
+          status={beaten ? 'Derrotado' : sealed ? `Faltan ${missing} jefes` : 'Te espera'}
+          positive={!sealed}
+          onEnter={standing ? () => enterSpot(s) : undefined}
+          enterLabel={beaten ? 'Volver' : 'Entrar'}
+          below={below}
+          align={align}
+        />
+      )
+    }
     if (s.kind === 'chest') {
       const def = getChestSticker(s.chest.id)
       const isFound = found.has(s.chest.id)
@@ -464,7 +526,21 @@ export default function ActMap({
         />
       )
     }
-    const info: Record<Exclude<PlaceKind, 'school' | 'library'>, { title: string; body: string; locked: string }> = {
+    if (s.kind === 'reino') {
+      return (
+        <NodeDetailPopover
+          title="Mi Reino"
+          body="Tu propia base de datos. Lo que crees acá queda guardado en tu cuenta."
+          status={reinoUnlocked ? 'Abierto' : `Abre tras el ${REINO_UNLOCK_NAME}`}
+          positive={reinoUnlocked}
+          onEnter={standing && reinoUnlocked ? () => enterSpot(s) : undefined}
+          enterLabel="Entrar"
+          below={below}
+          align={align}
+        />
+      )
+    }
+    const info: Record<Exclude<PlaceKind, 'school' | 'library' | 'reino'>, { title: string; body: string; locked: string }> = {
       playground: { title: 'Patio de juegos', body: 'Minijuegos cortos para practicar este acto.', locked: 'Todavía no' },
       practice: { title: 'Patio de prácticas', body: 'Bloc libre para escribir y correr Python.', locked: 'Todavía no' },
       shop: { title: 'Tienda del Mercader', body: 'Stickers e ítems a cambio de diamantes.', locked: `Abre tras el jefe ${SHOP_UNLOCK_BOSS_NUMBER}` },
@@ -523,6 +599,21 @@ export default function ActMap({
             return (
               <div key={k} {...common} className="map-spot" style={{ left: cx(s.p.x) - bossSize / 2, top: cy(s.p.y) - bossSize / 2, width: bossSize, height: bossSize, zIndex: 3 }}>
                 <BossNode boss={boss} state={bossStates[s.bossId] ?? 'locked'} focused={focused} size={bossSize} final={act.ascii} />
+              </div>
+            )
+          }
+          if (s.kind === 'lair') {
+            const sz = Math.round(placeSize * 0.6)
+            const def = getSecretBoss(s.lair.id)
+            return (
+              <div key={k} {...common} className="map-spot" style={{ left: cx(s.p.x) - sz / 2, top: cy(s.p.y) - sz / 2, width: sz, height: sz, zIndex: 3 }}>
+                <LairNode
+                  focused={focused}
+                  size={sz}
+                  sealed={!!def && def.minDefeated > defeatedCount && !secretsOpen}
+                  defeated={lairsBeaten.has(s.lair.id)}
+                  fresh={freshPath === s.lair.id}
+                />
               </div>
             )
           }

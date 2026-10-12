@@ -3,21 +3,19 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import BossSprite from './BossSprite'
-import HPBar from './HPBar'
 import XPBar from './XPBar'
-import CodeEditor from './CodeEditor'
+import BattleConsole from './arena/BattleConsole'
 import MascotGuide from './MascotGuide'
-import MercaderModal, { AmuletCard } from './MercaderModal'
+import MercaderModal from './MercaderModal'
 import ResetBossButton from './ResetBossButton'
 import BossIntro from './BossIntro'
 import LessonWindow from './LessonWindow'
 import InventoryApp from './inventory/InventoryApp'
 import Win from '@/components/ui/Win'
 import { getLesson } from '@/lib/game/lessons'
-import { executeChallenge, preloadPyodide, preloadSqlJs } from '@/lib/game/executor'
+import { executeChallenge, preloadPyodide, preloadSqlJs, type SqlDetail } from '@/lib/game/executor'
 import { AMULET_META, getRandomAmuletOffer } from '@/lib/game/amulets'
-import { AmuletIcon } from '@/components/ui/PixelIcons'
-import InventoryConsole from './items/InventoryConsole'
+import { parseInventoryCommand } from './items/InventoryConsole'
 import PatoDebugWindow from './items/PatoDebugWindow'
 import CompuHackeadaWindow from './items/CompuHackeadaWindow'
 import { ItemSprite, itemSpriteKey } from './items/ItemSprites'
@@ -63,6 +61,8 @@ interface CombatArenaProps {
    * ítems que el alumno decida usar sí se gastan, como en cualquier pelea.
    */
   practice?: boolean
+  /** Extras para la barra de arriba (nivel, Teletransportador, reiniciar del docente). */
+  topExtra?: React.ReactNode
 }
 
 const PENGUIN_TIP_KEY = 'pysql:penguin-tip-seen'
@@ -79,10 +79,11 @@ interface AttackResult {
   output: string
   expected: string
   error: string | null
+  sql?: SqlDetail
 }
 
 export default function CombatArena({
-  boss, challenges, initialHp, initialDefeated, persist, victoryHref, localMode, showGuide, tier, defeatedBefore, testMode, adminTools, sandbox, practice = false,
+  boss, challenges, initialHp, initialDefeated, persist, victoryHref, localMode, showGuide, tier, defeatedBefore, testMode, adminTools, sandbox, practice = false, topExtra,
 }: CombatArenaProps) {
   const router = useRouter()
   const attacksRef = useRef(persist?.attacksCount ?? 0)
@@ -172,6 +173,9 @@ export default function CombatArena({
   const [zondaFx, setZondaFx]               = useState(false)
   const [itemBurst, setItemBurst]           = useState<{ key: number; sprite: string; label: string } | null>(null)
   const [penguinTip, setPenguinTip]         = useState(false)
+  const [invLine, setInvLine]               = useState('')
+  const [invEcho, setInvEcho]               = useState<{ ok: boolean; text: string; hint?: string } | null>(null)
+  const [lastDamage, setLastDamage]         = useState<number | null>(null)
   const editorCodeRef = useRef('')
   const handleCodeChange = useCallback((code: string) => { editorCodeRef.current = code }, [])
   const penguinOn = equippedItems.includes('item-pinguino')
@@ -474,6 +478,7 @@ export default function CombatArena({
         output: result.actualOutput,
         expected: result.expectedOutput,
         error: result.error,
+        sql: 'sql' in result ? result.sql : undefined,
       }
       setLastResult(attackResult)
 
@@ -487,6 +492,7 @@ export default function CombatArena({
           pushLog(`[ITM] Brócoli: +${damage - challenge.damage} de daño extra (${broccoliHits - 1} restantes)`)
         }
         const newBossHp = Math.max(0, bossHp - damage)
+        setLastDamage(damage)
         setBossHp(newBossHp)
         setDamageAnim(true)
         if (newBossHp <= 0) {
@@ -511,6 +517,11 @@ export default function CombatArena({
         const bossDefeated = newBossHp <= 0
 
         persistAttack(code, true, damage, newBossHp, bossDefeated)
+
+        // Botín: cada jefe vencido deja su trofeo en la tabla `trofeos` de Mi Reino.
+        if (bossDefeated && !practice && !sandbox) {
+          import('@/lib/game/reino-store').then(({ grantTrophy }) => grantTrophy(boss))
+        }
 
         // El Mercader aparece cada 2 jefes derrotados (2, 4, 6…); el jefe final no ofrece Mercader:
         // el final tiene su propia escena.
@@ -587,7 +598,7 @@ export default function CombatArena({
     challenge, isLoading, isDefeated, isPlayerDefeated, bossHp, playerHp,
     currentChallengeIdx, challenges.length, showPlayerHp,
     localMode, boss.id, victoryHref, router, persistAttack, defeatedBefore, tier, boss.type,
-    zondaArmed, broccoliHits, pushLog, spawnDamageNumber, practice,
+    zondaArmed, broccoliHits, pushLog, spawnDamageNumber, practice, sandbox, boss,
   ])
 
   // ── Derived ────────────────────────────────────────────────────────────────
@@ -635,21 +646,26 @@ export default function CombatArena({
     setLog([])
   }, [boss.hpMax])
 
-  // Si está mostrando la intro, renderizamos solo eso
-  if (showIntro && hasIntro) {
-    return (
-      <div className="flex flex-col gap-4 h-full">
-        <Win title={`${boss.title}_INTRO.EXE`} active bodyStyle={{ padding: 20 }}>
-          <BossIntro boss={boss} lines={introLines} onDone={handleIntroDone} onOpenLesson={lesson ? openLesson : undefined} />
-        </Win>
-        {showLesson && lesson && <LessonWindow lesson={lesson} bossName={boss.name} onClose={() => setShowLesson(false)} />}
-      </div>
-    )
+  // ── Ítems: se usan escribiendo print(nombre) en la línea >>> (como en INVENTARIO.PY)
+  const runInventory = () => {
+    const line = invLine.trim()
+    if (!line) return
+    setInvLine('')
+    const p = parseInventoryCommand(line, ownedItems)
+    if (!p.ok) { sfx.denied(); setInvEcho({ ok: false, text: p.error, hint: p.hint }); return }
+    const r = handleUseItem(p.item)
+    if (r.status === 'rejected') sfx.denied()
+    setInvEcho({ ok: r.status !== 'rejected', text: r.message })
   }
 
+  const exitHref = sandbox ? '/demo' : '/dashboard'
+  const hpRatio = bossHp / boss.hpMax
+  const lowHp = showPlayerHp && playerHp <= 30
+  const activeChips = !isDefeated && (broccoliHits > 0 || zondaArmed || penguinOn || cloverOn || duckActive || (!showPlayerHp && armor > 0))
+
   return (
-    <div className="flex flex-col gap-4 h-full">
-      {showGuide && <MascotGuide tip={challenge?.tip} onOpenLesson={lesson ? openLesson : undefined} />}
+    <div className="arena">
+      {showGuide && !showIntro && <MascotGuide tip={challenge?.tip} onOpenLesson={lesson ? openLesson : undefined} />}
       {showLesson && lesson && <LessonWindow lesson={lesson} bossName={boss.name} onClose={() => setShowLesson(false)} />}
       {showInventory && (
         <div
@@ -680,8 +696,6 @@ export default function CombatArena({
           onSkip={() => handleMercaderClose()}
         />
       )}
-
-      {/* Player damage vignette overlay */}
       {playerFlash && (
         <div
           className="fixed inset-0 pointer-events-none z-40 animate-player-damage"
@@ -689,339 +703,249 @@ export default function CombatArena({
         />
       )}
 
-      {practice && (
-        <div className="practice-banner" role="status">
-          <span className="practice-banner-tag">Modo práctica</span>
-          <span style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 20, lineHeight: 1.15, color: 'hsl(var(--tx2))' }}>
-            Ya derrotaste a {boss.name}. Esta revancha es para practicar: no da diamantes ni amuletos y no cambia tu progreso.
-            Los ítems que uses se gastan igual.
+      {/* ── Barra de arriba: volver, ejercicios y lo que se consulta ───────── */}
+      <header className="arena-top">
+        <a href={exitHref} className="arena-link">← mapa</a>
+        <span className="arena-tag">{boss.title}</span>
+        {topExtra}
+        <span className="arena-top-spacer" />
+        {!isDefeated && !isPlayerDefeated && !showIntro && challenges.length > 1 && (
+          <span className="arena-steps" role="group" aria-label="Ejercicios">
+            {challenges.map((c, i) => (
+              <button
+                key={c.id}
+                type="button"
+                className={`arena-step${i === currentChallengeIdx ? ' arena-step--on' : ''}`}
+                onClick={() => { sfx.tab(); setIdx(i); setLastResult(null) }}
+                aria-current={i === currentChallengeIdx ? 'step' : undefined}
+                title={c.title}
+              >
+                E{i + 1}
+              </button>
+            ))}
           </span>
-        </div>
-      )}
+        )}
+        {hasIntro && !showIntro && <button type="button" className="arena-link" onClick={handleShowIntroAgain}>intro</button>}
+        {lesson && <button type="button" className="arena-link" onClick={openLesson}>apuntes</button>}
+        <button type="button" className="arena-link" onClick={() => { sfx.open(); setShowInventory(true) }}>inventario</button>
+      </header>
 
-      {/* Boss panel */}
-      <Win
-        title={`${boss.title}_${boss.name.replace(/\s+/g, '_').toUpperCase()}.EXE`}
-        active
-        right={
-          <span style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.12em', color: 'hsl(var(--bg))', textTransform: 'uppercase' }}>
-            {boss.topic}
-          </span>
-        }
-        bodyStyle={{ padding: 20 }}
-      >
-        <div className="flex items-center gap-6">
-          <div className="relative">
-            <div className={isDamageAnimating ? 'animate-damage-flash-v2' : ''}>
-              <BossSprite boss={boss} size="lg" defeated={isDefeated} animated={!isDefeated} hpRatio={bossHp / boss.hpMax} />
+      <div className="arena-grid">
+        {/* ── El jefe ───────────────────────────────────────────── */}
+        <section className="arena-boss" aria-label={`Jefe: ${boss.name}`}>
+          <div className="arena-sprite">
+            {/* El sprite crece hasta llenar la columna, como el jefe de la arena secreta. */}
+            <div
+              className={`arena-sprite-zoom${isDamageAnimating ? ' animate-damage-flash-v2' : ''}`}
+              style={{ ['--z' as string]: boss.type === 'final' ? 1.6 : 2.5, ['--z-sm' as string]: boss.type === 'final' ? 0.9 : 1.2 }}
+            >
+              <BossSprite boss={boss} size="lg" defeated={isDefeated} animated={!isDefeated} hpRatio={hpRatio} />
             </div>
             {itemBurst && (
               <ItemUseBurst key={itemBurst.key} sprite={itemBurst.sprite} label={itemBurst.label} onDone={() => setItemBurst(null)} />
             )}
-            {/* Floating damage numbers */}
-            {damageNumbers.map(n => (
-              <div
-                key={n.id}
-                className="absolute top-0 pointer-events-none animate-float-dmg font-mono font-bold select-none"
-                style={{
-                  left: `${n.x}%`,
-                  fontSize: 20,
-                  color: 'hsl(var(--accent))',
-                  textShadow: '2px 2px 0 hsl(var(--bg))',
-                  zIndex: 10,
-                }}
-              >
-                -{n.value}
-              </div>
+            {damageNumbers.map((n) => (
+              <div key={n.id} className="arena-dmg animate-float-dmg select-none" style={{ left: `${n.x}%` }}>−{n.value}</div>
             ))}
           </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-              <span className="label-mono">{boss.title}</span>
-              {hasIntro && (
-                <button
-                  onClick={handleShowIntroAgain}
-                  className="hover:opacity-80 transition-opacity"
-                  style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 14, letterSpacing: '0.05em', textTransform: 'uppercase', padding: '1px 8px', border: '2px solid hsl(var(--border2))', background: 'transparent', color: 'hsl(var(--tx2))', cursor: 'pointer' }}
-                  title="Ver la presentación del jefe"
-                >
-                  Intro
-                </button>
-              )}
-              {lesson && (
-                <button
-                  onClick={openLesson}
-                  className="hover:opacity-80 transition-opacity"
-                  style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 14, letterSpacing: '0.05em', textTransform: 'uppercase', padding: '1px 8px', border: '2px solid hsl(var(--accent))', background: 'transparent', color: 'hsl(var(--accent))', cursor: 'pointer' }}
-                  title="Ejemplos paso a paso de Rodolfo"
-                >
-                  Apuntes
-                </button>
-              )}
-              <button
-                onClick={() => { sfx.open(); setShowInventory(true) }}
-                className="hover:opacity-80 transition-opacity"
-                style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 14, letterSpacing: '0.05em', textTransform: 'uppercase', padding: '1px 8px', border: '2px solid hsl(var(--border2))', background: 'transparent', color: 'hsl(var(--tx2))', cursor: 'pointer' }}
-                title="Ver amuletos, ítems y stickers"
-              >
-                Inventario
-              </button>
+          <div className="arena-name">
+            <span>{boss.name}</span>
+            <small>{boss.topic}</small>
+          </div>
+          {xpBoss
+            ? <XPBar current={bossHp} max={boss.hpMax} label="HP JEFE" />
+            : <SegBar value={bossHp} max={boss.hpMax} label={`Vida de ${boss.name}`} />}
+          <div className="arena-num">{isDefeated ? `derrotado · clase ${boss.classNumber} completada` : `${bossHp} / ${boss.hpMax}`}</div>
+
+          {showPlayerHp && !isDefeated && (
+            <div className={`arena-player${hpShake ? ' arena-player--hurt' : ''}`}>
+              <span className="arena-label">vos</span>
+              <SegBar value={playerHp} max={PLAYER_MAX_HP} label="Tu vida" small low={lowHp} />
+              <span className="arena-num">{playerHp}</span>
             </div>
-            <h2 className="text-2xl mb-3" style={{ color: 'hsl(var(--tx))', lineHeight: 1.05 }}>{boss.name}</h2>
-            {xpBoss
-              ? <XPBar current={bossHp} max={boss.hpMax} label="HP JEFE" />
-              : <HPBar current={bossHp} max={boss.hpMax} label="HP JEFE" size="lg" color="hsl(var(--accent))" />}
-            {!isDefeated && (broccoliHits > 0 || zondaArmed || penguinOn || cloverOn || duckActive || (!showPlayerHp && armor > 0)) && (
-              <div className="flex flex-wrap items-center gap-1.5 mt-2" aria-label="Ítems activos">
-                {duckActive && (
-                  <button type="button" onClick={() => { sfx.open(); setShowDuck(true) }} title="Abrir al Pato Debug" style={chipStyle(true)}>
-                    <ItemSprite sprite="pato-debug" size={16} /> Pato
+          )}
+
+          {activeChips && (
+            <div className="arena-status" aria-label="Ítems activos">
+              {duckActive && <button type="button" onClick={() => { sfx.open(); setShowDuck(true) }}>pato</button>}
+              {broccoliHits > 0 && <span>brócoli ×{broccoliHits}</span>}
+              {zondaArmed && <span>zonda</span>}
+              {penguinOn && <span>pingüino</span>}
+              {cloverOn && <span>trébol</span>}
+              {!showPlayerHp && armor > 0 && <span>armadura {armor}</span>}
+            </div>
+          )}
+
+          {hasAmuletBar && !isDefeated && !isPlayerDefeated && (
+            <div className="arena-status" aria-label="Amuletos">
+              {amulets.map((a) => {
+                const isPotion = a.type === 'health-potion'
+                const isEscape = a.type === 'escape'
+                const name = AMULET_META[a.type].name.toLowerCase()
+                if (isPotion) return <button key={a.id} type="button" disabled={!showPlayerHp} onClick={handleUsePotion} title={AMULET_META[a.type].description}>{name}</button>
+                if (isEscape) return <button key={a.id} type="button" disabled={!canEscape} onClick={handleEscape} title={canEscape ? 'Escapar' : 'Solo con vida ≤ 30'}>{name}</button>
+                return <span key={a.id} title={AMULET_META[a.type].description}>{name}</span>
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* ── Consigna + consola ───────────────────────────────── */}
+        <section className="arena-work">
+          {practice && (
+            <p className="arena-note" role="status">
+              Modo práctica: ya derrotaste a {boss.name}. No da diamantes ni amuletos y no cambia tu progreso. Los ítems que uses se gastan igual.
+            </p>
+          )}
+
+          {showIntro && hasIntro ? (
+            <BossIntro arena boss={boss} lines={introLines} onDone={handleIntroDone} onOpenLesson={lesson ? openLesson : undefined} />
+          ) : isPlayerDefeated ? (
+            <div className="arena-end">
+              <div className={`arena-end-title arena-end-title--lost${defeatVisible ? ' animate-defeat' : ''}`}>DERROTA</div>
+              <p>Tu vida llegó a 0. Tenés que empezar la batalla de nuevo.</p>
+              <div className="arena-choices">
+                <button type="button" className="arena-go" onClick={handleRestart}>reintentar ▸</button>
+                <a href={exitHref} className="arena-go arena-go--ghost">volver al mapa</a>
+              </div>
+            </div>
+          ) : isDefeated ? (
+            <div className="arena-end">
+              <div className={`arena-end-title${victoryVisible ? ' animate-victory' : ''}`}>VICTORIA</div>
+              <p>
+                {practice
+                  ? <>Le volviste a ganar a <strong>{boss.name}</strong>. Era práctica: sin premios, pero ahora te sale mejor.</>
+                  : <>Derrotaste a <strong>{boss.name}</strong>.</>}
+              </p>
+              <div className="arena-choices">
+                <a href={exitHref} className="arena-go">← volver al mapa</a>
+                {practice ? (
+                  <button type="button" className="arena-go arena-go--ghost" onClick={restartPractice}>practicar otra vez</button>
+                ) : !sandbox && (
+                  <a href={`/battle/${boss.id}?practica=1`} className="arena-go arena-go--ghost" title="Revancha sin premios, para practicar">practicar otra vez</a>
+                )}
+                {sandbox && (
+                  <button type="button" className="arena-go arena-go--ghost" onClick={() => { setIsDefeated(false); setBossHp(boss.hpMax); setIdx(0); setLastResult(null); setBroccoliHits(0); setZondaArmed(false) }}>
+                    revivir al jefe (sandbox)
                   </button>
                 )}
-                {broccoliHits > 0 && <span style={chipStyle()} title="Próximos golpes +20%"><ItemSprite sprite="brocoli" size={16} /> ×{broccoliHits}</span>}
-                {zondaArmed && <span style={chipStyle()} title="Cualquier código válido pega"><ItemSprite sprite="zonda" size={16} animated /> Zonda</span>}
-                {penguinOn && <span style={chipStyle()} title="Autocompletado activo"><ItemSprite sprite="pinguino" size={16} /> Pingüino</span>}
-                {cloverOn && <span style={chipStyle()} title="20% de frenar curaciones del jefe"><ItemSprite sprite="trebol" size={16} /> Trébol</span>}
-                {!showPlayerHp && armor > 0 && <span style={chipStyle()} title="Armadura para jefes especiales"><ItemSprite sprite="mandarina" size={16} /> Armadura {armor}</span>}
               </div>
-            )}
-            {isDefeated && (
-              <p className="mt-2" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, color: 'hsl(var(--accent))' }}>
-                ¡DERROTADO! — Clase {boss.classNumber} completada.
-              </p>
-            )}
-          </div>
-
-          {!isDefeated && (
-            <div className="flex flex-col gap-1 shrink-0">
-              {challenges.map((c, i) => (
-                <button
-                  key={c.id}
-                  onClick={() => { setIdx(i); setLastResult(null) }}
-                  className={`font-mono text-xs px-2 py-1 pixel-corners-sm border transition-all ${
-                    i === currentChallengeIdx
-                      ? 'border-accent text-accent bg-accent/10'
-                      : 'border-border text-tx3 hover:border-border2'
-                  }`}
-                >
-                  {`E${i + 1}`}
-                </button>
-              ))}
+              {testMode && <div style={{ marginTop: 10 }}><ResetBossButton bossId={boss.id} onDone={() => window.location.reload()} /></div>}
             </div>
-          )}
-        </div>
-
-        {/* Player HP bar — TRAINEE only */}
-        {showPlayerHp && !isDefeated && (
-          <div className="mt-4 pt-4" style={{ borderTop: '1px solid hsl(var(--border))' }}>
-            <div className={hpShake ? 'animate-hp-shake' : ''}>
-              <HPBar
-                current={playerHp}
-                max={PLAYER_MAX_HP}
-                label="HP JUGADOR"
-                size="sm"
-                color={playerHp <= 30 ? 'hsl(var(--danger))' : 'hsl(var(--python))'}
-              />
-            </div>
-          </div>
-        )}
-      </Win>
-
-      {/* Amuletos — cartas */}
-      {hasAmuletBar && !isDefeated && !isPlayerDefeated && (
-        <Win title="AMULETOS.SYS" bodyStyle={{ padding: 12 }}>
-          <div className="flex items-stretch gap-3 flex-wrap">
-            {amulets.map((a) => {
-              const isPotion  = a.type === 'health-potion'
-              const isEscape  = a.type === 'escape'
-              const usable    = (isPotion && showPlayerHp) || (isEscape && canEscape)
-              return (
-                <AmuletCard
-                  key={a.id}
-                  type={a.type}
-                  compact
-                  onClick={usable ? (isPotion ? handleUsePotion : handleEscape) : undefined}
-                  footer={isPotion ? (showPlayerHp ? 'Usar' : 'Solo trainee') : isEscape ? (canEscape ? 'Escapar' : 'Vida ≤ 30') : 'Pasivo'}
+          ) : challenge ? (
+            <>
+              {sandbox && (
+                <SandboxPanel
+                  bossHp={bossHp}
+                  bossMax={boss.hpMax}
+                  showPlayerHp={showPlayerHp}
+                  cloverOn={cloverOn}
+                  busy={isLoading}
+                  onBossHp={(hp) => setBossHp(Math.max(1, Math.min(boss.hpMax, hp)))}
+                  onBossHeal={() => handleBossHeal(Math.round(boss.hpMax * 0.15))}
+                  onPlayerHit={() => setPlayerHp((hp) => Math.max(1, hp - 25))}
+                  onSimulateHit={() => handleSubmit('# SANDBOX: acierto simulado', 'hit')}
                 />
-              )
-            })}
-          </div>
-        </Win>
-      )}
+              )}
 
-      {/* Player defeated screen */}
-      {isPlayerDefeated ? (
-        <Win title="DERROTA.EXE" tone="danger" active bodyStyle={{ padding: 32 }}>
-          <div className="flex flex-col items-center gap-4 text-center">
-            <div
-              className={`text-5xl ${defeatVisible ? 'animate-defeat' : ''}`}
-              style={{ color: 'hsl(var(--danger))', fontFamily: 'var(--font-jersey), monospace' }}
-            >
-              ¡DERROTA!
-            </div>
-            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 22, color: 'hsl(var(--tx2))' }}>
-              Tu vida llegó a 0. Tenés que empezar la batalla de nuevo.
-            </p>
-            <button onClick={handleRestart} className="btn-primary">
-              Reintentar batalla
-            </button>
-            <a href="/dashboard" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, color: 'hsl(var(--tx3))' }}>
-              ← Volver al mapa
-            </a>
-          </div>
-        </Win>
-      ) : isDefeated ? (
-        <Win title="VICTORIA.EXE" tone="safe" active bodyStyle={{ padding: 32 }}>
-          <div className="flex flex-col items-center gap-4 text-center">
-            <div
-              className={`text-5xl ${victoryVisible ? 'animate-victory' : ''}`}
-              style={{ color: 'hsl(var(--accent))', fontFamily: 'var(--font-jersey), monospace' }}
-            >
-              VICTORIA
-            </div>
-            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 22, color: 'hsl(var(--tx2))' }}>
-              {practice
-                ? <>Le volviste a ganar a <strong style={{ color: 'hsl(var(--tx))' }}>{boss.name}</strong>. Era práctica: sin premios, pero ahora te sale mejor.</>
-                : <>Derrotaste a <strong style={{ color: 'hsl(var(--tx))' }}>{boss.name}</strong>.</>}
-            </p>
-            <a href="/dashboard" className="btn-primary">
-              ← Volver al mapa
-            </a>
-            {practice ? (
-              <button type="button" onClick={restartPractice} className="btn-ghost">
-                Practicar otra vez
-              </button>
-            ) : !sandbox && (
-              <a href={`/battle/${boss.id}?practica=1`} className="btn-ghost" title="Revancha sin premios, para practicar">
-                Practicar otra vez
-              </a>
-            )}
-            {testMode && <ResetBossButton bossId={boss.id} onDone={() => window.location.reload()} />}
-            {sandbox && (
-              <button type="button" className="btn-ghost" onClick={() => { setIsDefeated(false); setBossHp(boss.hpMax); setIdx(0); setLastResult(null); setBroccoliHits(0); setZondaArmed(false) }}>
-                Revivir al jefe (sandbox)
-              </button>
-            )}
-          </div>
-        </Win>
-      ) : challenge ? (
-        <div className="flex-1 min-h-0 flex flex-col gap-3">
-          {sandbox && (
-            <SandboxPanel
-              bossHp={bossHp}
-              bossMax={boss.hpMax}
-              showPlayerHp={showPlayerHp}
-              cloverOn={cloverOn}
-              busy={isLoading}
-              onBossHp={(hp) => setBossHp(Math.max(1, Math.min(boss.hpMax, hp)))}
-              onBossHeal={() => handleBossHeal(Math.round(boss.hpMax * 0.15))}
-              onPlayerHit={() => setPlayerHp((hp) => Math.max(1, hp - 25))}
-              onSimulateHit={() => handleSubmit('# SANDBOX: acierto simulado', 'hit')}
-            />
-          )}
-          {testMode && (
-            <div
-              className="flex flex-wrap items-center gap-2 px-3 py-2 font-mono text-[11px]"
-              style={{ border: '1px dashed hsl(var(--accent) / 0.6)', color: 'hsl(var(--tx2))' }}
-            >
-              <span style={{ color: 'hsl(var(--accent))' }}>{adminTools ? 'MODO DOCENTE' : 'MODO TEST'}</span>
-              <span style={{ color: 'hsl(var(--tx3))' }}>pasa por el mismo flujo real (daño, guardado, Mercader, final)</span>
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={() => handleSubmit('# TEST: acierto simulado', 'hit')}
-                className="px-2 py-1 pixel-corners-sm border"
-                style={{ borderColor: 'hsl(var(--python) / 0.6)', color: 'hsl(var(--python))', background: 'transparent' }}
-              >
-                ⚡ Simular acierto
-              </button>
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={() => handleSubmit('# TEST: jefe derrotado', 'kill')}
-                className="px-2 py-1 pixel-corners-sm border"
-                style={{ borderColor: 'hsl(var(--danger) / 0.6)', color: 'hsl(var(--danger))', background: 'transparent' }}
-              >
-                ☠ Derrotar jefe
-              </button>
-              {adminTools && (
+              <BattleConsole
+                boss={boss}
+                challenge={challenge}
+                onSubmit={handleSubmit}
+                isLoading={isLoading}
+                lastResult={lastResult}
+                lastDamage={lastResult?.isCorrect ? lastDamage : null}
+                penguin={penguinOn}
+                codeReplace={codeReplace}
+                onCodeChange={handleCodeChange}
+                banner={zondaArmed ? (
+                  <div className="arena-banner item-status-in">
+                    <ItemSprite sprite="zonda" size={24} animated />
+                    <span><b>Sopla el Zonda.</b> En este ataque no importa la consigna: cualquier código que funcione sin error le pega al jefe.</span>
+                  </div>
+                ) : null}
+              />
+
+              {testMode && (
+                <div className="arena-tools">
+                  <span style={{ color: 'hsl(var(--accent))' }}>{adminTools ? 'docente' : 'test'}</span>
+                  <button type="button" disabled={isLoading} onClick={() => handleSubmit('# TEST: acierto simulado', 'hit')}>acierto</button>
+                  <button type="button" disabled={isLoading} onClick={() => handleSubmit('# TEST: jefe derrotado', 'kill')}>derrotar</button>
+                  {adminTools && (
+                    <>
+                      <button type="button" disabled={isLoading} onClick={() => handleSubmit('# TEST: fallo simulado', 'miss')}
+                        title={showPlayerHp ? `Respuesta incorrecta: −${PLAYER_WRONG_PENALTY} de vida` : 'Respuesta incorrecta (la vida del jugador solo existe en TRAINEE)'}>
+                        fallo
+                      </button>
+                      <button type="button" disabled={isLoading} onClick={() => { setPlayerHp(0); setDefeatVisible(true); setPlayerDefeated(true) }}>perder</button>
+                    </>
+                  )}
+                  <ResetBossButton bossId={boss.id} onDone={() => window.location.reload()} />
+                </div>
+              )}
+
+              {(ownedItems.length > 0 || sandbox) && (
                 <>
-                  <button
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => handleSubmit('# TEST: fallo simulado', 'miss')}
-                    className="px-2 py-1 pixel-corners-sm border"
-                    style={{ borderColor: 'hsl(var(--tx3) / 0.6)', color: 'hsl(var(--tx2))', background: 'transparent' }}
-                    title={showPlayerHp ? `Respuesta incorrecta: −${PLAYER_WRONG_PENALTY} de vida` : 'Respuesta incorrecta (la vida del jugador solo existe en TRAINEE)'}
-                  >
-                    ✗ Simular fallo
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => { setPlayerHp(0); setDefeatVisible(true); setPlayerDefeated(true) }}
-                    className="px-2 py-1 pixel-corners-sm border"
-                    style={{ borderColor: 'hsl(var(--danger) / 0.6)', color: 'hsl(var(--danger))', background: 'transparent' }}
-                  >
-                    ✖ Forzar mi derrota
-                  </button>
+                  <form className="arena-inv" onSubmit={(e) => { e.preventDefault(); runInventory() }}>
+                    <label htmlFor="arena-inv-input">&gt;&gt;&gt;</label>
+                    <input
+                      id="arena-inv-input"
+                      value={invLine}
+                      onChange={(e) => setInvLine(e.target.value)}
+                      placeholder="print(item) para usar un ítem"
+                      autoComplete="off"
+                      spellCheck={false}
+                      aria-label="Usar un ítem: print(nombre)"
+                    />
+                    <span className="arena-inv-items" aria-hidden>
+                      {ownedItems.slice(0, 8).map((it) => {
+                        const sp = itemSpriteKey(it.glyph)
+                        return sp ? (
+                          <button
+                            key={it.id}
+                            type="button"
+                            title={`print(${it.printName})`}
+                            onClick={() => { sfx.itemFocus(); setInvEcho({ ok: true, text: it.name, hint: `Para usarlo escribí print(${it.printName})` }) }}
+                            style={{ background: 'none', border: 0, padding: 1, cursor: 'pointer', opacity: equippedItems.includes(it.id) ? 1 : 0.8 }}
+                            tabIndex={-1}
+                          >
+                            <ItemSprite sprite={sp} size={18} />
+                          </button>
+                        ) : null
+                      })}
+                    </span>
+                  </form>
+                  {invEcho && (
+                    <div className={`arena-inv-echo${invEcho.ok ? '' : ' arena-inv-echo--bad'}`}>
+                      {invEcho.text}
+                      {invEcho.hint && <small>{invEcho.hint}</small>}
+                    </div>
+                  )}
                 </>
               )}
-              <ResetBossButton bossId={boss.id} onDone={() => window.location.reload()} />
-            </div>
+            </>
+          ) : (
+            <p className="arena-note">No hay desafíos disponibles para este jefe.</p>
           )}
-          <CodeEditor
-            boss={boss}
-            challenge={challenge}
-            onSubmit={handleSubmit}
-            isLoading={isLoading}
-            lastResult={lastResult}
-            penguin={penguinOn}
-            codeReplace={codeReplace}
-            onCodeChange={handleCodeChange}
-            banner={zondaArmed ? (
-              <div className="flex items-center gap-2 item-status-in" style={{ padding: '6px 10px', border: '2px solid hsl(var(--tx))', background: 'hsl(var(--surface2))' }}>
-                <ItemSprite sprite="zonda" size={24} animated />
-                <span style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, lineHeight: 1.1, color: 'hsl(var(--tx))' }}>
-                  <b>Sopla el Zonda.</b> En este ataque no importa la consigna: cualquier código que funcione sin error le pega al jefe.
-                </span>
-              </div>
-            ) : null}
-          />
-          {/* INVENTARIO.PY — cinturón de una fila debajo de Atacar: jefe, desafío y
-              script quedan juntos arriba; los ítems se usan escribiendo print(nombre). */}
-          {(ownedItems.length > 0 || sandbox) && (
-            <InventoryConsole hotbar items={ownedItems} equipped={equippedItems} onUse={handleUseItem} />
-          )}
-        </div>
-      ) : (
-        <Win title="SIN_DESAFIOS.TXT" bodyStyle={{ padding: 24, textAlign: 'center', fontFamily: 'var(--font-vt323), monospace', fontSize: 20, color: 'hsl(var(--tx3))' }}>
-          No hay desafíos disponibles para este jefe.
-        </Win>
-      )}
-
-      {/* Combat log */}
-      {log.length > 0 && (
-        <Win title="LOG_DE_COMBATE.TXT" bodyStyle={{ padding: 10, maxHeight: 128, overflowY: 'auto' }}>
-          {log.map((entry, i) => (
-            <div key={i} className="font-mono text-xs leading-relaxed" style={{ color: 'hsl(var(--tx3))' }}>
-              {entry}
-            </div>
-          ))}
-        </Win>
-      )}
+        </section>
+      </div>
     </div>
   )
 }
 
-function chipStyle(interactive = false): React.CSSProperties {
-  return {
-    display: 'inline-flex', alignItems: 'center', gap: 5, padding: '1px 7px 1px 3px',
-    fontFamily: 'var(--font-jersey), monospace', fontSize: 14, letterSpacing: '0.03em', lineHeight: 1.2,
-    border: '2px solid hsl(var(--tx))', background: 'hsl(var(--surface2))', color: 'hsl(var(--tx))',
-    cursor: interactive ? 'pointer' : 'default',
-  }
+/** Barra de vida por segmentos (la misma de los jefes secretos, con el acento del tema). */
+function SegBar({ value, max, label, small = false, low = false }: { value: number; max: number; label: string; small?: boolean; low?: boolean }) {
+  const segs = small ? 20 : 30
+  const on = Math.ceil((Math.max(0, value) / max) * segs)
+  return (
+    <div
+      className={`arena-bar${small ? ' arena-bar--sm' : ''}${low ? ' arena-bar--low' : ''}`}
+      role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}
+    >
+      {Array.from({ length: segs }, (_, i) => <span key={i} className={i < on ? 'on' : undefined} />)}
+    </div>
+  )
 }
 
 /** Controles del banco de pruebas (/demo/items) — nunca aparece en una batalla real. */

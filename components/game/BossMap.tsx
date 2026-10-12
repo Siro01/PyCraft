@@ -367,6 +367,8 @@ export default function BossMap({
                     keyboard={mapMode === 'open'}
                     avatar={avatar}
                     repasoIds={repasoIds}
+                    defeatedCount={totalDefeated}
+                    secretsOpen={isAdmin}
                   />
                 )}
               </div>

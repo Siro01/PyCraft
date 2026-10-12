@@ -233,11 +233,15 @@ function CodeTerminal({ visible }: { visible: boolean }) {
 }
 
 // ── Boss carousel card ────────────────────────────────────────────────────────
-// Solo estos jefes tienen sprite pixel-art en /public/bossicons; el resto usa el
-// ícono de categoría directamente para no disparar un 404 en cada carga.
-const BOSSES_WITH_ICON = new Set([
-  'creeper-formulario', 'guardian-puerta', 'golem-infinito', 'maestro-craftero',
-])
+// Solo estos jefes tienen sprite pixel-art en /public/bossicons (id → archivo); el
+// resto usa el ícono de categoría directamente para no disparar un 404 en cada carga.
+const BOSS_ICONS: Record<string, string> = {
+  'creeper-formulario': 'creeper-formulario.png',
+  'guardian-puerta': 'guardian-puerta.png',
+  'golem-infinito': 'golem-infinito.png',
+  'maestro-craftero': 'maestro-craftero.png',
+  'dragon-rojo': 'dragon-rojo.gif',
+}
 
 function BossCard({ boss }: { boss: Boss }) {
   const [err, setErr] = useState(false)
@@ -256,9 +260,9 @@ function BossCard({ boss }: { boss: Boss }) {
           <div className="flex items-center justify-center" style={{ height: 76 }}>
             <AsciiQuestion size={8} color="hsl(var(--accent))" />
           </div>
-        ) : BOSSES_WITH_ICON.has(boss.id) && !err ? (
+        ) : BOSS_ICONS[boss.id] && !err ? (
           <img
-            src={`/bossicons/${boss.id}.png`}
+            src={`/bossicons/${BOSS_ICONS[boss.id]}`}
             alt={boss.name}
             width={48}
             height={48}

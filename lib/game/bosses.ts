@@ -130,7 +130,7 @@ export const BOSSES: Boss[] = [
     topic: 'Proyecto: agregar y listar',
     type: 'mixed',
     hpMax: 380,
-    color: '#8B5CF6',
+    color: '#A3E635',
     description: 'Corta una cabeza y crecen dos. Persiste los datos o vuelven.',
   },
   {
@@ -141,7 +141,7 @@ export const BOSSES: Boss[] = [
     topic: 'Proyecto: buscar, quitar, actualizar',
     type: 'mixed',
     hpMax: 400,
-    color: '#7C3AED',
+    color: '#EF4444',
     description: 'buscar_item + quitar con confirmación + UPDATE preciso.',
   },
   {

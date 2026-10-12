@@ -425,7 +425,8 @@ export function diamondsEarned(bossesDefeated: number): number {
 const CATALOG_IDS = new Set(SHOP_CATALOG.map((i) => i.id))
 
 export function diamondsAvailable(bossesDefeated: number): number {
-  const spent = getShopLedger().filter((o) => CATALOG_IDS.has(o.id)).reduce((sum, o) => sum + o.pricePaid, 0)
+  // Las entradas `secret:` son premios (precio negativo) y castigos de los jefes secretos.
+  const spent = getShopLedger().filter((o) => CATALOG_IDS.has(o.id) || o.id.startsWith(SECRET_PREFIX)).reduce((sum, o) => sum + o.pricePaid, 0)
   return diamondsEarned(bossesDefeated) - spent
 }
 
@@ -878,4 +879,78 @@ export function resetChestsForDemo(itemIds: string[]): void {
   if (typeof window === 'undefined') return
   saveShopOwnedRaw(getShopLedger().filter((o) => !itemIds.includes(o.id)))
   try { localStorage.removeItem(SECRET_PATHS_KEY); localStorage.removeItem(STICKER_POKES_KEY) } catch { /* modo privado */ }
+}
+
+// ─── Jefes secretos ───────────────────────────────────────────────────────
+// Victorias y derrotas viajan en el mismo registro de la tienda (ya sincroniza
+// con la nube, sin migración nueva): una victoria es una "compra" de precio
+// negativo (premio) y una derrota, una de precio positivo (los diamantes que se
+// perdieron). Nacen con consumedAt para que nunca aparezcan como ítems.
+// La partida en curso (vida, serie, ejercicio) vive solo en este navegador:
+// así recargar la página no sirve para escaparse.
+
+const SECRET_PREFIX = 'secret:'
+const SECRET_RUN_KEY = 'pysql:secret-run'
+
+export interface SecretRun {
+  bossId: string
+  seed: number
+  /** Ids de los ejercicios de la serie (incluye remates agregados). */
+  series: string[]
+  idx: number
+  bossHp: number
+  playerHp: number
+  /** Ya atacó al menos una vez: desde acá, irse cuenta como huir. */
+  engaged: boolean
+  /** Trato de las Esmeraldas / Corona ya resuelto en esta partida. */
+  keyDone?: boolean
+}
+
+export function secretDefeated(bossId: string): boolean {
+  return getShopLedger().some((o) => o.id === `${SECRET_PREFIX}win:${bossId}`)
+}
+
+export function secretLosses(bossId: string): number {
+  return getShopLedger().filter((o) => o.id === `${SECRET_PREFIX}loss:${bossId}`).length
+}
+
+/** Primera victoria: deja el premio. Devuelve los diamantes ganados (0 si ya lo había vencido). */
+export function recordSecretWin(bossId: string, reward: number): number {
+  if (typeof window === 'undefined' || secretDefeated(bossId)) return 0
+  const now = new Date().toISOString()
+  saveShopOwnedRaw([...getShopLedger(), { id: `${SECRET_PREFIX}win:${bossId}`, pricePaid: -reward, acquiredAt: now, consumedAt: now }])
+  return reward
+}
+
+/** Derrota (o huida): descuenta hasta `penalty` diamantes, nunca por debajo de 0. Devuelve lo perdido. */
+export function recordSecretLoss(bossId: string, penalty: number, bossesDefeated: number): number {
+  if (typeof window === 'undefined') return 0
+  const lost = Math.max(0, Math.min(penalty, diamondsAvailable(bossesDefeated)))
+  const now = new Date().toISOString()
+  saveShopOwnedRaw([...getShopLedger(), { id: `${SECRET_PREFIX}loss:${bossId}`, pricePaid: lost, acquiredAt: now, consumedAt: now }])
+  return lost
+}
+
+export function getSecretRun(bossId: string): SecretRun | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(SECRET_RUN_KEY)
+    const run = raw ? (JSON.parse(raw) as SecretRun) : null
+    return run && run.bossId === bossId ? run : null
+  } catch { return null }
+}
+
+export function saveSecretRun(run: SecretRun): void {
+  try { localStorage.setItem(SECRET_RUN_KEY, JSON.stringify(run)) } catch { /* modo privado */ }
+}
+
+export function clearSecretRun(): void {
+  try { localStorage.removeItem(SECRET_RUN_KEY) } catch { /* modo privado */ }
+}
+
+/** Solo vistas de prueba del docente: borra victorias, derrotas y partida de los jefes secretos. */
+export function resetSecretsForDemo(): void {
+  if (typeof window === 'undefined') return
+  saveShopOwnedRaw(getShopLedger().filter((o) => !o.id.startsWith(SECRET_PREFIX)))
+  clearSecretRun()
 }

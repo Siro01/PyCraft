@@ -66,7 +66,7 @@ export const BOSS_DIALOGUES: Record<string, DialogueLine[]> = {
     { text: 'Este lugar estaba vacío. Yo lo construí. Una tabla a la vez.' },
     { text: 'En la clase anterior dibujaste el cofre en papel: filas, columnas, clave primaria. Ahora eso se vuelve real con SQL.' },
     { text: 'CREATE TABLE cofre (id INTEGER PRIMARY KEY, nombre TEXT, cantidad INTEGER) le dice a la base de datos: "creá esta estructura". Sin estructura, no hay datos.' },
-    { text: 'Después de crear la tabla, INSERT INTO cofre VALUES (1, "Espada", 3) agrega una fila. La base garantiza que no vas a tener dos filas con el mismo id.' },
+    { text: 'Después de crear la tabla, INSERT INTO cofre VALUES (1, \'Espada\', 3) agrega una fila. La base garantiza que no vas a tener dos filas con el mismo id.' },
     { text: '¿Podés construir mis tablas desde cero?' },
   ],
 
@@ -74,7 +74,7 @@ export const BOSS_DIALOGUES: Record<string, DialogueLine[]> = {
   'oraculo-oscuro': [
     { text: 'Yo veo todo lo que hay en la base de datos. Soy el Oráculo Oscuro.' },
     { text: '¿Recordás cuando contabas los ítems de diamante con un for y un if en Python? Hacías todo ese código para filtrar. En SQL lo escribís en una línea.' },
-    { text: 'SELECT nombre FROM cofre WHERE material = "diamante" — eso es todo. Describís qué querés y la base lo calcula sola.' },
+    { text: 'SELECT nombre FROM cofre WHERE material = \'diamante\' — eso es todo. Describís qué querés y la base lo calcula sola.' },
     { text: 'ORDER BY cantidad DESC ordena de mayor a menor. LIMIT 3 te da solo los tres primeros resultados. En Python harías sort() y slice; acá va junto con la consulta.' },
     { text: 'Preguntame lo que quieras. Si la consulta es correcta, la verdad aparece.' },
   ],
@@ -91,7 +91,7 @@ export const BOSS_DIALOGUES: Record<string, DialogueLine[]> = {
   // ── BOSS 10 · UPDATE · DELETE ─────────────────────────────────────────────
   'falsificador': [
     { text: 'Hola. No soy quien creés que soy. Soy El Falsificador.' },
-    { text: '¿Craftear una espada? Tenés que descontar materiales. UPDATE cofre SET cantidad = cantidad - 1 WHERE nombre = "Lingote de hierro". Así se modifica una fila.' },
+    { text: '¿Craftear una espada? Tenés que descontar materiales. UPDATE cofre SET cantidad = cantidad - 1 WHERE nombre = \'Lingote de hierro\'. Así se modifica una fila.' },
     { text: 'DELETE FROM cofre WHERE id = 3 borra una fila. Pero ojo: DELETE FROM cofre SIN WHERE borra TODA la tabla. Es el error más común con datos reales.' },
     { text: 'El truco es siempre correr primero un SELECT con el mismo WHERE para ver qué filas vas a tocar. Confirmás, y recién ahí ejecutás el DELETE o UPDATE.' },
     { text: '¿Podés modificar mis datos sin arruinar nada?' },

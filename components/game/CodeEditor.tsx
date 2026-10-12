@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 
 // CodeMirror (con Python y SQL) es lo más pesado de la batalla: se baja recién al
@@ -15,7 +15,12 @@ const CodeMirrorEditor = dynamic(() => import('./CodeMirrorEditor'), {
     </div>
   ),
 })
-import { isPyodideLoaded } from '@/lib/game/executor'
+import { isPyodideLoaded, type SqlDetail } from '@/lib/game/executor'
+import { getSeedTables, runSQL, type TableSnapshot } from '@/lib/game/executor/sql-runner'
+import SqlTable from './sql/SqlTable'
+import SqlResult from './sql/SqlResult'
+import QueryBlocks from './sql/QueryBlocks'
+import { IconGrid } from '@/components/ui/PixelIcons'
 import { IconSnake, IconDatabase, IconCheck, IconX, IconSword } from '@/components/ui/PixelIcons'
 import { LoadingBar } from '@/components/ui/LoadingBar'
 import Win from '@/components/ui/Win'
@@ -32,6 +37,7 @@ interface CodeEditorProps {
     output: string
     expected: string
     error: string | null
+    sql?: SqlDetail
   } | null
   /** Pingüino Linux equipado. */
   penguin?: boolean
@@ -83,9 +89,37 @@ export default function CodeEditor({
     setEngineReady(challenge.type === 'sql' ? true : isPyodideLoaded())
   }, [challenge.id, challenge.initialCode, challenge.type])
 
+  // Tablas con las que arranca el desafío SQL: se muestran debajo de la consigna.
+  // Se guardan junto al id del desafío: así nunca se muestran las tablas del desafío anterior.
+  const [seed, setSeed] = useState<{ id: string; tables: TableSnapshot[] } | null>(null)
+  useEffect(() => {
+    let alive = true
+    if (challenge.type === 'sql') getSeedTables(challenge.seedSQL).then((tables) => { if (alive) setSeed({ id: challenge.id, tables }) })
+    return () => { alive = false }
+  }, [challenge.id, challenge.type, challenge.seedSQL])
+  const seedReady = seed?.id === challenge.id
+  const seedTables = seedReady ? seed.tables : []
+
+  // Pizarra de bloques (solo SQL junior): siempre arranca cerrada, para que la
+  // pantalla muestre solo consigna → tabla → editor. En el primer desafío de cada
+  // orden nueva ('open') el botón invita más fuerte.
+  const [blocksOpen, setBlocksOpen] = useState(false)
+  useEffect(() => { setBlocksOpen(false) }, [challenge.id])
+  const showBlocks = challenge.type === 'sql' && !!challenge.blocks
+
+  // El código con el que se atacó (el error SQL lo usa para detectar huecos ___).
+  const [submitted, setSubmitted] = useState('')
+
+  // Después de atacar, el resultado queda a la vista aunque esté debajo del borde.
+  const resultRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (lastResult) resultRef.current?.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  }, [lastResult])
+
   const handleSubmit = () => {
     if (!isLoading && engineReady) {
       sfx.attack()
+      setSubmitted(code)
       onSubmit(code)
     }
   }
@@ -102,26 +136,50 @@ export default function CodeEditor({
       {/* Consigna del desafío */}
       <Win
         title="DESAFIO.TXT"
-        right={
-          <span style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.12em', color: 'hsl(var(--tx2))' }}>
-            {challenge.type.toUpperCase()} · {challenge.tier.toUpperCase()} · -{challenge.damage} HP
-          </span>
-        }
         bodyStyle={{ padding: 14 }}
         className="shrink-0"
       >
         <h3 style={{ fontFamily: jersey, fontSize: 24, lineHeight: 1.05, color: 'hsl(var(--tx))', margin: 0 }}>{challenge.title}</h3>
-        <p className="mt-1.5" style={{ fontFamily: vt, fontSize: 21, lineHeight: 1.22, color: 'hsl(var(--tx2))', maxWidth: '78ch' }}>{challenge.description}</p>
+        <p className="mt-1.5" style={{ fontFamily: vt, fontSize: 21, lineHeight: 1.22, color: 'hsl(var(--tx2))', maxWidth: '78ch' }}>{withCodeChips(challenge.description)}</p>
+        {seedTables.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-4 items-start">
+            {seedTables.map((t) => (
+              <SqlTable key={t.name} label={t.name} isTable columns={t.columns} rows={t.rows} maxHeight={168} />
+            ))}
+          </div>
+        )}
       </Win>
 
       {banner}
+
+      {showBlocks && blocksOpen && seedReady && (
+        <QueryBlocks
+          key={challenge.id}
+          initialCode={challenge.initialCode}
+          tables={seedTables}
+          onTry={async (sql) => {
+            const r = await runSQL(sql, challenge.seedSQL)
+            return { sql: { columns: r.columns, rows: r.rows, changes: r.changes ?? [], schema: r.schema ?? [], fromVerify: false }, error: r.error }
+          }}
+          onClose={() => setBlocksOpen(false)}
+        />
+      )}
 
       {/* Editor */}
       <Win
         title={isPython ? 'SCRIPT.PY' : 'QUERY.SQL'}
         active
         className="flex-1 min-h-0"
-        right={<span className="hidden sm:inline" style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.1em', color: 'hsl(var(--bg))' }}>Ctrl+Enter para atacar</span>}
+        right={
+          <>
+            {showBlocks && !blocksOpen && (
+              <button type="button" className={`blk-open${challenge.blocks === 'open' ? ' blk-open--invite' : ''}`} onClick={() => setBlocksOpen(true)}>
+                <IconGrid size={12} color="currentColor" /> {challenge.blocks === 'open' ? '¿Te trabás? Armalo con bloques' : 'Armar con bloques'}
+              </button>
+            )}
+            <span className="hidden sm:inline" style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.1em', color: 'hsl(var(--bg))' }}>Ctrl+Enter para atacar</span>
+          </>
+        }
         bodyStyle={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}
       >
         <CodeMirrorEditor
@@ -137,6 +195,7 @@ export default function CodeEditor({
 
       {/* Result panel */}
       {lastResult && (
+        <div ref={resultRef} className="shrink-0" style={{ scrollMarginBottom: 72 }}>
         <Win
           title={lastResult.error ? 'ERROR.EXE' : lastResult.isCorrect ? 'CORRECTO.EXE' : 'INCORRECTO.EXE'}
           tone={lastResult.isCorrect && !lastResult.error ? 'safe' : 'danger'}
@@ -144,7 +203,18 @@ export default function CodeEditor({
           className="shrink-0"
           bodyStyle={{ padding: 12, fontFamily: vt, fontSize: 19 }}
         >
-          {lastResult.error ? (
+          {lastResult.sql && !isPython ? (
+            <>
+              <div className="flex items-center gap-1.5 mb-2.5" style={{ color: lastResult.isCorrect && !lastResult.error ? 'hsl(var(--accent))' : 'hsl(var(--danger))', fontFamily: jersey, fontSize: 19 }}>
+                {lastResult.isCorrect && !lastResult.error
+                  ? <><IconCheck size={11} color="hsl(var(--accent))" /> ¡Correcto! Daño aplicado.</>
+                  : lastResult.error
+                    ? <><IconX size={11} color="hsl(var(--danger))" /> SQL no pudo ejecutar tu orden</>
+                    : <><IconX size={11} color="hsl(var(--danger))" /> Todavía no es lo que pide el jefe</>}
+              </div>
+              <SqlResult isCorrect={lastResult.isCorrect} error={lastResult.error} expected={lastResult.expected} sql={lastResult.sql} code={submitted} seedTables={seedTables} />
+            </>
+          ) : lastResult.error ? (
             <>
               <div className="flex items-center gap-1.5 mb-1.5" style={{ color: 'hsl(var(--danger))', fontFamily: jersey, fontSize: 18 }}>
                 <IconX size={11} color="hsl(var(--danger))" /> Error de ejecución
@@ -173,6 +243,7 @@ export default function CodeEditor({
             </>
           )}
         </Win>
+        </div>
       )}
 
       {/* Pyodide loading notice (Python challenges, first visit) */}
@@ -200,4 +271,11 @@ export default function CodeEditor({
       </button>
     </div>
   )
+}
+
+/** `código` dentro de una consigna → chip de código (en vez de mostrar los backticks). */
+function withCodeChips(text: string): React.ReactNode {
+  const parts = text.split('`')
+  if (parts.length < 3) return text
+  return parts.map((p, i) => (i % 2 === 1 ? <code key={i} className="code-chip">{p}</code> : p))
 }

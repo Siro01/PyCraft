@@ -128,14 +128,7 @@ async function SupabaseBattlePage({ bossId, practiceRequested }: { bossId: strin
     <div className="min-h-screen flex flex-col desk-theme">
       <Header username={username} role={profile?.role} />
 
-      <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">
-        <div className="flex items-center gap-2 mb-4 font-mono text-xs text-tx3">
-          <a href="/dashboard" className="hover:text-tx transition-colors">← Mapa</a>
-          <span>/</span>
-          <span className="text-tx2">{boss.title}</span>
-          <span>/</span>
-          <span className="text-tx">{boss.name}</span>
-        </div>
+      <main className="flex-1 mx-auto w-full px-4 py-5" style={{ maxWidth: 1180 }}>
 
         <CombatArena
           boss={boss}

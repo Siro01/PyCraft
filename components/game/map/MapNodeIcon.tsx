@@ -177,8 +177,28 @@ const LIBRARY = [
   '................',
 ]
 
-export type PlaceKind = 'shop' | 'playground' | 'practice' | 'school' | 'library'
-const PLACE_ROWS: Record<PlaceKind, string[]> = { shop: SHOP_FRONT, playground: SWING, practice: TERMINAL, school: SCHOOL, library: LIBRARY }
+// Mi Reino: castillo de dos torres con la bandera en acento — "esto es tuyo".
+const REINO = [
+  '.......kaa......',
+  '.......kaaaa....',
+  '.......kaa......',
+  '.......k........',
+  'k.k.k.kkkk.k.k.k',
+  'kkkkk.kffk.kkkkk',
+  'kfffk.kffk.kfffk',
+  'kfkfkkkkkkkkfkfk',
+  'kfffkffffffkfffk',
+  'kfffkfmffmfkfffk',
+  'kfffkffffffkfffk',
+  'kfffkffkkffkfffk',
+  'kfffkfkmmkfkfffk',
+  'kfffkfkmmkfkfffk',
+  'kkkkkkkkkkkkkkkk',
+  '................',
+]
+
+export type PlaceKind = 'shop' | 'playground' | 'practice' | 'school' | 'library' | 'reino'
+const PLACE_ROWS: Record<PlaceKind, string[]> = { shop: SHOP_FRONT, playground: SWING, practice: TERMINAL, school: SCHOOL, library: LIBRARY, reino: REINO }
 
 // "!" para un repaso esperando — mismo lenguaje que el candado, pero en acento.
 const BANG = ['##', '##', '##', '##', '..', '##']
@@ -251,6 +271,42 @@ export function ChestNode({ focused, size, kind, opened, sealed = false, fresh =
           <IconLock size={Math.round(badge * 0.62)} color="hsl(var(--accent))" />
         </span>
       )}
+    </div>
+  )
+}
+
+// Guarida de un jefe secreto: una grieta negra con un ojo — siempre en negro y
+// blanco, sin importar la paleta del acto (los jefes secretos viven a oscuras).
+const LAIR_EYE: Bitmap = [
+  '...#####...',
+  '.##.....##.',
+  '#...###...#',
+  '#..#####..#',
+  '#...###...#',
+  '.##.....##.',
+  '...#####...',
+]
+const LAIR_SHUT: Bitmap = [
+  '...........',
+  '...........',
+  '.#########.',
+  '#.........#',
+  '.#########.',
+  '...........',
+  '...........',
+]
+
+export function LairNode({ focused, size, sealed, defeated, fresh = false }: {
+  focused: boolean; size: number; sealed: boolean; defeated: boolean; fresh?: boolean
+}) {
+  const scale = Math.max(1, Math.round(size / 15))
+  return (
+    <div
+      className={`map-lair${focused ? ' map-lair--focused' : ''}${sealed ? ' map-lair--sealed' : ''}${fresh ? ' map-chest-pop' : ''}`}
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    >
+      <PixelBitmap rows={defeated || sealed ? LAIR_SHUT : LAIR_EYE} scale={scale} ink={defeated ? '#777' : '#fff'} />
     </div>
   )
 }

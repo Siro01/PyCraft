@@ -101,6 +101,9 @@ export interface Challenge {
   seedSQL?: string
   // SQL DDL/DML: SQL to run after the user's code to verify the result (when user code produces no rows)
   verifySQL?: string
+  // SQL junior: pizarra de bloques (siempre arranca cerrada, detrás de un botón).
+  // 'open' = primer desafío de una orden nueva: el botón invita más fuerte. Sin el campo, no hay bloques.
+  blocks?: 'open' | 'closed'
 }
 
 export interface BattleRecord {

@@ -1,15 +1,26 @@
 import type { Challenge } from '@/types'
 import { runPython } from './pyodide-runner'
-import { runSQL } from './sql-runner'
+import { runSQL, type TableDiff, type TableSchema } from './sql-runner'
 
 export { preloadPyodide, isPyodideLoaded } from './pyodide-runner'
 export { preloadSqlJs } from './sql-runner'
+
+/** Lo que vio la base de datos en un ataque SQL — para mostrarlo como tabla. */
+export interface SqlDetail {
+  columns: string[]
+  rows: string[][]
+  changes: TableDiff[]
+  schema: TableSchema[]
+  /** rows/columns vienen de la consulta de control del jefe. */
+  fromVerify: boolean
+}
 
 export interface ExecuteResult {
   isCorrect: boolean
   actualOutput: string
   expectedOutput: string
   error: string | null
+  sql?: SqlDetail
 }
 
 // Normalize: trim edges, collapse \r\n, strip trailing spaces per line
@@ -46,9 +57,10 @@ export async function executeChallenge(
   }
 
   // SQL challenge
-  const { rows, error } = await runSQL(code, challenge.seedSQL, challenge.verifySQL)
+  const { rows, columns, error, changes = [], schema = [], fromVerify = false } = await runSQL(code, challenge.seedSQL, challenge.verifySQL)
+  const sql: SqlDetail = { columns, rows, changes, schema, fromVerify }
   if (error) {
-    return { isCorrect: false, actualOutput: '', expectedOutput: expected, error }
+    return { isCorrect: false, actualOutput: '', expectedOutput: expected, error, sql }
   }
   const actual = rowsToString(rows)
   return {
@@ -56,5 +68,6 @@ export async function executeChallenge(
     actualOutput: actual,
     expectedOutput: expected,
     error: null,
+    sql,
   }
 }
