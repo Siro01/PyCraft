@@ -7,6 +7,9 @@ import { ARENA_TEMPLATES, buildFromTemplate, type ArenaExercise } from '@/lib/ga
 import { arenaChallenge } from '@/lib/game/arena/challenge'
 import ArenaDuel from '@/components/game/arena/pvp/ArenaDuel'
 import ArenaHerald from '@/components/game/arena/pvp/ArenaHerald'
+import ArenaApp, { type ArenaState, type Presence } from '@/components/game/arena/pvp/ArenaApp'
+import type { RosterEntry } from '@/lib/game/arena/server'
+import type { MatchView } from '@/lib/game/arena/types'
 
 // Laboratorio de La Arena (solo docente):
 // 1) Plantillas: cada una con varias semillas, corriendo su solución en el
@@ -19,7 +22,10 @@ type Check = { ok: boolean; got: string; error: string | null }
 const SEEDS_PER_TEMPLATE = 6
 
 export default function ArenaLab() {
-  const [tab, setTab] = useState<'plantillas' | 'duelo'>('plantillas')
+  const [tab, setTab] = useState<'plantillas' | 'duelo' | 'lobby'>('plantillas')
+  const [withInvite, setWithInvite] = useState(false)
+  // Memo: los datos tienen que ser estables, si no el lobby recarga en cada render.
+  const lobby = useMemo(() => demoLobby(withInvite), [withInvite])
   const [herald, setHerald] = useState<'full' | 'short' | null>(null)
   const [baseSeed, setBaseSeed] = useState(1)
   const [checks, setChecks] = useState<Record<string, Check>>({})
@@ -59,12 +65,23 @@ export default function ArenaLab() {
           <span className="arena-top-spacer" />
           <button type="button" className={`arena-link${tab === 'plantillas' ? ' arena-link--on' : ''}`} onClick={() => setTab('plantillas')}>plantillas</button>
           <button type="button" className={`arena-link${tab === 'duelo' ? ' arena-link--on' : ''}`} onClick={() => setTab('duelo')}>duelo de prueba</button>
+          <button type="button" className={`arena-link${tab === 'lobby' ? ' arena-link--on' : ''}`} onClick={() => setTab('lobby')}>lobby</button>
           <button type="button" className="arena-link" onClick={() => setHerald('full')}>presentación</button>
           <button type="button" className="arena-link" onClick={() => setHerald('short')}>saludo</button>
         </header>
         {herald && <ArenaHerald key={herald} full={herald === 'full'} onDone={() => setHerald(null)} onExplain={() => setHerald('full')} />}
 
         {tab === 'duelo' && <ArenaDuel sandbox />}
+
+        {tab === 'lobby' && (
+          <>
+            <div className="arena-tools" style={{ marginBottom: 16 }}>
+              <span>lobby con datos de ejemplo</span>
+              <button type="button" onClick={() => setWithInvite((v) => !v)}>{withInvite ? 'sin reto recibido' : 'con reto recibido'}</button>
+            </div>
+            <ArenaApp key={String(withInvite)} {...lobby} />
+          </>
+        )}
 
         {tab === 'plantillas' && (
           <>
@@ -142,4 +159,29 @@ function Samples({ samples, checks }: { samples: ArenaExercise[]; checks: Record
       })}
     </div>
   )
+}
+
+// ─── Lobby de ejemplo (sin servidor) ───────────────────────────────────────
+const FIRST = (n: number) => BOSSES.slice(0, n).map((b) => b.id)
+const entry = (id: string, username: string, defeated: number, maxStake: 0 | 5 | 10): RosterEntry =>
+  ({ id, username, isAdmin: false, isTest: false, unlocked: defeated >= 3, defeated: FIRST(defeated), maxStake })
+
+function demoLobby(withInvite: boolean) {
+  const roster = [entry('romi', 'romi', 5, 10), entry('tomi', 'tomi', 4, 5), entry('mica', 'mica', 6, 10), entry('juana', 'juana', 2, 0), entry('benja', 'benja', 3, 0)]
+  const online: Presence[] = [
+    { id: 'romi', username: 'romi', isAdmin: false, status: 'lobby' },
+    { id: 'benja', username: 'benja', isAdmin: false, status: 'lobby' },
+    { id: 'tomi', username: 'tomi', isAdmin: false, status: 'duel' },
+  ]
+  const invite: MatchView = {
+    id: 'demo-invite', status: 'pending', stake: 5, bossId: 'golem-infinito', actKey: 'python', iChallenged: false,
+    me: { id: 'yo', username: 'vos', progress: 0 }, rival: { id: 'romi', username: 'romi', progress: 0 }, exercises: [],
+    createdAt: new Date().toISOString(), startedAt: null, endsAt: null, serverNow: new Date().toISOString(), winnerId: null, endReason: null,
+  }
+  const state: ArenaState = { stats: { net: 10, xp: 15 }, live: null, incoming: withInvite ? [invite] : [], history: [] }
+  return {
+    me: { id: 'yo', username: 'vos', isAdmin: false, isTest: false },
+    aulaId: 'demo', aulaName: 'aula de ejemplo', roster, myDefeated: FIRST(4), myMaxStake: 10 as const,
+    preview: { online, state },
+  }
 }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from 'react'
 import SecretCanvas from '@/components/game/secret/SecretCanvas'
 import Speech from '@/components/game/secret/Speech'
+import { useTypewriter } from '@/components/game/architect/useTypewriter'
 import { MAP_PALETTES } from '@/lib/game/act-maps'
 import { sfx } from '@/lib/game/architect/sound'
 import { getSecretBoss } from '@/lib/game/secret/bosses'
@@ -87,18 +88,26 @@ export default function ArenaHerald({ full, onDone, onExplain }: Props) {
   )
 }
 
-/** Mini retrato para el lobby: abre la explicación de nuevo. */
-export function ErranteBadge({ onClick }: { onClick: () => void }) {
+/**
+ * El escenario del lobby: El Errante grande, en su escena oscura, diciendo UNA
+ * línea según lo que pasa (elegí rival, te desafían, esperando…). Es el único
+ * texto de ayuda en pantalla; las reglas quedan detrás de "¿cómo se juega?".
+ */
+export function ErranteStage({ line, onExplain }: { line: string; onExplain: () => void }) {
+  const { shown, done } = useTypewriter(line, 'machine', 26)
   return (
-    <button type="button" className="arena-herald-badge" onClick={() => { sfx.open(); onClick() }} title="Que El Errante te explique cómo se juega">
-      <span className="arena-herald-badge-art" style={DARK_VARS}>
+    <section className="errante-stage" style={{ ...DARK_VARS, ['--phos' as string]: ERRANTE.color }} aria-label="El Errante">
+      <div className="errante-stage-art">
         <SecretCanvas art={ERRANTE.art} color={ERRANTE.color} label={ERRANTE.name} />
-      </span>
-      <span className="flex flex-col items-start gap-1">
-        <span className="arena-label">guardián</span>
-        <span className="lobby-name">{ERRANTE.name}</span>
-        <span className="arena-link">¿cómo se juega? ▸</span>
-      </span>
-    </button>
+      </div>
+      <div className="errante-stage-say">
+        <span className="errante-stage-name">{ERRANTE.name}</span>
+        <p aria-live="polite">
+          <span className="sr-only">{line}</span>
+          <span aria-hidden>{shown}{!done && <span className="secret-caret">█</span>}</span>
+        </p>
+        <button type="button" className="secret-link" onClick={() => { sfx.open(); onExplain() }}>¿cómo se juega? ▸</button>
+      </div>
+    </section>
   )
 }

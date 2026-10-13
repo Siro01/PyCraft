@@ -4,19 +4,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import DiamondIcon, { Diamonds } from '@/components/ui/DiamondIcon'
+import { Diamonds } from '@/components/ui/DiamondIcon'
 import { BOSSES } from '@/lib/game/bosses'
 import { sfx } from '@/lib/game/architect/sound'
 import { ARENA_TOPIC_IDS } from '@/lib/game/arena/generators'
-import {
-  ARENA_DAILY_LOSS_CAP, ARENA_DUEL_SECONDS, ARENA_EXERCISES, ARENA_INVITE_SECONDS, ARENA_MIX, ARENA_PAIR_DAILY_STAKED,
-  ARENA_XP_LOSS, ARENA_XP_WIN, sharedTopics, type ArenaStake,
-} from '@/lib/game/arena/rules'
+import { ARENA_INVITE_SECONDS, ARENA_MIX, sharedTopics, type ArenaStake } from '@/lib/game/arena/rules'
 import type { RosterEntry } from '@/lib/game/arena/server'
 import type { ArenaStats, LobbyEvent, MatchView } from '@/lib/game/arena/types'
 import { diamondsAvailable, setArenaStats } from '@/lib/storage/local-store'
 import ArenaDuel from './ArenaDuel'
-import ArenaHerald, { ErranteBadge } from './ArenaHerald'
+import ArenaHerald, { ErranteStage } from './ArenaHerald'
 import { callArena, createLiveTransport } from './live'
 import type { DuelTransport } from './transport'
 
@@ -26,7 +23,7 @@ import type { DuelTransport } from './transport'
 // conexión en tiempo real.
 
 interface Me { id: string; username: string; isAdmin: boolean; isTest: boolean }
-interface Presence { id: string; username: string; isAdmin: boolean; status: 'lobby' | 'duel' }
+export interface Presence { id: string; username: string; isAdmin: boolean; status: 'lobby' | 'duel' }
 
 interface Props {
   me: Me
@@ -37,15 +34,17 @@ interface Props {
   roster: RosterEntry[]
   myDefeated: string[]
   myMaxStake: ArenaStake
+  /** Solo /demo/arena: datos fijos, sin servidor ni tiempo real. */
+  preview?: { online: Presence[]; state: ArenaState }
 }
 
-interface ArenaState { stats: ArenaStats; live: MatchView | null; incoming: MatchView[]; history: MatchView[] }
+export interface ArenaState { stats: ArenaStats; live: MatchView | null; incoming: MatchView[]; history: MatchView[] }
 
 const topicName = (id: string) => (id === ARENA_MIX ? 'Mezcla de temas' : BOSSES.find((b) => b.id === id)?.topic ?? id)
 
-export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeated, myMaxStake }: Props) {
+export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeated, myMaxStake, preview }: Props) {
   const router = useRouter()
-  const supabase = useMemo(() => createClient(), [])
+  const supabase = useMemo(() => (preview ? null : createClient()), [preview])
   const [state, setState] = useState<ArenaState | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -66,6 +65,7 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
 
   // ── Estado (servidor)
   const load = useCallback(async () => {
+    if (preview) { setState(preview.state); return preview.state }
     try {
       const res = await fetch('/api/arena', { cache: 'no-store' })
       const json = await res.json()
@@ -76,7 +76,7 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
       setState(s)
       return s
     } catch { setNotice('Sin conexión con el servidor.'); return null }
-  }, [myDefeated.length])
+  }, [myDefeated.length, preview])
   useEffect(() => { setDiamonds(diamondsAvailable(myDefeated.length)); load() }, [load, myDefeated.length])
 
   const live = state?.live ?? null
@@ -93,6 +93,7 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
   const onLobbyRef = useRef<(ev: LobbyEvent) => void>(() => {})
 
   useEffect(() => {
+    if (!supabase) { setOnline(new Map((preview?.online ?? []).map((p) => [p.id, p]))); return }
     const ch = supabase.channel(`arena-lobby-${aulaId}`, { config: { private: true, presence: { key: me.id }, broadcast: { self: false } } })
     chRef.current = ch
     ch.on('presence', { event: 'sync' }, () => {
@@ -134,7 +135,7 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
   const duelId = duel?.id ?? null
   const [transport, setTransport] = useState<DuelTransport | null>(null)
   useEffect(() => {
-    if (!duelId) return
+    if (!duelId || !supabase) return
     const t = createLiveTransport(supabase, duelId)
     setTransport(t)
     return () => { t.close(); setTransport(null) }
@@ -226,14 +227,35 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
 
   const stats = state?.stats ?? { net: 0, xp: 0 }
 
+  // Quién se puede retar ahora, quién está ocupado y quién no está.
+  const ready = people.filter((p) => p.unlocked && online.get(p.id)?.status === 'lobby')
+  const busyNow = people.filter((p) => online.get(p.id)?.status === 'duel')
+  const away = people.filter((p) => !ready.includes(p) && !busyNow.includes(p))
+
+  // La única línea de ayuda de la pantalla: la dice El Errante y cambia con lo que pasa.
+  const line = notice
+    ?? (incoming[0] ? `¡${incoming[0].rival.username} te desafía! ¿Aceptás?`
+      : waiting ? `Le llevé tu reto a ${waiting.rival.username}. Tiene un minuto para contestar.`
+      : rival ? `¿Contra ${rival.username}? Elegí el tema y si va por diamantes.`
+      : !state ? 'Shh...'
+      : ready.length === 0 ? 'Todavía no hay nadie listo. Cuando un compañero entre a la arena, aparece acá.'
+      : ready.length === 1 ? 'Hay alguien esperando rival. ¿Te animás?'
+      : `Hay ${ready.length} compañeros esperando rival. Elegí a quién retar.`)
+
+  const limitHint = rival && friendlyOnly ? 'Con el docente o la cuenta de prueba, solo amistoso.'
+    : rival && myMaxStake === 0 ? 'Hoy no te alcanzan los diamantes: solo amistoso.'
+    : rival && rival.maxStake === 0 ? `${rival.username} no tiene diamantes hoy: solo amistoso.`
+    : null
+
   return (
     <div className="lobby">
       {herald && (
         <ArenaHerald key={herald} full={herald === 'full'} onDone={heraldDone} onExplain={() => setHerald('full')} />
       )}
+
       <header className="arena-top">
         <a href="/dashboard" className="arena-link">← mapa</a>
-        <span className="arena-tag">la arena · {aulaName}</span>
+        <h1 className="arena-tag" style={{ margin: 0, fontWeight: 400 }}>la arena · {aulaName}</h1>
         {aulas && aulas.length > 1 && (
           <select
             className="input text-xs py-1"
@@ -246,66 +268,26 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
           </select>
         )}
         <span className="arena-top-spacer" />
-        <span className="arena-tag" title="Tus diamantes">
-          <Diamonds n={diamonds} size={11} />
-        </span>
-        <span className="arena-tag" title="XP ganado en la arena">{stats.xp} xp de arena</span>
+        <span className="lobby-purse" title="Tus diamantes"><Diamonds n={diamonds} size={13} /></span>
+        <span className="arena-tag" title="Experiencia ganada en la arena">{stats.xp} xp</span>
       </header>
 
-      <div className="arena-grid">
-        {/* ── Reglas e historial ─────────────────────────────────── */}
-        <section className="arena-boss" aria-label="Cómo se juega">
-          <div className="arena-name">
-            <span>LA ARENA</span>
-            <small>duelos entre compañeros</small>
-          </div>
-          <ErranteBadge onClick={() => setHerald('full')} />
-          <ul className="arena-note" style={{ margin: 0, paddingLeft: 10, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <li>Los dos reciben los mismos {ARENA_EXERCISES} ejercicios. Gana el primero que los resuelve.</li>
-            <li>Tienen {ARENA_DUEL_SECONDS / 60} minutos. Si se acaba el tiempo, gana quien resolvió más; si van empatados, quien llegó primero.</li>
-            <li>Se pueden retar por 5 o 10 <DiamondIcon size={12} /> (lo que gana uno lo pierde el otro) o un amistoso, donde nadie pierde nada.</li>
-            <li>Ganar da {ARENA_XP_WIN} XP y perder {ARENA_XP_LOSS}, solo el primer duelo con cada compañero en cada acto.</li>
-            <li>Los ítems se pueden usar contra el rival, pero se gastan aunque pierdas.</li>
-          </ul>
-          <div className="arena-num">Tope: {ARENA_DAILY_LOSS_CAP} diamantes perdidos por día y {ARENA_PAIR_DAILY_STAKED} retos por diamantes por día contra el mismo compañero.</div>
+      <div className="lobby-grid">
+        <ErranteStage line={line} onExplain={() => setHerald('full')} />
 
-          {(state?.history.length ?? 0) > 0 && (
-            <>
-              <div className="arena-label" style={{ marginTop: 14 }}>últimos duelos</div>
-              <ul className="lobby-history" style={{ margin: 0, padding: 0 }}>
-                {state!.history.map((m) => {
-                  const won = m.winnerId === m.me.id
-                  const draw = !m.winnerId
-                  return (
-                    <li key={m.id}>
-                      <span style={{ color: draw ? 'hsl(var(--tx3))' : won ? 'hsl(var(--accent))' : 'hsl(var(--danger))' }}>
-                        {m.endReason === 'voided' ? 'anulado' : draw ? 'empate' : won ? 'ganaste' : 'perdiste'}
-                      </span>
-                      <span>vs {m.rival.username}</span>
-                      <span style={{ color: 'hsl(var(--tx3))' }}>{topicName(m.bossId)}</span>
-                      {m.result && m.result.diamonds !== 0 && <Diamonds n={m.result.diamonds} sign size={10} />}
-                      {m.result && m.result.xp > 0 && <span>+{m.result.xp} xp</span>}
-                    </li>
-                  )
-                })}
-              </ul>
-            </>
-          )}
-        </section>
-
-        {/* ── Compañeros, retos ──────────────────────────────────── */}
-        <section className="arena-work">
-          {notice && <p className="arena-note" role="status">{notice}</p>}
-
+        <section className="lobby-side" aria-label="Retar a un compañero">
           {incoming.map((m) => (
             <div key={m.id} className="lobby-panel lobby-invite" role="alertdialog" aria-label={`Reto de ${m.rival.username}`}>
-              <h3>te retaron · vence en {left(m)} s</h3>
-              <div className="lobby-name">{m.rival.username}</div>
-              <p className="arena-note" style={{ margin: 0 }}>
-                {topicName(m.bossId)} · {m.stake > 0 ? <>por <Diamonds n={m.stake} size={13} /> (si perdés, los perdés)</> : 'amistoso, nadie pierde nada'}
-              </p>
-              <div className="arena-choices" style={{ marginTop: 0 }}>
-                <button type="button" className="arena-go" disabled={busy} onClick={() => answer(m, true)}>aceptar ▸</button>
+              <div className="lobby-invite-who">
+                <span className="lobby-name lobby-name--xl">{m.rival.username}</span>
+                <span className="lobby-timer">{left(m)}s</span>
+              </div>
+              <div className="lobby-terms">
+                <span>{topicName(m.bossId)}</span>
+                <span>{m.stake > 0 ? <>por <Diamonds n={m.stake} size={13} /></> : 'amistoso'}</span>
+              </div>
+              <div className="lobby-actions">
+                <button type="button" className="arena-go lobby-go" disabled={busy} onClick={() => answer(m, true)}>aceptar ▸</button>
                 <button type="button" className="arena-go arena-go--ghost" disabled={busy} onClick={() => answer(m, false)}>ahora no</button>
               </div>
             </div>
@@ -313,90 +295,117 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
 
           {waiting && (
             <div className="lobby-panel" role="status">
-              <h3>esperando respuesta · {left(waiting)} s</h3>
-              <p className="arena-note" style={{ margin: 0 }}>
-                Retaste a <strong>{waiting.rival.username}</strong> · {topicName(waiting.bossId)} · {waiting.stake > 0 ? <Diamonds n={waiting.stake} size={13} /> : 'amistoso'}
-              </p>
-              <div><button type="button" className="arena-go arena-go--ghost" onClick={cancel}>cancelar reto</button></div>
+              <div className="lobby-invite-who">
+                <span className="lobby-name lobby-name--xl">{waiting.rival.username}</span>
+                <span className="lobby-timer">{left(waiting)}s</span>
+              </div>
+              <div className="lobby-terms">
+                <span>{topicName(waiting.bossId)}</span>
+                <span>{waiting.stake > 0 ? <>por <Diamonds n={waiting.stake} size={13} /></> : 'amistoso'}</span>
+              </div>
+              <div className="lobby-actions">
+                <button type="button" className="arena-go arena-go--ghost" onClick={cancel}>cancelar reto</button>
+              </div>
             </div>
           )}
 
-          <div className="arena-label">compañeros · {[...online.keys()].filter((id) => id !== me.id).length} conectados</div>
-          {people.length === 0 && <p className="arena-note">Todavía no hay nadie más en tu aula.</p>}
-          <div className="lobby-list">
-            {people.map((p) => {
-              const pres = online.get(p.id)
-              const inDuel = pres?.status === 'duel'
-              const can = !!pres && !inDuel && p.unlocked && !waiting
-              const meta = !p.unlocked ? 'todavía no abrió la arena'
-                : !pres ? 'no está en la arena'
-                : inDuel ? 'en un duelo'
-                : p.isAdmin ? 'docente · solo amistoso'
-                : p.maxStake === 0 ? 'conectado · solo amistoso'
-                : 'conectado'
-              const selected = rivalId === p.id
-              return (
-                <div key={p.id}>
-                  <button
-                    type="button"
-                    className={`lobby-row${selected ? ' lobby-row--on' : ''}`}
-                    disabled={!can}
-                    aria-expanded={selected}
-                    onClick={() => pickRival(p.id)}
-                  >
-                    <span className={`lobby-dot${pres ? (inDuel ? ' lobby-dot--busy' : ' lobby-dot--on') : ''}`} aria-hidden />
-                    <span className="flex flex-col gap-1 min-w-0">
-                      <span className="lobby-name">{p.username}</span>
-                      <span className="lobby-meta">{meta}</span>
-                    </span>
-                    {can && <span className="arena-link" aria-hidden>{selected ? 'cerrar' : 'retar ▸'}</span>}
-                  </button>
+          {!incoming.length && !waiting && (
+            <>
+              <h2 className="lobby-title">¿Contra quién?</h2>
 
-                  {selected && can && (
-                    <div className="lobby-panel" style={{ borderTop: 0 }}>
-                      <h3>tema</h3>
-                      {topics.length === 0 ? (
-                        <p className="arena-note" style={{ margin: 0 }}>Todavía no tienen temas en común.</p>
-                      ) : (
-                        <div className="lobby-chips" role="group" aria-label="Tema del duelo">
-                          {topics.length > 1 && (
-                            <button type="button" className="lobby-chip" aria-pressed={topic === ARENA_MIX} onClick={() => setTopic(ARENA_MIX)}>mezcla</button>
+              {ready.length === 0 && busyNow.length === 0 && (
+                <div className="lobby-empty">Nadie conectado todavía</div>
+              )}
+
+              <div className="lobby-list">
+                {ready.map((p) => {
+                  const selected = rivalId === p.id
+                  return (
+                    <div key={p.id} className={selected ? 'lobby-pick lobby-pick--on' : 'lobby-pick'}>
+                      <button type="button" className="lobby-row" aria-expanded={selected} onClick={() => pickRival(p.id)}>
+                        <span className="lobby-dot lobby-dot--on" aria-hidden />
+                        <span className="lobby-name">{p.username}</span>
+                        <span className="lobby-row-cta" aria-hidden>{selected ? 'cerrar' : 'retar ▸'}</span>
+                      </button>
+
+                      {selected && (
+                        <div className="lobby-setup">
+                          {topics.length === 0 ? (
+                            <p className="lobby-hint">Todavía no tienen temas en común.</p>
+                          ) : (
+                            <>
+                              <div className="lobby-step">
+                                <span className="lobby-step-q">¿de qué?</span>
+                                <div className="lobby-chips" role="group" aria-label="Tema del duelo">
+                                  {topics.length > 1 && (
+                                    <button type="button" className="lobby-chip" aria-pressed={topic === ARENA_MIX} onClick={() => { sfx.select(); setTopic(ARENA_MIX) }}>de todo un poco</button>
+                                  )}
+                                  {topics.map((t) => (
+                                    <button key={t.id} type="button" className="lobby-chip" aria-pressed={topic === t.id} onClick={() => { sfx.select(); setTopic(t.id) }}>
+                                      {t.topic}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="lobby-step">
+                                <span className="lobby-step-q">¿por diamantes?</span>
+                                <div className="lobby-chips" role="group" aria-label="Por diamantes o amistoso">
+                                  {([0, 5, 10] as ArenaStake[]).map((s) => (
+                                    <button key={s} type="button" className="lobby-chip" aria-pressed={stake === s} disabled={!stakeAllowed(s)} onClick={() => { sfx.select(); setStake(s) }}>
+                                      {s === 0 ? 'amistoso' : <Diamonds n={s} size={12} />}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              {limitHint && <p className="lobby-hint">{limitHint}</p>}
+                              <button type="button" className="arena-go lobby-go" disabled={!topic || busy} onClick={challenge}>
+                                retar a {p.username} ▸
+                              </button>
+                            </>
                           )}
-                          {topics.map((t) => (
-                            <button key={t.id} type="button" className="lobby-chip" aria-pressed={topic === t.id} onClick={() => setTopic(t.id)} title={t.name}>
-                              {t.topic}
-                            </button>
-                          ))}
                         </div>
                       )}
-
-                      <h3>¿por diamantes?</h3>
-                      <div className="lobby-chips" role="group" aria-label="Reto por diamantes o amistoso">
-                        {([0, 5, 10] as ArenaStake[]).map((s) => (
-                          <button key={s} type="button" className="lobby-chip" aria-pressed={stake === s} disabled={!stakeAllowed(s)} onClick={() => setStake(s)}>
-                            {s === 0 ? 'amistoso' : <Diamonds n={s} size={11} />}
-                          </button>
-                        ))}
-                      </div>
-                      {friendlyOnly
-                        ? <span className="arena-num">Con el docente o la cuenta de prueba solo hay amistosos.</span>
-                        : (myMaxStake === 0 || p.maxStake === 0) && (
-                          <span className="arena-num">
-                            {myMaxStake === 0 ? 'No te alcanzan los diamantes (o llegaste al tope de hoy): solo amistoso.' : `${p.username} no tiene diamantes para retarse hoy: solo amistoso.`}
-                          </span>
-                        )}
-
-                      <div>
-                        <button type="button" className="arena-go" disabled={!topic || busy} onClick={challenge}>
-                          retar a {p.username} ▸
-                        </button>
-                      </div>
                     </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+                  )
+                })}
+                {busyNow.map((p) => (
+                  <div key={p.id} className="lobby-row lobby-row--off">
+                    <span className="lobby-dot lobby-dot--busy" aria-hidden />
+                    <span className="lobby-name">{p.username}</span>
+                    <span className="lobby-row-cta">en duelo</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {away.length > 0 && (
+            <details className="lobby-more">
+              <summary>{away.length === 1 ? '1 compañero no está' : `${away.length} compañeros no están`} en la arena</summary>
+              <ul>
+                {away.map((p) => <li key={p.id}>{p.username}{!p.unlocked && <span> · todavía no venció al Golem</span>}</li>)}
+              </ul>
+            </details>
+          )}
+
+          {(state?.history.length ?? 0) > 0 && (
+            <details className="lobby-more">
+              <summary>tus últimos duelos</summary>
+              <ul>
+                {state!.history.slice(0, 5).map((m) => {
+                  const won = m.winnerId === m.me.id
+                  const draw = !m.winnerId
+                  return (
+                    <li key={m.id}>
+                      {m.endReason === 'voided' ? 'anulado' : draw ? 'empate' : won ? 'ganaste' : 'perdiste'} vs {m.rival.username}
+                      {m.result && m.result.diamonds !== 0 && <> · <Diamonds n={m.result.diamonds} sign size={10} /></>}
+                      {m.result && m.result.xp > 0 && <> · +{m.result.xp} xp</>}
+                    </li>
+                  )
+                })}
+              </ul>
+            </details>
+          )}
         </section>
       </div>
     </div>
