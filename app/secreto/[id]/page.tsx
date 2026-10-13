@@ -1,7 +1,9 @@
 import { notFound, redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { isLocalMode } from '@/lib/local-mode'
-import { getSecretBoss } from '@/lib/game/secret/bosses'
+import { getSecretBoss, secretUnlock } from '@/lib/game/secret/bosses'
+import { getEnabledTiers } from '@/lib/supabase/enabled-tiers'
+import { TIER_COOKIE, pickTier } from '@/lib/game/tiers'
 import LocalSecretView from '@/components/game/secret/LocalSecretView'
 import CloudSecretView from '@/components/game/secret/CloudSecretView'
 import { ADMIN_VIEW_COOKIE, parseAdminView } from '@/lib/admin/view-mode'
@@ -35,8 +37,11 @@ export default async function SecretPage({ params }: PageProps) {
     .eq('user_id', user.id)
     .eq('is_completed', true)
   const defeatedIds = Array.from(new Set((rows ?? []).map((r: { boss_id: string }) => r.boss_id)))
-  if (!isAdmin && defeatedIds.length < secret.minDefeated) redirect('/dashboard')
+  if (!isAdmin && !secretUnlock(secret, defeatedIds).open) redirect('/dashboard')
 
-  const adminView = parseAdminView((await cookies()).get(ADMIN_VIEW_COOKIE)?.value)
-  return <CloudSecretView secret={secret} defeatedIds={defeatedIds} adminTools={isAdmin && adminView === 'admin'} />
+  // Mismo nivel que en las batallas: la serie no pasa del nivel en el que juega.
+  const cookieStore = await cookies()
+  const tier = pickTier(await getEnabledTiers(supabase, user.id, isAdmin), cookieStore.get(TIER_COOKIE)?.value) ?? 'junior'
+  const adminView = parseAdminView(cookieStore.get(ADMIN_VIEW_COOKIE)?.value)
+  return <CloudSecretView secret={secret} defeatedIds={defeatedIds} tier={tier} adminTools={isAdmin && adminView === 'admin'} />
 }

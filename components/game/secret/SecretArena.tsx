@@ -28,7 +28,7 @@ import {
   recordSecretLoss, recordSecretWin, removeAmulet, saveSecretRun, secretDefeated, setEquippedPerks, spendArmor,
   type SecretRun,
 } from '@/lib/storage/local-store'
-import type { Amulet, AmuletType, Challenge, ShopItem } from '@/types'
+import type { Amulet, AmuletType, Challenge, ChallengeTier, ShopItem } from '@/types'
 
 const CodeMirrorEditor = dynamic(() => import('@/components/game/CodeMirrorEditor'), {
   ssr: false,
@@ -71,6 +71,8 @@ interface Props {
   secret: SecretBoss
   /** Jefes normales que el alumno ya derrotó (arma la serie y la cuenta de diamantes). */
   defeatedIds: string[]
+  /** Nivel en el que juega el alumno: la serie nunca le pone ejercicios más difíciles que eso. */
+  tier: ChallengeTier
   /** Sin premios ni castigos ni guardado (vistas de prueba). */
   sandbox?: boolean
   /** Docente en vista admin: botones para simular aciertos y fallos. */
@@ -80,7 +82,7 @@ interface Props {
 
 const byId = new Map(CHALLENGES.map((c) => [c.id, c]))
 
-export default function SecretArena({ secret, defeatedIds, sandbox = false, adminTools = false, exitHref = '/dashboard' }: Props) {
+export default function SecretArena({ secret, defeatedIds, tier, sandbox = false, adminTools = false, exitHref = '/dashboard' }: Props) {
   const router = useRouter()
   const boss = useMemo(() => secretAsBoss(secret), [secret])
   const hit = secretHitDamage(secret)
@@ -127,9 +129,9 @@ export default function SecretArena({ secret, defeatedIds, sandbox = false, admi
 
   const freshRun = useCallback((): SecretRun => {
     const s = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0
-    const series = buildSecretSeries(defeatedIds, seededRng(s)).map((c) => c.id)
+    const series = buildSecretSeries(secret, defeatedIds, tier, seededRng(s)).map((c) => c.id)
     return { bossId: secret.id, seed: s, series, idx: 0, bossHp: secret.hpMax, playerHp: SECRET_PLAYER_HP, engaged: false }
-  }, [defeatedIds, secret.hpMax, secret.id])
+  }, [defeatedIds, tier, secret])
 
   // ── Arranque: partida guardada o una nueva
   useEffect(() => {
@@ -212,9 +214,9 @@ export default function SecretArena({ secret, defeatedIds, sandbox = false, admi
     const nextIdx = cur.idx + 1
     if (nextIdx < cur.series.length) { update({ idx: nextIdx }); return }
     const current = cur.series.map((id) => byId.get(id)).filter(Boolean) as Challenge[]
-    const extra = nextRemate(defeatedIds, cur.seed, current)
+    const extra = nextRemate(secret, defeatedIds, tier, cur.seed, current)
     if (extra) update({ series: [...cur.series, extra.id], idx: nextIdx })
-  }, [defeatedIds, update])
+  }, [secret, defeatedIds, tier, update])
 
   const takeHit = useCallback((): string => {
     const cur = runRef.current

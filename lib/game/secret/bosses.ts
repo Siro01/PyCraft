@@ -41,6 +41,8 @@ export interface SecretBoss {
   hpMax: number
   /** Jefes normales derrotados que hacen falta para que se abra la grieta. */
   minDefeated: number
+  /** Además, jefes derrotados de SU acto: no se abre sin haber demostrado el tema que examina. */
+  minActDefeated: number
   /** Color del fósforo (siempre sobre negro). */
   color: string
   /** Lo que dice antes de pelear (se tipea letra por letra, sin ventana). */
@@ -68,6 +70,7 @@ export const SECRET_BOSSES: SecretBoss[] = [
     epithet: 'Un proceso que nadie cerró',
     hpMax: 600,
     minDefeated: 4,
+    minActDefeated: 4,
     color: '#C9FFD9',
     intro: [
       'Alguien me ejecutó hace mucho... y se olvidó de mí.',
@@ -92,6 +95,7 @@ export const SECRET_BOSSES: SecretBoss[] = [
     epithet: 'Relé 70, panel F, 1947',
     hpMax: 750,
     minDefeated: 8,
+    minActDefeated: 2,
     color: '#FFDDA6',
     intro: [
       'En 1947 me encontraron atrapada en el relé 70 de una computadora enorme.',
@@ -111,6 +115,7 @@ export const SECRET_BOSSES: SecretBoss[] = [
     epithet: 'El bucle que se muerde la cola',
     hpMax: 900,
     minDefeated: 11,
+    minActDefeated: 1,
     color: '#FFB8C6',
     intro: [
       'Empiezo donde termino. Termino donde empiezo.',
@@ -135,6 +140,7 @@ export const SECRET_BOSSES: SecretBoss[] = [
     epithet: 'while 1: vigila()',
     hpMax: 1200,
     minDefeated: 14,
+    minActDefeated: 1,
     color: '#E4DAFF',
     intro: [
       'El Arquitecto me dejó corriendo en el fondo. Para vigilar.',
@@ -168,14 +174,33 @@ export function secretAsBoss(s: SecretBoss): Boss {
   }
 }
 
+/** Jefes normales del acto que examina cada jefe secreto. */
+export function actBosses(act: SecretAct): Boss[] {
+  return BOSSES.filter((b) => b.type === act)
+}
+
+/** ¿Se abre la guarida? Cuenta el total y los del acto (los dos tienen que alcanzar). */
+export function secretUnlock(s: SecretBoss, defeatedIds: Iterable<string>): { open: boolean; missingTotal: number; missingAct: number } {
+  const done = new Set(defeatedIds)
+  const total = BOSSES.filter((b) => done.has(b.id)).length
+  const inAct = actBosses(s.act).filter((b) => done.has(b.id)).length
+  const missingTotal = Math.max(0, s.minDefeated - total)
+  const missingAct = Math.max(0, s.minActDefeated - inAct)
+  return { open: missingTotal === 0 && missingAct === 0, missingTotal, missingAct }
+}
+
+const TIER_ORDER: ChallengeTier[] = ['junior', 'trainee', 'senior']
+
 /**
- * Escalera de dificultad según cuántos jefes derrotó: al principio de la serie
- * entra algún trainee; con más jefes vencidos, casi todo es senior.
+ * Niveles de la serie: nunca más alto que el nivel en el que juega el alumno
+ * (si su aula tiene senior apagado, no ve un senior acá por primera vez). El
+ * primer ejercicio es un escalón más fácil para entrar en calor; el resto, de
+ * su nivel. Lo difícil del jefe secreto es pelear sin ayuda, no un tema nuevo.
  */
-export function seriesTiers(defeatedCount: number): ChallengeTier[] {
-  if (defeatedCount < 6) return ['trainee', 'trainee', 'trainee', 'senior', 'senior']
-  if (defeatedCount < 10) return ['trainee', 'trainee', 'senior', 'senior', 'senior']
-  return ['trainee', 'senior', 'senior', 'senior', 'senior']
+export function seriesTiers(tier: ChallengeTier): ChallengeTier[] {
+  const top = TIER_ORDER.indexOf(tier)
+  const warm = TIER_ORDER[Math.max(0, top - 1)]
+  return [warm, tier, tier, tier, tier]
 }
 
 /** RNG chico con semilla: la misma partida guardada arma siempre la misma serie. */
@@ -190,38 +215,62 @@ export function seededRng(seed: number): () => number {
   }
 }
 
+/** Reparte `n` lugares a lo largo de una lista ordenada (del primer tema al último). */
+function spread<T>(list: T[], n: number): T[] {
+  if (!list.length || n <= 0) return []
+  return Array.from({ length: n }, (_, k) => list[n === 1 ? list.length - 1 : Math.round((k * (list.length - 1)) / (n - 1))])
+}
+
 /**
- * Arma la serie con los jefes derrotados: reparte los 5 lugares a lo largo de
- * la lista (del primer tema al último, así la serie va de menos a más), y en
- * cada lugar elige un ejercicio del nivel que toca. Si derrotó menos de 5, los
- * temas se repiten con ejercicios distintos.
+ * Qué jefe aporta cada lugar de la serie, SIEMPRE entre los que ya derrotó:
+ * - Errante (Python): todo Python.
+ * - Polilla (SQL) y Ouroboros (Python + sqlite3): 3 lugares del tema de su acto
+ *   (los últimos, del primer jefe del acto al más reciente) y 2 de repaso de lo anterior.
+ * - Vigía (todo integrado): reparte entre todos los jefes vencidos.
  */
-export function buildSecretSeries(defeatedIds: Iterable<string>, rng: () => number, extra = 0): Challenge[] {
+function seriesBosses(s: SecretBoss, done: Set<string>): Boss[] {
+  const beaten = BOSSES.filter((b) => done.has(b.id)).sort((a, b) => a.classNumber - b.classNumber)
+  if (s.act === 'final' || s.act === 'python') {
+    const pool = s.act === 'python' ? beaten.filter((b) => b.type === 'python') : beaten
+    return spread(pool.length ? pool : beaten, SECRET_SERIES_LEN)
+  }
+  const own = beaten.filter((b) => b.type === s.act)
+  const before = beaten.filter((b) => b.type !== s.act && b.classNumber < (actBosses(s.act)[0]?.classNumber ?? 99))
+  const review = spread(before.length ? before : beaten, 2)
+  const main = spread(own.length ? own : beaten, SECRET_SERIES_LEN - review.length)
+  return [...review, ...main]
+}
+
+/** Elige un ejercicio de ese jefe, del nivel pedido o, si ya se usaron, del de abajo. Nunca por encima. */
+function pickChallenge(bossId: string, tier: ChallengeTier, used: Set<string>, rng: () => number): Challenge | undefined {
+  const order = TIER_ORDER.slice(0, TIER_ORDER.indexOf(tier) + 1).reverse()
+  for (const tr of order) {
+    const options = CHALLENGES.filter((c) => c.bossId === bossId && c.tier === tr && !used.has(c.id))
+    if (options.length) return options[Math.floor(rng() * options.length)]
+  }
+  return undefined
+}
+
+/**
+ * Arma la serie de 5 con los jefes que el alumno ya derrotó y el nivel en el que
+ * juega. Si derrotó pocos del tema, los temas se repiten con ejercicios distintos.
+ * `extra` agrega remates (después de que el jefe se curó), del tema del acto.
+ */
+export function buildSecretSeries(
+  s: SecretBoss, defeatedIds: Iterable<string>, tier: ChallengeTier, rng: () => number, extra = 0,
+): Challenge[] {
   const done = new Set(defeatedIds)
-  const pool = BOSSES.filter((b) => done.has(b.id)).sort((a, b) => a.classNumber - b.classNumber)
-  const source = pool.length ? pool : BOSSES.slice(0, 1)
-  const tiers = seriesTiers(pool.length)
+  const slots = seriesBosses(s, done)
+  const tiers = seriesTiers(tier)
   const used = new Set<string>()
   const out: Challenge[] = []
-  const total = SECRET_SERIES_LEN + extra
+  const remateFrom = s.act === 'final' ? slots : slots.slice(-3)
 
-  for (let k = 0; k < total; k++) {
-    const slot = Math.min(k, SECRET_SERIES_LEN - 1)
-    // Lugares extra (remates por curaciones): temas al azar, siempre senior.
-    const boss = k < SECRET_SERIES_LEN
-      ? source[Math.round((slot * (source.length - 1)) / (SECRET_SERIES_LEN - 1))]
-      : source[Math.floor(rng() * source.length)]
-    const tier: ChallengeTier = k < SECRET_SERIES_LEN ? tiers[slot] : 'senior'
-    const order: ChallengeTier[] = tier === 'senior' ? ['senior', 'trainee', 'junior'] : ['trainee', 'senior', 'junior']
-    let pick: Challenge | undefined
-    for (const tr of order) {
-      const options = CHALLENGES.filter((c) => c.bossId === boss.id && c.tier === tr && !used.has(c.id))
-      if (options.length) { pick = options[Math.floor(rng() * options.length)]; break }
-    }
-    if (!pick) {
-      const any = CHALLENGES.filter((c) => !used.has(c.id) && done.has(c.bossId) && c.tier !== 'junior')
-      pick = any[Math.floor(rng() * any.length)]
-    }
+  for (let k = 0; k < SECRET_SERIES_LEN + extra; k++) {
+    const boss = k < SECRET_SERIES_LEN ? slots[k] : remateFrom[Math.floor(rng() * remateFrom.length)]
+    if (!boss) break
+    const pick = pickChallenge(boss.id, k < SECRET_SERIES_LEN ? tiers[k] : tier, used, rng)
+      ?? slots.map((b) => pickChallenge(b.id, tier, used, rng)).find(Boolean)
     if (!pick) break
     used.add(pick.id)
     out.push(pick)
@@ -229,10 +278,9 @@ export function buildSecretSeries(defeatedIds: Iterable<string>, rng: () => numb
   return out
 }
 
-/** Un ejercicio más para rematar (después de que el jefe se curó). */
-export function nextRemate(defeatedIds: Iterable<string>, seed: number, current: Challenge[]): Challenge | undefined {
-  const series = buildSecretSeries(defeatedIds, seededRng(seed), current.length - SECRET_SERIES_LEN + 1)
+/** Un ejercicio más para rematar (después de que el jefe se curó). Mismas reglas que la serie. */
+export function nextRemate(s: SecretBoss, defeatedIds: Iterable<string>, tier: ChallengeTier, seed: number, current: Challenge[]): Challenge | undefined {
+  const series = buildSecretSeries(s, defeatedIds, tier, seededRng(seed), current.length - SECRET_SERIES_LEN + 1)
   const have = new Set(current.map((c) => c.id))
   return series.slice(SECRET_SERIES_LEN).find((c) => !have.has(c.id))
-    ?? CHALLENGES.find((c) => !have.has(c.id) && new Set(defeatedIds).has(c.bossId) && c.tier === 'senior')
 }

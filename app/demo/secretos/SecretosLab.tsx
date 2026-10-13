@@ -5,7 +5,8 @@ import Link from 'next/link'
 import SecretCanvas from '@/components/game/secret/SecretCanvas'
 import SecretArena from '@/components/game/secret/SecretArena'
 import { RENDER_MODES, type RenderMode } from '@/lib/game/architect/render'
-import { SECRET_BOSSES, SECRET_SERIES_LEN, seriesTiers } from '@/lib/game/secret/bosses'
+import { SECRET_BOSSES, SECRET_SERIES_LEN, buildSecretSeries, secretUnlock, seededRng, seriesTiers } from '@/lib/game/secret/bosses'
+import type { ChallengeTier } from '@/types'
 import { BOSSES } from '@/lib/game/bosses'
 import { resetSecretsForDemo } from '@/lib/storage/local-store'
 
@@ -21,6 +22,7 @@ export default function SecretosLab() {
   const [arena, setArena] = useState<string | null>(null)
   const [defeated, setDefeated] = useState(8)
   const [msg, setMsg] = useState('')
+  const [tier, setTier] = useState<ChallengeTier>('trainee')
 
   const ids = BOSSES.slice(0, defeated).map((b) => b.id)
   const live = SECRET_BOSSES.find((s) => s.id === arena)
@@ -31,7 +33,7 @@ export default function SecretosLab() {
           SANDBOX · {defeated} jefes derrotados · nada se guarda ·{' '}
           <button type="button" style={{ ...btn(false), padding: '1px 8px' }} onClick={() => setArena(null)}>volver al lab</button>
         </div>
-        <SecretArena key={`${live.id}-${defeated}`} secret={live} defeatedIds={ids} sandbox adminTools exitHref="/demo/secretos" />
+        <SecretArena key={`${live.id}-${defeated}-${tier}`} secret={live} defeatedIds={ids} tier={tier} sandbox adminTools exitHref="/demo/secretos" />
       </div>
     )
   }
@@ -65,7 +67,13 @@ export default function SecretosLab() {
               <div style={{ color: '#777', fontSize: 12 }}>{s.epithet}</div>
               <div style={{ color: '#555', fontSize: 12, marginTop: 4 }}>
                 {s.hpMax} HP · abre con {s.minDefeated} jefes · acto {s.act}
+                {` · y ${s.minActDefeated} de su acto`}
                 {s.keyItem ? ` · reconoce ${s.keyItem.id === 'item-corona' ? 'la Corona' : 'las Esmeraldas'}` : ''}
+              </div>
+              <div style={{ color: '#666', fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
+                {secretUnlock(s, ids).open ? 'serie con estos jefes:' : 'con estos jefes estaría sellada · serie igual:'}
+                <br />
+                {buildSecretSeries(s, ids, tier, seededRng(7)).map((c) => `${c.bossId.split('-')[0]} (${c.tier})`).join(' · ')}
               </div>
               <button type="button" style={{ ...btn(false), marginTop: 10 }} onClick={() => setArena(s.id)}>probar la arena ▸</button>
             </div>
@@ -77,7 +85,10 @@ export default function SecretosLab() {
             JEFES DERROTADOS (arma la serie): {defeated}
             <input type="range" min={1} max={14} value={defeated} onChange={(e) => setDefeated(Number(e.target.value))} />
           </label>
-          <span style={{ color: '#666' }}>niveles de la serie de {SECRET_SERIES_LEN}: {seriesTiers(defeated).join(' · ')}</span>
+          <span style={{ display: 'flex', gap: 6 }}>
+            {(['junior', 'trainee', 'senior'] as ChallengeTier[]).map((t) => <button key={t} type="button" style={btn(tier === t)} onClick={() => setTier(t)}>{t}</button>)}
+          </span>
+          <span style={{ color: '#666' }}>niveles de la serie de {SECRET_SERIES_LEN}: {seriesTiers(tier).join(' · ')}</span>
           <button type="button" style={btn(false)} onClick={() => { resetSecretsForDemo(); setMsg('Victorias, derrotas y partidas borradas en este navegador.') }}>
             borrar victorias/derrotas
           </button>

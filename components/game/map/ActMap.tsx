@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { sfx } from '@/lib/game/architect/sound'
 import { findPath, key, type ActMapDef, type MapChest, type MapLair, type MapPoint } from '@/lib/game/act-maps'
-import { getSecretBoss } from '@/lib/game/secret/bosses'
+import { getSecretBoss, secretUnlock, type SecretBoss } from '@/lib/game/secret/bosses'
 import { SHOP_UNLOCK_BOSS_NUMBER } from '@/lib/game/shop'
 
 // Mi Reino abre cuando el alumno ya sabe crear tablas (Constructor del Vacío, jefe 7).
@@ -72,15 +72,13 @@ interface ActMapProps {
   avatar?: AvatarId
   /** Repasos con Rodolfo habilitados para este alumno (ids de jefe, de todos los actos). */
   repasoIds?: string[]
-  /** Jefes derrotados en total: abre las guaridas de los jefes secretos. */
-  defeatedCount?: number
   /** Docente: guaridas abiertas y caminos sin traba. */
   secretsOpen?: boolean
 }
 
 export default function ActMap({
   act, bossStates, playgroundReachable, onReachEdge, fillHeight, shopUnlocked = false, reenterDefeated = false, startAt, onPosChange, keyboard = true, avatar,
-  repasoIds = [], defeatedCount = 0, secretsOpen = false,
+  repasoIds = [], secretsOpen = false,
 }: ActMapProps) {
   const router = useRouter()
   const start = startAt && act.links[key(startAt.x, startAt.y)] ? startAt : act.entry
@@ -185,6 +183,18 @@ export default function ActMap({
   const spotAt = useMemo(() => new Map(spots.map((s) => [key(s.p.x, s.p.y), s])), [spots])
   const bossById = useMemo(() => new Map(act.bosses.map((b) => [b.id, b])), [act])
   const reinoUnlocked = bossStates[REINO_UNLOCK_BOSS] === 'defeated'
+  // Guaridas: piden jefes derrotados en total Y de su acto (que haya demostrado el tema que examinan).
+  const defeatedIds = useMemo(() => Object.keys(bossStates).filter((id) => bossStates[id] === 'defeated'), [bossStates])
+  const lairSeal = useCallback((def: SecretBoss) => {
+    if (secretsOpen) return null
+    const u = secretUnlock(def, defeatedIds)
+    if (u.open) return null
+    if (u.missingTotal > 0) return { short: `Faltan ${u.missingTotal} jefes`, text: def.sealed.replace('{n}', String(u.missingTotal)) }
+    return {
+      short: `Faltan ${u.missingAct} jefes de este acto`,
+      text: `Ahí adentro te toman examen de lo que se ve en este acto. Volvé cuando hayas derrotado ${u.missingAct === 1 ? 'a 1 jefe más' : `a ${u.missingAct} jefes más`} de acá.`,
+    }
+  }, [defeatedIds, secretsOpen])
 
   const placeOpen = useCallback(
     (kind: PlaceKind) => (kind === 'school' || kind === 'library' ? true : kind === 'shop' ? shopUnlocked : kind === 'reino' ? reinoUnlocked : playgroundReachable),
@@ -257,10 +267,10 @@ export default function ActMap({
     if (s.kind === 'lair') {
       const def = getSecretBoss(s.lair.id)
       if (!def) return
-      const missing = def.minDefeated - defeatedCount
-      if (missing > 0 && !secretsOpen) {
+      const seal = lairSeal(def)
+      if (seal) {
         sfx.chestSealed()
-        setWarning(def.sealed.replace('{n}', String(missing)))
+        setWarning(seal.text)
         return
       }
       sfx.glitch()
@@ -290,7 +300,7 @@ export default function ActMap({
       return
     }
     confirmAndGo(s.p, s.kind === 'playground' ? `/patio-de-juegos?acto=${act.key}` : '/patio-de-practicas')
-  }, [act.key, bossStates, confirmAndGo, found, playgroundReachable, reenterDefeated, shopUnlocked, reinoUnlocked, showWarning, stopWalk, defeatedCount, secretsOpen])
+  }, [act.key, bossStates, confirmAndGo, found, playgroundReachable, reenterDefeated, shopUnlocked, reinoUnlocked, showWarning, stopWalk, lairSeal])
 
   const moveTo = useCallback((next: MapPoint, dir: Facing) => {
     posRef.current = next
@@ -463,13 +473,13 @@ export default function ActMap({
       const def = getSecretBoss(s.lair.id)
       if (!def) return null
       const beaten = lairsBeaten.has(def.id)
-      const missing = def.minDefeated - defeatedCount
-      const sealed = missing > 0 && !secretsOpen
+      const seal = lairSeal(def)
+      const sealed = !!seal
       return (
         <NodeDetailPopover
           title={beaten ? def.name : '???'}
           body={beaten ? 'Ya lo derrotaste. Podés volver sin premio ni castigo.' : sealed ? 'Algo se mueve en la oscuridad.' : 'Sin ayuda. Si perdés, perdés diamantes.'}
-          status={beaten ? 'Derrotado' : sealed ? `Faltan ${missing} jefes` : 'Te espera'}
+          status={beaten ? 'Derrotado' : seal ? seal.short : 'Te espera'}
           positive={!sealed}
           onEnter={standing ? () => enterSpot(s) : undefined}
           enterLabel={beaten ? 'Volver' : 'Entrar'}
@@ -610,7 +620,7 @@ export default function ActMap({
                 <LairNode
                   focused={focused}
                   size={sz}
-                  sealed={!!def && def.minDefeated > defeatedCount && !secretsOpen}
+                  sealed={!!def && !!lairSeal(def)}
                   defeated={lairsBeaten.has(s.lair.id)}
                   fresh={freshPath === s.lair.id}
                 />
