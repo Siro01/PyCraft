@@ -4,7 +4,13 @@
 
 const MUTE_KEY = 'pysql:sfx-muted'
 
+// Silencio forzado por una pantalla (la Mesa del Pistolero): calla todo sin
+// tocar la preferencia guardada del jugador.
+let forceMute = false
+export function setForceMute(on: boolean): void { forceMute = on }
+
 export function isMuted(): boolean {
+  if (forceMute) return true
   try { return localStorage.getItem(MUTE_KEY) === '1' } catch { return false }
 }
 

@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import localFont from 'next/font/local'
 import { VT323, Silkscreen } from 'next/font/google'
 import PixelFXProvider from '@/components/ui/PixelFXProvider'
+import PistoleroWatcher from '@/components/game/raid/PistoleroWatcher'
 import './globals.css'
 
 // Jersey 25 (OFL) servida desde el proyecto: no depende de Google Fonts en desarrollo
@@ -50,7 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body><PixelFXProvider>{children}</PixelFXProvider><UISounds /></body>
+      <body><PixelFXProvider>{children}</PixelFXProvider><UISounds /><PistoleroWatcher /></body>
     </html>
   )
 }

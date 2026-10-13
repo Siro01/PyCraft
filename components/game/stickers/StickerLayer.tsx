@@ -109,7 +109,7 @@ export default function StickerLayer({ surface }: Props) {
         const owned1 = owned.find((o) => o.id === id)
         if (!item || !owned1) return null
         const tint = owned1.colorway ? `hsl(${owned1.colorway})` : 'hsl(var(--accent))'
-        const chest = item.source === 'chest' ? getChestSticker(id) : undefined
+        const chest = item.source ? getChestSticker(id) : undefined
         return (
           <div
             key={id}

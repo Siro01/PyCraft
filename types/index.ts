@@ -18,7 +18,7 @@ export interface Amulet {
 // ─── Tienda del Mercader del Abismo ──────────────────────────────────────────
 // A diferencia de los amuletos (de un solo uso), estos ítems se quedan con el
 // alumno para siempre una vez comprados.
-export type ShopItemCategory = 'sticker' | 'perk'
+export type ShopItemCategory = 'sticker' | 'perk' | 'titulo'
 
 /**
  * Solo aplica a category: 'perk' — decide dónde y cómo se activa en batalla:
@@ -57,8 +57,10 @@ export interface ShopItem {
   printName?: string
   /** Solo perks — una línea de "cómo se usa / qué hace exactamente", más concreta que la descripción. */
   effectHint?: string
-  /** 'chest' = sticker que no se vende: se encuentra en un cofre del mapa (lib/game/chest-stickers.ts). */
-  source?: 'chest'
+  /** Stickers que no se venden: 'chest' = se encuentra en un cofre del mapa; 'raid' = botín de una raid (lib/game/chest-stickers.ts). */
+  source?: 'chest' | 'raid'
+  /** Solo 'titulo': lo que se ve en las raids (un título al lado del nombre o el color del estandarte del equipo). */
+  cosmetic?: { kind: 'titulo' | 'estandarte'; value: string }
 }
 
 export interface OwnedShopItem {

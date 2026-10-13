@@ -15,6 +15,7 @@ const vt = 'var(--font-vt323), monospace'
 const TABS = [
   { id: 'perk', label: 'Ítems' },
   { id: 'sticker', label: 'Stickers' },
+  { id: 'titulo', label: 'Títulos' },
   { id: 'collectibles', label: 'Mis stickers' },
 ] as const
 type TabId = (typeof TABS)[number]['id']

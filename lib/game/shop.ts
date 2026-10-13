@@ -30,6 +30,17 @@ export const MERCADER_ITEM_QUIPS: Record<string, string> = {
   'item-zonda': 'Lo embotellé una tarde de agosto en Mendoza. No lo abras adentro.',
   'item-pocion-dano': 'Cara, sí. Pero lo barato sale caro, ¿no te dijeron?',
   'item-mazo-diamante': 'No quería venderlo. Pero vos te lo ganaste.',
+  'item-bandera': 'Se la saqué a un regimiento que ya no existe. Flamea igual.',
+  'item-chaleco': 'Cuero de verdad. Tiene un agujero, pero es de antes.',
+  'item-bengala': 'No la prendas cerca de la mercadería, por favor.',
+  'item-espuelas': 'Hacen ruido al caminar. Al Pistolero no le gusta ese ruido.',
+  'item-botiquin': 'Vendas, agua y un caramelo. Lo básico para seguir peleando.',
+  'titulo-cazarrecompensas': 'Un nombre se gana. O se compra. Acá, se compra.',
+  'titulo-forajido': 'Que lo digan con respeto. O con miedo, también sirve.',
+  'titulo-sheriff': 'La estrella es de lata. El respeto no.',
+  'estandarte-brasa': 'Rojo como el pañuelo de cierto pistolero.',
+  'estandarte-jade': 'Verde como el veneno de la Polilla. Lindo, ¿no?',
+  'estandarte-oro': 'Dorado. Para los que no tienen miedo de que los vean llegar.',
 }
 
 // Precios y niveles siguen los tramos de planificacion/items.md: el techo de
@@ -217,6 +228,84 @@ export const SHOP_CATALOG: ShopItem[] = [
     description: 'El arma más rota del Abismo. El Mercader no quería venderla.',
     effectHint: 'Deja al jefe con el 3% de su vida. Un solo acierto más y cae.',
     level: 20, price: 220, glyph: 'item:mazo-diamante',
+  },
+
+  // ── Para el equipo: ítems del duelo contra El Pistolero ──────────────────
+  // Solo funcionan en ese duelo (PLAN-RAID.md §4); el efecto lo aplica
+  // /api/raid (o la pantalla del duelo, en el caso del Chaleco).
+  {
+    id: 'item-bandera',
+    category: 'perk', perkKind: 'consumable', effectId: 'bandera', printName: 'bandera',
+    name: 'Bandera del Equipo',
+    description: 'Un trapo rojo atado a un palo. Cuando flamea, el equipo se acuerda de por qué pelea.',
+    effectHint: 'En equipo: contra el Pistolero, +20 de vida para todo el equipo; en una raid de secretos, +20 de vida a cada integrante en pie.',
+    level: 3, price: 30, glyph: 'item:bandera',
+  },
+  {
+    id: 'item-chaleco',
+    category: 'perk', perkKind: 'consumable', effectId: 'chaleco', printName: 'chaleco',
+    name: 'Chaleco de Cuero',
+    description: 'Gastado, con olor a pólvora. Ya paró más de una bala.',
+    effectHint: 'Solo en el duelo contra el Pistolero: la próxima Desenfundada contra vos rebota y no te congela.',
+    level: 3, price: 25, glyph: 'item:chaleco',
+  },
+  {
+    id: 'item-espuelas',
+    category: 'perk', perkKind: 'consumable', effectId: 'espuelas', printName: 'espuelas',
+    name: 'Espuelas de Plata',
+    description: 'Tintinean cuando te acercás. El Pistolero las escucha y se pone nervioso.',
+    effectHint: 'En equipo (Pistolero o raid de secretos): tu próximo acierto le saca el doble de vida.',
+    level: 4, price: 30, glyph: 'item:espuelas',
+  },
+  {
+    id: 'item-bengala',
+    category: 'perk', perkKind: 'consumable', effectId: 'bengala', printName: 'bengala',
+    name: 'Bengala',
+    description: 'Una luz roja que sube al cielo del desierto. Por un rato, todos ven más claro.',
+    effectHint: 'Solo en el duelo contra el Pistolero: durante 30 s, todos los del duelo ven una pista de su ejercicio.',
+    level: 5, price: 35, glyph: 'item:bengala',
+  },
+
+  {
+    id: 'item-botiquin',
+    category: 'perk', perkKind: 'consumable', effectId: 'botiquin', printName: 'botiquin',
+    name: 'Botiquín de Campaña',
+    description: 'Una caja de lata con una cruz pintada a mano. Nadie se queda tirado.',
+    effectHint: 'En una raid contra un jefe secreto: levanta al instante a un compañero caído, con 50 de vida.',
+    level: 4, price: 35, glyph: 'item:botiquin',
+  },
+
+  // ── Títulos y estandartes: se ven en las raids ───────────────────────────
+  // No cambian el juego: son para lucirse (y para gastar los diamantes de las raids).
+  {
+    id: 'titulo-cazarrecompensas', category: 'titulo', cosmetic: { kind: 'titulo', value: 'Cazarrecompensas' },
+    name: 'Título: Cazarrecompensas', description: 'Aparece al lado de tu nombre en las raids.',
+    level: 3, price: 40, glyph: 'item:titulo',
+  },
+  {
+    id: 'titulo-forajido', category: 'titulo', cosmetic: { kind: 'titulo', value: 'Forajido' },
+    name: 'Título: Forajido', description: 'Aparece al lado de tu nombre en las raids.',
+    level: 5, price: 50, glyph: 'item:titulo',
+  },
+  {
+    id: 'titulo-sheriff', category: 'titulo', cosmetic: { kind: 'titulo', value: 'Sheriff del Aula' },
+    name: 'Título: Sheriff del Aula', description: 'Aparece al lado de tu nombre en las raids. El más difícil de conseguir.',
+    level: 8, price: 80, glyph: 'item:titulo',
+  },
+  {
+    id: 'estandarte-brasa', category: 'titulo', cosmetic: { kind: 'estandarte', value: '#FF5A36' },
+    name: 'Estandarte Brasa', description: 'Si armás una raid, tu equipo pelea bajo este color.',
+    level: 3, price: 40, glyph: 'item:estandarte',
+  },
+  {
+    id: 'estandarte-jade', category: 'titulo', cosmetic: { kind: 'estandarte', value: '#5FD39A' },
+    name: 'Estandarte Jade', description: 'Si armás una raid, tu equipo pelea bajo este color.',
+    level: 3, price: 40, glyph: 'item:estandarte',
+  },
+  {
+    id: 'estandarte-oro', category: 'titulo', cosmetic: { kind: 'estandarte', value: '#F2C14E' },
+    name: 'Estandarte Dorado', description: 'Si armás una raid, tu equipo pelea bajo este color.',
+    level: 6, price: 60, glyph: 'item:estandarte',
   },
 
   // ── Stickers de cofre: no se venden, se encuentran explorando el mapa ────

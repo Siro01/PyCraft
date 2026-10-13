@@ -635,7 +635,7 @@ export default function ActMap({
                 <ChestNode
                   focused={focused}
                   size={sz}
-                  kind={s.chest.kind}
+                  kind={s.chest.kind === 'cofre' ? 'cofre' : 'secreto'}
                   opened={found.has(s.chest.id)}
                   sealed={!!def?.sealedUntil && bossStates[def.sealedUntil] !== 'defeated'}
                   fresh={freshPath === s.chest.id}

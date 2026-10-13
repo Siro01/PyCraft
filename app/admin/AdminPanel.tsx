@@ -11,6 +11,7 @@ import TestStudentPanel from './TestStudentPanel'
 import RepasosPanel from './RepasosPanel'
 import ReinosPanel from './ReinosPanel'
 import ArenaPanel from './ArenaPanel'
+import RaidsPanel from './RaidsPanel'
 import { aulaHorario, aulaLabel, hhmm, type AdminAula } from './aula-label'
 import { TEST_USERNAME } from '@/lib/test-student/constants'
 import { DEFAULT_TIER_ENABLED, TIER_META, TIER_ORDER } from '@/lib/game/tiers'
@@ -80,7 +81,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
   const [resetPassword, setResetPassword] = useState('')
   const [resetStatus, setResetStatus] = useState('')
 
-  const [tab, setTab] = useState<'bosses' | 'repasos' | 'exercises' | 'aulas' | 'students' | 'reinos' | 'arena' | 'stats' | 'test'>('bosses')
+  const [tab, setTab] = useState<'bosses' | 'repasos' | 'exercises' | 'aulas' | 'students' | 'reinos' | 'arena' | 'raids' | 'stats' | 'test'>('bosses')
 
   const isTierEnabled = (aulaId: string, tier: ChallengeTier) =>
     tierMap[aulaId]?.[tier] ?? DEFAULT_TIER_ENABLED[tier]
@@ -245,6 +246,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
     { key: 'students', label: 'Alumnos' },
     { key: 'reinos', label: 'Reinos SQL' },
     { key: 'arena', label: 'Arena' },
+    { key: 'raids', label: 'Raids' },
     { key: 'stats', label: 'Estadísticas' },
     { key: 'test', label: 'Alumno TEST' },
   ] as const
@@ -256,6 +258,10 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
       <div className="flex items-center gap-2 font-mono text-xs text-tx2">
         <span className="inline-block w-2 h-2" style={{ background: totalActive > 0 ? 'hsl(var(--python))' : 'hsl(var(--tx3))' }} />
         {totalActive} alumno{totalActive === 1 ? '' : 's'} activo{totalActive === 1 ? '' : 's'} (últimos 10 min)
+        <span className="ml-auto flex gap-2">
+          <a href="/admin/pistolero" className="btn-ghost font-mono text-xs">Mesa del Pistolero →</a>
+          <a href="/admin/pistolero?ensayo=1" className="btn-ghost font-mono text-xs">ensayar</a>
+        </span>
       </div>
 
       {/* Tab bar */}
@@ -363,6 +369,8 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
       {tab === 'reinos' && <ReinosPanel aulas={aulas} students={students} />}
 
       {tab === 'arena' && <ArenaPanel aulas={aulas} students={students} />}
+
+      {tab === 'raids' && <RaidsPanel aulas={aulas} students={students} />}
 
       {/* ── AULAS TAB ── */}
       {tab === 'aulas' && (

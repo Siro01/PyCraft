@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ItemSprite } from '@/components/game/items/ItemSprites'
-import { getChestSticker, lineFor, stageFor, type PokeFx } from '@/lib/game/chest-stickers'
+import { getChestSticker, lineFor, stageFor, type ChestKind, type PokeFx } from '@/lib/game/chest-stickers'
 import { sfx } from '@/lib/game/architect/sound'
 import { addStickerPoke, getStickerPokes } from '@/lib/storage/local-store'
 
@@ -170,10 +170,12 @@ export function PixelStar({ px = 7, fill = 'currentColor' }: { px?: number; fill
 }
 
 /** Destello de rareza: una estrellita que titila de a ratos en la esquina (cofre = tinta, secreto = acento). */
-export function ChestSparkle({ kind, px = 7, style }: { kind: 'cofre' | 'secreto'; px?: number; style?: React.CSSProperties }) {
+export function ChestSparkle({ kind, px = 7, style }: { kind: ChestKind; px?: number; style?: React.CSSProperties }) {
+  // El botín de raid brilla como un cofre secreto: es igual de difícil de conseguir
+  const look = kind === 'cofre' ? 'cofre' : 'secreto'
   return (
-    <span className={`cs-sparkle cs-sparkle--${kind}`} aria-hidden style={style}>
-      <PixelStar px={px} fill={kind === 'secreto' ? 'hsl(var(--accent))' : 'hsl(var(--tx))'} />
+    <span className={`cs-sparkle cs-sparkle--${look}`} aria-hidden style={style}>
+      <PixelStar px={px} fill={look === 'secreto' ? 'hsl(var(--accent))' : 'hsl(var(--tx))'} />
     </span>
   )
 }

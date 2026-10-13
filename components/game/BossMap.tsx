@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import AppWindow, { type WindowMode } from '@/components/ui/AppWindow'
-import { ICON_FILE, ICON_FOLDER, ICON_SWORDS, ICON_TERMINAL, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
+import { ICON_FILE, ICON_FOLDER, ICON_RAID, ICON_SWORDS, ICON_TERMINAL, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
+import { RAID_UNLOCK_DEFEATED } from '@/lib/game/raid/secret-raid'
 import InventoryApp from '@/components/game/inventory/InventoryApp'
 import DiamondIcon from '@/components/ui/DiamondIcon'
 import StickerLayer from '@/components/game/stickers/StickerLayer'
@@ -284,6 +285,20 @@ export default function BossMap({
                 >
                   <PixelBitmap rows={ICON_SWORDS} scale={4} />
                   <span className="desk-lbl">arena.exe</span>
+                </a>
+              )}
+              {/* raid.exe: solo con cuenta del taller (como la arena) y desde el jefe 4 */}
+              {arena && (
+                <a
+                  href={totalDefeated >= RAID_UNLOCK_DEFEATED ? '/raid' : undefined}
+                  className="desk-icon"
+                  aria-disabled={totalDefeated < RAID_UNLOCK_DEFEATED}
+                  onClick={(e) => { if (totalDefeated < RAID_UNLOCK_DEFEATED) { e.preventDefault(); sfx.denied() } else sfx.open() }}
+                  title={totalDefeated >= RAID_UNLOCK_DEFEATED ? 'Abrir raid.exe: en equipo contra los jefes secretos' : `Se abre al derrotar ${RAID_UNLOCK_DEFEATED} jefes`}
+                  style={{ textDecoration: 'none', opacity: totalDefeated >= RAID_UNLOCK_DEFEATED ? 1 : 0.45, cursor: totalDefeated >= RAID_UNLOCK_DEFEATED ? 'pointer' : 'not-allowed' }}
+                >
+                  <PixelBitmap rows={ICON_RAID} scale={4} />
+                  <span className="desk-lbl">raid.exe</span>
                 </a>
               )}
             </div>

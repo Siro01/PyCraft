@@ -52,4 +52,6 @@ export interface ArenaStats {
   /** Diamantes netos ganados/perdidos en la arena. */
   net: number
   xp: number
+  /** Veces que le ganó al Pistolero con al menos un acierto (numera el cartel SE BUSCA). */
+  pistolero?: number
 }

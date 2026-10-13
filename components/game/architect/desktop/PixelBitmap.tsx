@@ -146,6 +146,22 @@ export const ICON_SWORDS: Bitmap = [
   '##........##',
 ]
 
+// raid.exe: un estandarte sobre un equipo de tres
+export const ICON_RAID: Bitmap = [
+  '.....#......',
+  '.....####...',
+  '.....#####..',
+  '.....####...',
+  '.....#......',
+  '.....#......',
+  '.##..##..##.',
+  '#hh##hh##hh#',
+  '.##..##..##.',
+  '#aa##aa##aa#',
+  '#aa##aa##aa#',
+  '############',
+]
+
 export const ICON_WALL: Bitmap = [
   '############',
   '#.#.#.#.#.##',

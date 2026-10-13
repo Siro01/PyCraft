@@ -69,17 +69,19 @@ export function startOfDayAR(now = new Date()): string {
 const CATALOG_IDS = new Set(SHOP_CATALOG.map((i) => i.id))
 
 /**
- * Saldo CONSERVADOR de diamantes: jefes × 20 + patio + arena − lo gastado en
+ * Saldo CONSERVADOR de diamantes: jefes × 20 + patio + arena + raids − lo gastado en
  * la tienda (lo que ya sincronizó game_extras). Deja afuera el bono del
  * docente, así que nunca habilita retarse por diamantes que el alumno no tiene.
  */
 export async function balances(admin: SupabaseClient, ids: string[], defeated: Map<string, Set<string>>): Promise<Map<string, { balance: number; lostToday: number }>> {
   const out = new Map<string, { balance: number; lostToday: number }>()
   if (!ids.length) return out
-  const [{ data: extras }, { data: ledger }] = await Promise.all([
+  const [{ data: extras }, { data: arenaLedger }, { data: raidLedger }] = await Promise.all([
     admin.from('game_extras').select('user_id, shop, playground').in('user_id', ids),
     admin.from('arena_ledger').select('user_id, delta, created_at').in('user_id', ids),
+    admin.from('raid_ledger').select('user_id, delta, created_at').in('user_id', ids), // null si falta la 014
   ])
+  const ledger = [...(arenaLedger ?? []), ...(raidLedger ?? [])]
   const since = Date.parse(startOfDayAR())
   for (const id of ids) {
     const ex = (extras ?? []).find((e) => e.user_id === id) as { shop: OwnedShopItem[] | null; playground: { xpAwarded?: Record<string, boolean>; bestScore?: Record<string, number> } | null } | undefined
@@ -87,7 +89,9 @@ export async function balances(admin: SupabaseClient, ids: string[], defeated: M
     const pg = ex?.playground ? playgroundDiamonds({ xpAwarded: ex.playground.xpAwarded ?? {}, bestScore: ex.playground.bestScore ?? {} }) : 0
     const mine = ((ledger ?? []) as { user_id: string; delta: number; created_at: string }[]).filter((l) => l.user_id === id)
     const net = mine.reduce((s, l) => s + l.delta, 0)
-    const lostToday = -mine.filter((l) => l.delta < 0 && Date.parse(l.created_at) >= since).reduce((s, l) => s + l.delta, 0)
+    // el tope diario es solo de la arena: las raids no lo consumen
+    const lostToday = -((arenaLedger ?? []) as { user_id: string; delta: number; created_at: string }[])
+      .filter((l) => l.user_id === id && l.delta < 0 && Date.parse(l.created_at) >= since).reduce((s, l) => s + l.delta, 0)
     const bosses = defeated.get(id)?.size ?? 0
     out.set(id, { balance: bosses * DIAMONDS_PER_BOSS + pg + net - spent, lostToday })
   }

@@ -12,8 +12,8 @@
 
 import type { ShopItem } from '@/types'
 
-export type ChestKind = 'cofre' | 'secreto'
-export type ChestAct = 'python' | 'sql' | 'mixed' | 'final'
+export type ChestKind = 'cofre' | 'secreto' | 'botin'
+export type ChestAct = 'python' | 'sql' | 'mixed' | 'final' | 'raid'
 /** Cómo reacciona al toque (clase cs-poke--*, sonido y partículas). */
 export type PokeFx = 'hiss' | 'bounce' | 'uncork' | 'vanish' | 'wobble' | 'snap' | 'glitch' | 'purr'
 
@@ -47,7 +47,7 @@ export interface ChestSticker {
   sealedText?: string
 }
 
-export const ACT_LABEL: Record<ChestAct, string> = { python: 'Acto I', sql: 'Acto II', mixed: 'Acto III', final: 'Acto IV' }
+export const ACT_LABEL: Record<ChestAct, string> = { python: 'Acto I', sql: 'Acto II', mixed: 'Acto III', final: 'Acto IV', raid: 'El Pistolero' }
 
 export const CHEST_STICKERS: ChestSticker[] = [
   // ── ACTO I · Python ────────────────────────────────────────────────────────
@@ -220,7 +220,115 @@ export const CHEST_STICKERS: ChestSticker[] = [
   },
 ]
 
-const BY_ID = new Map(CHEST_STICKERS.map((s) => [s.id, s]))
+// ── Botín de raids: no están en cofres ni se venden; se ganan peleando en equipo ──
+// «SE BUSCA»: lo recibe quien acertó al menos una vez en un duelo que el aula
+// le ganó al Pistolero. Es numerado: el número son las veces que lo lograste
+// (raid_ledger, motivo 'pistolero'). Lo entrega lib/storage/cloud-sync.ts.
+export const SE_BUSCA_ID = 'sticker-raid-sebusca'
+
+export const RAID_STICKERS: ChestSticker[] = [
+  {
+    id: SE_BUSCA_ID,
+    name: 'SE BUSCA',
+    description: 'El cartel del Pistolero, arrancado de la pared del saloon el día que tu aula le ganó. Tiene tu número.',
+    act: 'raid', kind: 'botin', fx: 'wobble', voice: 'machine',
+    stages: [
+      {
+        from: 0, sprite: 'cs-sebusca', poke: 'cs-sebusca-poke',
+        lines: [
+          'SE BUSCA. Recompensa: respeto. Mucho respeto.',
+          'Ese bigote no es mío. Es del dibujante.',
+          'No me toques tanto el cartel, forastero. Se arruga.',
+          'Volveré. Siempre vuelvo. Está en el contrato.',
+          '¿Practicaste? Porque yo sí.',
+        ],
+      },
+      {
+        from: 12, sprite: 'cs-sebusca-sello', poke: 'cs-sebusca-poke',
+        lines: [
+          '¿Un sello de DERROTADO? Qué humillación.',
+          'Lo pegaste en tu escritorio, ¿no? Típico.',
+          'Disfrutá el botín. Mientras dure.',
+        ],
+      },
+    ],
+    secret: { after: 25, line: 'Dicen que de día enseña programación. Yo no sé nada. Yo no dije nada.' },
+    found: 'Arrancaste el cartel del Pistolero de la pared del saloon.',
+  },
+  // Raids contra los jefes secretos: el equipo que vence a uno se lleva su sticker
+  // (cada integrante en pie). Lo entrega lib/storage/cloud-sync.ts.
+  {
+    id: 'sticker-raid-errante',
+    name: 'Espada del Errante',
+    description: 'El Errante la clavó en el suelo y se fue caminando. Dijo que ya no la necesitaba: había encontrado compañía.',
+    act: 'raid', kind: 'botin', fx: 'snap', voice: 'machine',
+    stages: [{
+      from: 0, sprite: 'cs-raid-errante', poke: 'cs-raid-errante-poke',
+      lines: [
+        'Caminé solo mucho tiempo. Ustedes no.',
+        'Un for recorre. Un equipo llega.',
+        'La hoja sigue afilada. Como tu código, espero.',
+      ],
+    }],
+    secret: { after: 15, line: 'Antes de errar, fui el primer programa de alguien. Imprimía «hola». Nada más.' },
+    found: 'La espada del Errante, clavada en la tierra.',
+  },
+  {
+    id: 'sticker-raid-polilla',
+    name: 'La Polilla del Cuaderno',
+    description: 'Pegada con cinta en una bitácora, como la primera polilla de la historia que trabó una computadora.',
+    act: 'raid', kind: 'botin', fx: 'vanish', voice: 'machine',
+    stages: [{
+      from: 0, sprite: 'cs-raid-polilla', poke: 'cs-raid-polilla-poke',
+      lines: [
+        '1947. Relé número 70. Ahí empezó todo.',
+        'Me pegaron con cinta. Qué falta de respeto.',
+        'Un WHERE mal puesto es un bicho. Revisalo.',
+      ],
+    }],
+    secret: { after: 15, line: 'Grace Hopper anotó: «primer caso real de un bug encontrado». Ese bug era yo.' },
+    found: 'La polilla, pegada con cinta en la bitácora.',
+  },
+  {
+    id: 'sticker-raid-ouroboros',
+    name: 'Anillo del Ouroboros',
+    description: 'La serpiente que se muerde la cola, hecha anillo. Si la mirás mucho, sentís que el bucle no termina.',
+    act: 'raid', kind: 'botin', fx: 'hiss', voice: 'cat',
+    stages: [{
+      from: 0, sprite: 'cs-raid-ouroboros', poke: 'cs-raid-ouroboros-poke',
+      lines: [
+        'while True: me muerdo la cola.',
+        'Ustedes encontraron el break. Juntos.',
+        'Sss... cada vuelta es igual. Salvo esta.',
+      ],
+    }],
+    secret: { after: 15, line: 'El truco nunca fue el break. Era tener a alguien que te avise que estás dando vueltas.' },
+    found: 'El Ouroboros se enroscó en un anillo y se quedó quieto.',
+  },
+  {
+    id: 'sticker-raid-vigia',
+    name: 'Ojo del Vigía',
+    description: 'El Vigía nunca duerme. Ahora vigila tu escritorio. Parpadea cuando lo tocás.',
+    act: 'raid', kind: 'botin', fx: 'glitch', voice: 'machine',
+    stages: [{
+      from: 0, sprite: 'cs-raid-vigia', poke: 'cs-raid-vigia-poke',
+      lines: [
+        'Proceso en segundo plano: mirarte.',
+        'Vi todo tu código. Todo. Hasta los comentarios.',
+        'Un daemon no descansa. Pero puede perder.',
+      ],
+    }],
+    secret: { after: 15, line: 'Tengo un solo log guardado: la vez que me ganaron en equipo.' },
+    found: 'El ojo del Vigía se cerró. Y después se volvió a abrir, mirándote.',
+  },
+]
+
+/** El sticker de raid de un jefe secreto (`secreto-errante` → `sticker-raid-errante`). */
+export function raidStickerFor(bossId: string): string {
+  return `sticker-raid-${bossId.replace(/^secreto-/, '')}`
+}
+
+const BY_ID = new Map([...CHEST_STICKERS, ...RAID_STICKERS].map((s) => [s.id, s]))
 
 export function getChestSticker(id: string): ChestSticker | undefined {
   return BY_ID.get(id)
@@ -257,8 +365,15 @@ export function heardLines(s: ChestSticker, pokes: number): { heard: number; tot
 }
 
 /** Entradas del catálogo: mismo registro que la tienda (precio 0, `source: 'chest'`), así viajan a la nube y aparecen en el inventario y en ✦ Decorar sin plomería nueva. */
-export const CHEST_STICKER_ITEMS: ShopItem[] = CHEST_STICKERS.map((s) => ({
-  id: s.id, category: 'sticker', source: 'chest',
-  name: s.name, description: s.description,
-  level: 0, price: 0, glyph: `item:${s.stages[0].sprite}`,
-}))
+export const CHEST_STICKER_ITEMS: ShopItem[] = [
+  ...CHEST_STICKERS.map((s): ShopItem => ({
+    id: s.id, category: 'sticker', source: 'chest',
+    name: s.name, description: s.description,
+    level: 0, price: 0, glyph: `item:${s.stages[0].sprite}`,
+  })),
+  ...RAID_STICKERS.map((s): ShopItem => ({
+    id: s.id, category: 'sticker', source: 'raid',
+    name: s.name, description: s.description,
+    level: 0, price: 0, glyph: `item:${s.stages[0].sprite}`,
+  })),
+]

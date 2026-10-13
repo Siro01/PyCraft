@@ -426,7 +426,7 @@ export function getArenaStats(): ArenaStats {
   if (typeof window === 'undefined') return { net: 0, xp: 0 }
   try {
     const raw = JSON.parse(localStorage.getItem(ARENA_KEY) ?? 'null') as ArenaStats | null
-    return { net: Number(raw?.net) || 0, xp: Number(raw?.xp) || 0 }
+    return { net: Number(raw?.net) || 0, xp: Number(raw?.xp) || 0, pistolero: Number(raw?.pistolero) || 0 }
   } catch { return { net: 0, xp: 0 } }
 }
 

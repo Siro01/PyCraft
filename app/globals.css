@@ -3082,3 +3082,289 @@ button.lobby-row:hover .lobby-row-cta, .lobby-pick--on .lobby-row-cta { color: h
 .arena-herald { position: fixed; inset: 0; z-index: 60; overflow-y: auto; animation: herald-in 0.4s steps(4) both; }
 @keyframes herald-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .arena-herald { animation: none; } }
+
+/* ── El Pistolero (components/game/raid/PistoleroStage.tsx) ─────────────────── */
+.pist-stage { position: relative; overflow: hidden; background: #000; font-family: "Courier New", ui-monospace, monospace; }
+.pist-flash { position: absolute; inset: 0; background: var(--pist); mix-blend-mode: screen; pointer-events: none; animation: pist-flash 140ms ease-out forwards; }
+@keyframes pist-flash { from { opacity: 0.55; } to { opacity: 0; } }
+.pist-hole { position: absolute; width: 9%; aspect-ratio: 1; margin: -4.5% 0 0 -4.5%; pointer-events: none; animation: pist-hole 6s linear forwards; }
+@keyframes pist-hole { 0% { opacity: 0; transform: scale(1.6); } 4% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+.pist-dust { position: absolute; inset: 20% -10% 10%; display: flex; flex-direction: column; justify-content: center; pointer-events: none; color: var(--pist); font-size: 18px; line-height: 1.05; white-space: pre; }
+.pist-dust > div { animation: pist-dust 2.6s ease-in-out forwards; opacity: 0; }
+@keyframes pist-dust { 0% { transform: translateX(-60%); opacity: 0; } 25% { opacity: 0.9; } 75% { opacity: 0.9; } 100% { transform: translateX(60%); opacity: 0; } }
+.pist-banner { position: absolute; left: 0; right: 0; top: 8%; text-align: center; color: var(--pist); font-size: clamp(18px, 4vw, 34px); font-weight: bold; letter-spacing: 0.12em; text-shadow: 0 0 10px var(--pist); pointer-events: none; animation: pist-banner 1.6s ease-out forwards; }
+.pist-heal { color: #9BE58B; text-shadow: 0 0 10px #9BE58B; }
+@keyframes pist-banner { 0% { opacity: 0; transform: translateY(10px) scale(0.9); } 15% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-12px); } }
+.pist-line { position: absolute; left: 4%; right: 4%; bottom: 4%; padding: 10px 14px; background: rgba(0, 0, 0, 0.82); border: 1px solid var(--pist); color: var(--pist); font-size: clamp(14px, 2.2vw, 20px); line-height: 1.3; }
+@media (prefers-reduced-motion: reduce) {
+  .pist-flash, .pist-hole, .pist-dust > div, .pist-banner { animation-duration: 1ms; }
+}
+
+/* ── El Pistolero: aviso sorpresa (SummonOverlay) y pastilla (PistoleroWatcher) ── */
+.summon {
+  position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(8, 5, 3, 0.92); color: #EBC79E; font-family: "Courier New", ui-monospace, monospace;
+  animation: summon-in 420ms steps(6) both;
+}
+@keyframes summon-in { from { opacity: 0; clip-path: inset(48% 0 48% 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
+.summon-card { width: min(980px, 100%); max-height: 100%; overflow: auto; border: 1px solid #FF5A36; background: #0d0907; padding: 14px 16px 18px; box-shadow: 0 0 0 4px #0d0907, 0 0 0 5px #3a2a20; }
+.summon-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 18px; align-items: center; }
+@media (max-width: 720px) { .summon-grid { grid-template-columns: 1fr; } .summon-stage { max-width: 260px; margin: 0 auto; } }
+.summon-talk { cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
+.summon-talk p { margin: 0; font-family: var(--font-vt323), monospace; font-size: clamp(22px, 2.6vw, 30px); line-height: 1.15; color: #FFF1D0; }
+.summon-talk .summon-old { opacity: 0.45; }
+.summon-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 8px; }
+.summon-go {
+  background: #FF5A36; color: #120a06; border: 0; padding: 10px 22px 8px; cursor: pointer;
+  font-family: var(--font-jersey), monospace; font-size: 30px; letter-spacing: 0.08em;
+}
+.summon-go:hover { filter: brightness(1.12); }
+.summon-go:focus-visible, .summon-later:focus-visible { outline: 2px solid #FFF1D0; outline-offset: 3px; }
+.summon-later { background: none; border: 0; padding: 2px 0; color: #9C6A48; cursor: pointer; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.summon-later:hover { color: #EBC79E; }
+.pist-pill {
+  position: fixed; right: 16px; bottom: 16px; z-index: 70; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  background: #0d0907; color: #EBC79E; border: 1px solid #FF5A36; padding: 8px 12px; cursor: pointer; text-align: left;
+  font-family: "Courier New", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.12em;
+  animation: pist-pill 1.6s ease-in-out infinite;
+}
+.pist-pill b { color: #FF5A36; font-size: 14px; letter-spacing: 0.04em; }
+@keyframes pist-pill { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 90, 54, 0.5); } 50% { box-shadow: 0 0 0 6px rgba(255, 90, 54, 0); } }
+
+/* ── Pantalla del alumno en el duelo (StudentPistolero) ── */
+.pist-view { background: #0d0907; }
+.pist-err { max-width: 1180px; margin: 0 auto 10px; border: 1px solid #FF5A36; color: #FF5A36; padding: 6px 10px; font-family: "Courier New", monospace; font-size: 13px; }
+.pist-end { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 18px 0; }
+.pist-end-title { font-family: var(--font-jersey), monospace; font-size: clamp(30px, 4vw, 44px); line-height: 1; letter-spacing: 0.04em; color: #FF5A36; }
+.pist-end p { margin: 0; font-size: 22px; line-height: 1.2; color: hsl(var(--tx2)); max-width: 60ch; }
+.pist-loot { display: flex; align-items: center; gap: 14px; border: 1px solid #FFF1D0; padding: 10px 14px; font-family: "Courier New", monospace; font-size: 14px; color: #FFF1D0; }
+.pist-loot span { letter-spacing: 0.16em; text-transform: uppercase; font-size: 11px; color: #9C6A48; }
+.pist-loot b { font-size: 18px; }
+.pist-wait { border: 1px dashed #9C6A48; padding: 14px 16px; }
+.pist-wait-title { font-family: var(--font-jersey), monospace; font-size: 28px; letter-spacing: 0.06em; color: #FFF1D0; }
+.pist-wait p { margin: 4px 0 8px; font-size: 22px; color: hsl(var(--tx2)); }
+.pist-wait h4 { margin: 8px 0 0; font-family: "Courier New", monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #9C6A48; font-weight: normal; }
+.pist-wait .secret-out { border: 1px solid #3a2a20; }
+.pist-banner-msg { border: 1px solid #FF5A36; color: #FF5A36; padding: 6px 10px; font-family: "Courier New", monospace; font-size: 13px; letter-spacing: 0.06em; }
+.pist-freeze strong { color: #FF5A36; }
+.pist-verdict {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; pointer-events: none;
+  font-family: var(--font-jersey), monospace; font-size: clamp(48px, 12vw, 150px); line-height: 1; letter-spacing: 0.04em;
+  text-shadow: 6px 6px 0 #000; animation: pist-verdict 1.8s steps(8) both;
+}
+.pist-verdict.is-ok { color: #9BE58B; }
+.pist-verdict.is-bad { color: #FF5A36; }
+@keyframes pist-verdict { 0% { opacity: 0; transform: scale(1.4); } 12% { opacity: 1; transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .summon, .pist-pill, .pist-verdict { animation-duration: 1ms; animation-iteration-count: 1; }
+}
+.pist-preview-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 16px; background: #000; border-bottom: 1px dashed #3a2a20; font-family: "Courier New", monospace; font-size: 12px; color: #9C6A48; }
+.pist-preview-bar a { color: #9C6A48; }
+.pist-preview-bar button { background: transparent; border: 1px solid #3a2a20; color: #EBC79E; padding: 2px 8px; font: inherit; cursor: pointer; }
+.pist-preview-bar button[aria-pressed="true"] { border-color: #FF5A36; color: #FF5A36; }
+.pist-preview-bar label { display: flex; align-items: center; gap: 4px; }
+.pist-hint { border: 1px solid #FF5A36; background: rgba(255, 90, 54, 0.08); color: #FFF1D0; padding: 8px 12px; font-size: 20px; line-height: 1.2; }
+.pist-hint span { font-family: "Courier New", monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #FF5A36; margin-right: 6px; }
+
+/* ── Raids contra jefes secretos (components/game/raid/secret/*) ─────────────
+   Misma arena oscura de los secretos (.secret-*); acá solo lo propio del equipo. */
+.raid-wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.raid-h1 { margin: 0; font-family: var(--font-jersey), monospace; font-size: clamp(40px, 6vw, 64px); line-height: 1; letter-spacing: 0.06em; color: hsl(var(--tx)); }
+.raid-h2 { margin: 0 0 8px; font-family: 'Courier New', monospace; font-size: 12px; letter-spacing: 0.2em; color: hsl(var(--tx2)); font-weight: normal; }
+.raid-lead { margin: 0; font-size: 22px; line-height: 1.2; color: hsl(var(--tx2)); max-width: 62ch; }
+.raid-rules { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-family: 'Courier New', monospace; font-size: 12px; color: hsl(var(--tx3)); letter-spacing: 0.04em; }
+.raid-mine { align-self: flex-start; border: 1px solid hsl(var(--tx)); padding: 6px 12px; color: hsl(var(--tx)); text-decoration: none; font-family: var(--font-jersey), monospace; font-size: 20px; letter-spacing: 0.04em; }
+.raid-mine:hover { background: hsl(var(--tx)); color: #000; }
+.raid-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.raid-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid hsl(var(--border2)); border-left: 4px solid var(--phos); background: #000; }
+@media (max-width: 600px) { .raid-row { grid-template-columns: 1fr; } }
+.raid-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.raid-row-main b { font-family: var(--font-jersey), monospace; font-size: 24px; font-weight: normal; line-height: 1; }
+.raid-row-main > span { font-family: 'Courier New', monospace; font-size: 12px; color: hsl(var(--tx3)); }
+.raid-members { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.raid-members em { font-style: normal; color: hsl(var(--tx2)); }
+.raid-members small { color: hsl(var(--tx3)); }
+.raid-members .is-teacher { color: hsl(var(--tx3)); }
+.raid-count { font-family: var(--font-jersey), monospace; font-size: 22px; color: hsl(var(--tx2)); }
+.raid-bosses { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.raid-boss { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px; border: 1px solid var(--phos); background: #000; }
+.raid-boss b { font-family: var(--font-jersey), monospace; font-size: 26px; font-weight: normal; line-height: 1; color: var(--phos); }
+.raid-boss small { font-family: 'Courier New', monospace; font-size: 12px; color: hsl(var(--tx3)); }
+.raid-boss.is-locked { border-color: hsl(var(--border2)); }
+.raid-boss.is-locked b { color: hsl(var(--tx3)); }
+.raid-prize { display: flex; align-items: center; gap: 4px; font-family: 'Courier New', monospace; font-size: 12px; color: hsl(var(--tx2)); }
+.raid-team { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.raid-mate { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid hsl(var(--border)); font-family: 'Courier New', monospace; font-size: 13px; }
+.raid-mate b { color: hsl(var(--tx)); font-weight: normal; }
+.raid-mate small { color: hsl(var(--tx3)); }
+.raid-mate.is-down { border-style: dashed; opacity: 0.75; }
+.raid-mate.is-down b { text-decoration: line-through; }
+.raid-mate-stat { display: flex; align-items: center; gap: 8px; color: hsl(var(--tx2)); white-space: nowrap; }
+.raid-mate-stat button, .raid-phrases button {
+  background: transparent; border: 1px solid hsl(var(--tx)); color: hsl(var(--tx)); padding: 1px 8px; cursor: pointer;
+  font-family: 'Courier New', monospace; font-size: 12px;
+}
+.raid-mate-stat button:hover, .raid-phrases button:hover { background: hsl(var(--tx)); color: #000; }
+.raid-mate-stat button:focus-visible, .raid-phrases button:focus-visible { outline: 2px solid hsl(var(--tx)); outline-offset: 2px; }
+.raid-phrases { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.raid-toasts { display: flex; flex-direction: column; gap: 2px; min-height: 20px; font-family: var(--font-vt323), monospace; font-size: 20px; color: hsl(var(--tx2)); }
+.raid-toasts b { color: hsl(var(--tx)); font-weight: normal; }
+.raid-support ul { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.raid-support li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 20px; color: hsl(var(--tx2)); }
+.raid-support li span { flex: 1; min-width: 160px; }
+.raid-banner-dot { width: 14px; height: 18px; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%); }
+
+/* ── Mesa del Pistolero (components/game/raid/mesa/MesaPistolero.tsx) ──────────
+   Paleta oscura fija, la del personaje. La cola manda: lo demás va al costado. */
+.mesa {
+  --m-bg: #0d0907; --m-surface: #17110d; --m-line: #3a2a20; --m-tx: #EBC79E; --m-dim: #9C6A48;
+  --m-brasa: #FF5A36; --m-metal: #FFF1D0; --m-ok: #9BE58B;
+  min-height: 100vh; background: var(--m-bg); color: var(--m-tx);
+  font-family: "Courier New", ui-monospace, Consolas, monospace; font-size: 13px;
+}
+.mesa-top {
+  position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  padding: 10px 16px; background: var(--m-bg); border-bottom: 1px solid var(--m-line);
+}
+.mesa-title { font-size: 16px; font-weight: bold; letter-spacing: 0.14em; color: var(--m-metal); }
+.mesa-tag { margin-left: 8px; font-size: 10px; padding: 1px 5px; border: 1px solid var(--m-brasa); color: var(--m-brasa); letter-spacing: 0.1em; vertical-align: middle; }
+.mesa-select, .mesa-input { background: var(--m-surface); color: var(--m-tx); border: 1px solid var(--m-line); padding: 4px 8px; font: inherit; }
+.mesa-select:focus-visible, .mesa-input:focus-visible, .mesa-btn:focus-visible, .mesa-attack:focus-visible, .mesa-chip:focus-visible { outline: 2px solid var(--m-metal); outline-offset: 1px; }
+.mesa-arm { display: flex; align-items: center; gap: 5px; color: var(--m-dim); }
+.mesa-arm input { accent-color: var(--m-brasa); }
+.mesa-top-bars { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; flex: 1; min-width: 260px; }
+.mesa-top-actions { display: flex; gap: 8px; margin-left: auto; }
+.mesa-status { padding: 2px 10px; border: 1px solid var(--m-line); color: var(--m-dim); letter-spacing: 0.08em; text-transform: uppercase; font-size: 11px; }
+.mesa-status-lobby { border-color: var(--m-tx); color: var(--m-tx); }
+.mesa-status-won { border-color: var(--m-ok); color: var(--m-ok); }
+.mesa-error, .mesa-notice { margin: 10px 16px 0; padding: 6px 10px; }
+.mesa-error { border: 1px solid var(--m-brasa); color: var(--m-brasa); }
+.mesa-notice { border: 1px solid var(--m-metal); color: var(--m-metal); }
+
+.mesa-grid { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; padding: 14px 16px 40px; align-items: start; }
+@media (max-width: 980px) { .mesa-grid { grid-template-columns: 1fr; } }
+.mesa-main, .mesa-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.mesa-side { position: sticky; top: 64px; }
+@media (max-width: 980px) { .mesa-side { position: static; } }
+.mesa-stage { max-width: 230px; margin: 0 auto; width: 100%; }
+
+.mesa-bar { display: grid; grid-template-columns: auto 140px auto; align-items: center; gap: 8px; font-size: 11px; letter-spacing: 0.08em; }
+.mesa-bar-track { height: 9px; border: 1px solid var(--m-line); background: #000; }
+.mesa-bar-track > div { height: 100%; transition: width 400ms ease-out; }
+.mesa-bar-brasa .mesa-bar-track > div { background: var(--m-brasa); }
+.mesa-bar-hueso .mesa-bar-track > div { background: var(--m-tx); }
+
+.mesa-btn { background: var(--m-surface); color: var(--m-tx); border: 1px solid var(--m-line); padding: 6px 12px; font: inherit; cursor: pointer; }
+.mesa-btn:hover:not(:disabled) { border-color: var(--m-tx); }
+.mesa-btn:disabled, .mesa-attack:disabled { opacity: 0.4; cursor: not-allowed; }
+.mesa-btn-main { background: var(--m-brasa); border-color: var(--m-brasa); color: #120a06; font-weight: bold; letter-spacing: 0.12em; }
+.mesa-btn-main:hover:not(:disabled) { filter: brightness(1.12); border-color: var(--m-brasa); }
+.mesa-btn-warn { border-color: var(--m-brasa); color: var(--m-brasa); font-weight: bold; letter-spacing: 0.08em; }
+.mesa-btn-quiet { border-color: transparent; color: var(--m-dim); }
+.mesa-btn-ok { border-color: var(--m-ok); color: var(--m-ok); }
+.mesa-btn-bad { border-color: var(--m-brasa); color: var(--m-brasa); }
+
+.mesa-queue-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.mesa-queue-head h2 { margin: 0; font-size: 13px; letter-spacing: 0.16em; color: var(--m-metal); font-weight: bold; }
+.mesa-queue-head h2 b { color: var(--m-brasa); font-size: 16px; margin-left: 4px; }
+.mesa-keys { color: var(--m-dim); letter-spacing: 0; font-size: 11px; font-weight: normal; margin-left: auto; }
+.mesa-calm { border: 1px dashed var(--m-line); padding: 26px 16px; text-align: center; color: var(--m-dim); font-size: 14px; }
+.mesa-calm b { color: var(--m-tx); }
+.mesa-queue { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.mesa-sub { border: 1px solid var(--m-line); border-left-width: 4px; background: #000; padding: 8px 10px; cursor: pointer; }
+.mesa-sub.is-match { border-left-color: var(--m-ok); }
+.mesa-sub.is-diff { border-left-color: var(--m-brasa); }
+.mesa-sub.is-focus { border-color: var(--m-metal); box-shadow: 0 0 0 1px var(--m-metal); }
+.mesa-sub.is-focus.is-match { border-left-color: var(--m-ok); }
+.mesa-sub.is-focus.is-diff { border-left-color: var(--m-brasa); }
+.mesa-sub-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-bottom: 6px; }
+.mesa-sub-head b { color: var(--m-metal); font-size: 15px; }
+.mesa-ex { color: var(--m-dim); }
+.mesa-auto { font-size: 12px; font-weight: bold; }
+.mesa-auto.is-ok { color: var(--m-ok); }
+.mesa-auto.is-bad { color: var(--m-brasa); }
+.mesa-judge { display: flex; gap: 6px; margin-left: auto; }
+.mesa-judge .mesa-btn { min-width: 44px; padding: 4px 12px; font-size: 15px; font-weight: bold; }
+.mesa-code-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
+.mesa-code-row.has-3 { grid-template-columns: 1.4fr 1fr 1fr; }
+@media (max-width: 760px) { .mesa-code-row, .mesa-code-row.has-3 { grid-template-columns: 1fr; } }
+.mesa-code-row figure { margin: 0; min-width: 0; }
+.mesa-code-row figcaption { color: var(--m-dim); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; }
+.mesa-code-row pre { margin: 2px 0 0; padding: 6px 8px; background: var(--m-surface); border: 1px solid var(--m-line); max-height: 140px; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.45; color: var(--m-tx); }
+.mesa-diff { background: rgba(255, 90, 54, 0.22); color: var(--m-metal); }
+
+.mesa-box { border: 1px solid var(--m-line); background: var(--m-surface); padding: 8px 10px; }
+.mesa-box-title { display: flex; align-items: center; gap: 8px; color: var(--m-metal); letter-spacing: 0.12em; font-size: 11px; margin-bottom: 6px; }
+.mesa-target { margin-left: auto; font-size: 11px; padding: 2px 4px; letter-spacing: 0; }
+.mesa-attacks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.mesa-attack { text-align: left; background: #000; border: 1px solid var(--m-line); color: var(--m-brasa); padding: 5px 7px; font: inherit; font-size: 12px; cursor: pointer; }
+.mesa-attack:hover:not(:disabled) { border-color: var(--m-brasa); }
+.mesa-attack small { color: var(--m-dim); }
+.mesa-say { display: flex; gap: 6px; }
+.mesa-say .mesa-input { flex: 1; min-width: 0; }
+.mesa-quick { display: flex; flex-wrap: wrap; gap: 4px; }
+.mesa-chip { background: transparent; border: 1px dashed var(--m-line); color: var(--m-dim); padding: 2px 6px; font: inherit; font-size: 11px; cursor: pointer; }
+.mesa-chip:hover { color: var(--m-tx); border-color: var(--m-tx); }
+.mesa-empty { color: var(--m-dim); }
+.mesa-roster { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-height: 420px; overflow: auto; }
+.mesa-row { padding: 5px 2px; border-top: 1px solid var(--m-line); display: flex; flex-direction: column; gap: 2px; }
+.mesa-row:first-child { border-top: 0; }
+.mesa-row.is-out { opacity: 0.45; }
+.mesa-row.is-waiting .mesa-row-state { color: var(--m-metal); }
+.mesa-row-line { display: flex; align-items: baseline; gap: 8px; }
+.mesa-row-line b { color: var(--m-metal); font-weight: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mesa-row-state { color: var(--m-dim); font-size: 11px; }
+.mesa-score { margin-left: auto; color: var(--m-dim); font-size: 11px; white-space: nowrap; }
+.mesa-row-ex { font-size: 11px; color: var(--m-tx); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mesa-row-ex small, .mesa-row-ex em { color: var(--m-dim); font-style: normal; }
+.mesa-assign { font-size: 11px; padding: 2px 4px; width: 100%; }
+
+/* ── La voz del Pistolero (components/game/raid/PistoleroSay.tsx) ─────────────
+   Planta rodadora que escribe, gritos que caen de golpe y el punto final a tiros. */
+.psay { cursor: pointer; display: flex; flex-direction: column; gap: 0.35em; }
+.psay p { margin: 0; }
+.psay-old { opacity: 0.5; }
+.psay-shout-old { opacity: 0.6; color: #FF7A50; }
+.psay-line { white-space: pre-wrap; }
+.psay-shout {
+  color: #FF5A36; font-weight: bold; letter-spacing: 0.04em; text-shadow: 2px 2px 0 #46120A;
+  transform-origin: left center; animation: psay-slam 420ms steps(6) both;
+}
+@keyframes psay-slam {
+  0% { opacity: 0; transform: scale(1.9) rotate(-3deg); }
+  35% { opacity: 1; transform: scale(0.94) rotate(1deg); }
+  55% { transform: scale(1.04) translateX(-3px); }
+  75% { transform: scale(1) translateX(3px); }
+  100% { transform: none; }
+}
+/* Planta rodadora: rueda y rebota delante de la última letra */
+.psay-tumble {
+  display: inline-block; width: 0.95em; height: 0.95em; margin-left: 0.12em; vertical-align: -0.12em;
+  fill: #C79C6E; animation: psay-roll 520ms steps(8) infinite, psay-hop 260ms ease-in-out infinite alternate;
+}
+@keyframes psay-roll { to { transform: rotate(360deg); } }
+@keyframes psay-hop { from { translate: 0 0; } to { translate: 0 -0.18em; } }
+/* El punto final: fogonazo que se apaga y deja el agujero de bala */
+.psay-dot { position: relative; display: inline-block; width: 0.55em; height: 0.55em; margin-left: 0.08em; vertical-align: -0.02em; }
+.psay-flash { position: absolute; left: -0.5em; top: -0.55em; width: 1.6em; height: 1.6em; fill: #FF7A50; animation: psay-flash 260ms steps(3) forwards; pointer-events: none; }
+.psay-flash .psay-core { fill: #FFF1D0; }
+@keyframes psay-flash { 0% { opacity: 1; transform: scale(1.3); } 60% { opacity: 0.8; transform: scale(1); } 100% { opacity: 0; transform: scale(0.6); } }
+.psay-hole { position: absolute; inset: 0; width: 100%; height: 100%; fill: #9C6A48; animation: psay-hole 200ms steps(2) 120ms both; }
+.psay-hole .psay-hole-in { fill: #000; }
+@keyframes psay-hole { from { opacity: 0; transform: scale(1.6); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .psay-shout, .psay-tumble, .psay-flash, .psay-hole { animation-duration: 1ms; animation-iteration-count: 1; }
+}
+
+/* Dónde habla: aviso sorpresa, pantalla del final y el globo del escenario */
+.summon-wanted { margin: 0 auto 12px; }
+.summon-say { font-family: var(--font-vt323), monospace; font-size: clamp(22px, 2.6vw, 30px); line-height: 1.15; color: #FFF1D0; min-height: 6em; }
+.summon-hint { color: #9C6A48; font-size: 12px; letter-spacing: 0.08em; }
+.pist-end-title { max-width: 100%; }
+.pist-end-say { font-size: 22px; line-height: 1.25; color: #FFF1D0; max-width: 60ch; }
+.secret-name svg { margin-bottom: 2px; }
+.pist-line .psay { gap: 0.2em; }
+
+/* Botón de sonido de la Mesa: apagado por defecto (se proyecta con el audio del docente) */
+.mesa-sound { padding: 3px 10px; font-size: 12px; color: var(--m-dim); }
+.mesa-sound.is-on { border-color: var(--m-brasa); color: var(--m-brasa); }

@@ -172,6 +172,14 @@ export function applyItem(item: ShopItem, ctx: ItemContext): ItemUseResult {
       b.armZonda()
       return { status: 'used', message: 'Se levantó el Zonda. En el próximo ataque, cualquier código que funcione le pega al jefe.' }
 
+    case 'bandera':
+    case 'chaleco':
+    case 'espuelas':
+    case 'bengala':
+    case 'botiquin':
+      // Se usan peleando en equipo: duelo del Pistolero o raids de secretos (components/game/raid/*)
+      return { status: 'rejected', message: `${item.name} solo sirve peleando en equipo (El Pistolero o una raid). No se gastó.` }
+
     default:
       console.warn(`[items] effectId sin implementar: "${item.effectId}"`)
       return { status: 'rejected', message: 'Este ítem todavía no hace nada.' }

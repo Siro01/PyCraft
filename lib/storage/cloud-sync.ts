@@ -88,9 +88,10 @@ export function syncOnLoad(): void {
 }
 
 /**
- * Diamantes netos y XP de La Arena (arena_ledger / arena_xp, solo lectura para
- * el alumno). Si la migración 013 todavía no se corrió, las tablas no existen
- * y esto no hace nada.
+ * Diamantes netos y XP de La Arena y de las raids (arena_ledger / arena_xp /
+ * raid_ledger, solo lectura para el alumno). Se guardan juntos en la misma
+ * copia local. Si una migración (013 o 014) todavía no se corrió, su tabla no
+ * existe y simplemente no suma.
  */
 export async function syncArenaStats(): Promise<void> {
   const userId = await getUserId()
@@ -98,15 +99,30 @@ export async function syncArenaStats(): Promise<void> {
   try {
     const { createClient } = await import('@/lib/supabase/client')
     const supabase = createClient()
-    const [led, xp] = await Promise.all([
+    const [led, xp, raid] = await Promise.all([
       supabase.from('arena_ledger').select('delta').eq('user_id', userId),
       supabase.from('arena_xp').select('xp').eq('user_id', userId),
+      supabase.from('raid_ledger').select('delta, xp, reason, raids(boss_id)').eq('user_id', userId),
     ])
     if (led.error || xp.error) return
-    const { setArenaStats } = await import('@/lib/storage/local-store')
+    const raidRows = raid.error ? [] : (raid.data as unknown as { delta: number; xp: number; reason: string; raids: { boss_id: string | null } | null }[])
+    const pistolero = raidRows.filter((r) => r.reason === 'pistolero').length
+    const { setArenaStats, claimChestSticker, recordSecretWin } = await import('@/lib/storage/local-store')
+    const { SE_BUSCA_ID, raidStickerFor } = await import('@/lib/game/chest-stickers')
+    // El botín de equipo llega solo, aunque el alumno no haya visto la pantalla del final:
+    // el cartel SE BUSCA y, por cada jefe secreto vencido en raid, su sticker y la
+    // marca de «derrotado» en la guarida (sin diamantes: esos vienen de raid_ledger).
+    if (pistolero > 0) claimChestSticker(SE_BUSCA_ID)
+    for (const r of raidRows) {
+      const boss = r.raids?.boss_id
+      if (!boss || (r.reason !== 'raid-primera' && r.reason !== 'raid-revancha')) continue
+      claimChestSticker(raidStickerFor(boss))
+      recordSecretWin(boss, 0)
+    }
     setArenaStats({
-      net: (led.data as { delta: number }[]).reduce((s, l) => s + l.delta, 0),
-      xp: (xp.data as { xp: number }[]).reduce((s, l) => s + l.xp, 0),
+      pistolero,
+      net: (led.data as { delta: number }[]).reduce((s, l) => s + l.delta, 0) + raidRows.reduce((s, l) => s + l.delta, 0),
+      xp: (xp.data as { xp: number }[]).reduce((s, l) => s + l.xp, 0) + raidRows.reduce((s, l) => s + l.xp, 0),
     })
   } catch { /* sin red: queda la copia anterior */ }
 }

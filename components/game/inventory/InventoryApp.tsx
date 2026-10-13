@@ -5,7 +5,8 @@ import { ShopGlyph } from '@/components/game/shop/ShopIcons'
 import { AmuletIcon, IconCheck } from '@/components/ui/PixelIcons'
 import { AMULET_META } from '@/lib/game/amulets'
 import { SHOP_CATALOG, STICKER_COLORWAYS } from '@/lib/game/shop'
-import { ACT_LABEL, CHEST_STICKERS, getChestSticker, heardLines, type ChestSticker } from '@/lib/game/chest-stickers'
+import { ACT_LABEL, CHEST_STICKERS, SE_BUSCA_ID, getChestSticker, heardLines, type ChestSticker } from '@/lib/game/chest-stickers'
+import { getArenaStats } from '@/lib/storage/local-store'
 import ChestStickerToy, { ChestSparkle, PixelStar, SecretTag, type ToySay } from '@/components/game/stickers/ChestStickerToy'
 import { CHEST_CLOSED, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
 import { PERK_SLOT_LIMIT, applyItem, ownedPerkItems, type ItemUseResult } from '@/lib/game/perk-effects'
@@ -148,9 +149,12 @@ export default function InventoryApp({ inBattle = false, itemsOverride, equipped
     const stickerEntries: Entry[] = owned.flatMap((o) => {
       const item = byId.get(o.id)
       if (!item || item.category !== 'sticker') return []
-      const chest = item.source === 'chest' ? getChestSticker(o.id) : undefined
+      const chest = item.source ? getChestSticker(o.id) : undefined
       if (chest) {
-        return [{ key: o.id, name: item.name, description: item.description, tag: `${chest.kind === 'secreto' ? 'Cofre secreto' : 'Cofre'} · ${ACT_LABEL[chest.act]}`, count: 1, item, owned: o, chest }]
+        // El cartel SE BUSCA es numerado: cuántas veces le ganaste al Pistolero
+        const n = o.id === SE_BUSCA_ID ? Math.max(1, getArenaStats().pistolero ?? 0) : 0
+        const tag = chest.kind === 'botin' ? `Botín · ${ACT_LABEL[chest.act]}${n ? ` · Nº ${n}` : ''}` : `${chest.kind === 'secreto' ? 'Cofre secreto' : 'Cofre'} · ${ACT_LABEL[chest.act]}`
+        return [{ key: o.id, name: n ? `${item.name} Nº ${n}` : item.name, description: item.description, tag, count: 1, item, owned: o, chest }]
       }
       const colorway = STICKER_COLORWAYS.find((c) => c.value === o.colorway)
       return [{ key: o.id, name: item.name, description: item.description, tag: colorway ? `Color ${colorway.label}` : 'Sticker', count: 1, item, owned: o }]
