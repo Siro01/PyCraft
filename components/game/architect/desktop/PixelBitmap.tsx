@@ -130,6 +130,22 @@ export const ICON_FILE: Bitmap = [
   '############',
 ]
 
+/** Dos espadas cruzadas: La Arena. */
+export const ICON_SWORDS: Bitmap = [
+  'h..........h',
+  '#h........h#',
+  '.#h......h#.',
+  '..#h....h#..',
+  '...#h..h#...',
+  '....#hh#....',
+  '....#hh#....',
+  '...#h..h#...',
+  '.aa#....#aa.',
+  '..a#a..a#a..',
+  '.#a......a#.',
+  '##........##',
+]
+
 export const ICON_WALL: Bitmap = [
   '############',
   '#.#.#.#.#.##',

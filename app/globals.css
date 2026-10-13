@@ -2953,3 +2953,78 @@ input[type="number"], input[type="search"], textarea {
 .arena-end p strong { color: hsl(var(--tx)); font-weight: 400; }
 .arena-end .arena-choices { margin-top: 18px; }
 @media (prefers-reduced-motion: reduce) { .arena-player--hurt { animation: none; } }
+
+/* ─── La Arena (duelos entre alumnos) ─────────────────────────────────────── */
+.duel-clock { font-family: var(--font-jersey), monospace; font-size: clamp(56px, 8vw, 84px); line-height: 0.9; letter-spacing: 0.04em; color: hsl(var(--tx)); font-variant-numeric: tabular-nums; }
+.duel-clock--low { color: hsl(var(--danger)); animation: duel-blink 1s steps(2) infinite; }
+@keyframes duel-blink { 50% { opacity: 0.55; } }
+.duel-vs { font-family: 'Courier New', monospace; font-size: 12px; letter-spacing: 0.3em; text-transform: uppercase; color: hsl(var(--tx3)); padding-left: 2px; }
+.duel-player { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.duel-player-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.duel-player-name { font-family: var(--font-jersey), monospace; font-size: 30px; line-height: 1; color: hsl(var(--accent)); overflow-wrap: anywhere; }
+.duel-typing { animation: duel-blink 1.2s steps(2) infinite; }
+.duel-pips { display: flex; align-items: center; gap: 6px; }
+.duel-pips span:not(.arena-num) { width: 34px; height: 14px; border: 1px solid hsl(var(--border2)); transition: background 0.25s steps(2); }
+.duel-pips span.on { background: hsl(var(--accent)); border-color: hsl(var(--accent)); }
+.duel-pips .arena-num { margin-left: 6px; }
+.duel-console { position: relative; }
+.duel-console--frozen .arena-console { filter: grayscale(1) brightness(0.8); }
+.duel-freeze {
+  position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  background: hsl(var(--bg) / 0.55); backdrop-filter: blur(1px); cursor: not-allowed; user-select: none;
+  font-family: 'Courier New', monospace; font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase; color: hsl(var(--tx2));
+}
+.duel-freeze strong { font-family: var(--font-jersey), monospace; font-size: 72px; line-height: 1; font-weight: 400; letter-spacing: 0; color: hsl(var(--tx)); }
+.arena-task--hidden p { color: hsl(var(--tx3)); font-style: italic; }
+.duel-taunt {
+  position: fixed; inset: 0; z-index: 45; display: flex; align-items: center; justify-content: center; pointer-events: none;
+  font-family: var(--font-jersey), monospace; font-size: min(42vw, 360px); line-height: 1; color: hsl(var(--accent));
+  text-shadow: 6px 6px 0 hsl(var(--bg)); animation: duel-taunt 2s steps(6) both;
+}
+@keyframes duel-taunt { 0% { opacity: 0; transform: scale(0.6); } 15% { opacity: 1; transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; } }
+.duel-countdown { display: flex; flex-direction: column; gap: 12px; padding: 18px 0; }
+.duel-countdown-n { font-family: var(--font-jersey), monospace; font-size: clamp(96px, 16vw, 160px); line-height: 0.85; color: hsl(var(--accent)); }
+.duel-prize { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 6px; }
+.duel-prize .arena-ok, .duel-prize .arena-bad { font-family: var(--font-jersey), monospace; font-size: 30px; }
+
+/* Lobby */
+.lobby-list { display: flex; flex-direction: column; border-top: 1px solid hsl(var(--border2)); }
+.lobby-row {
+  display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 4px;
+  border-bottom: 1px solid hsl(var(--border)); background: none; border-left: 0; border-right: 0; border-top: 0; text-align: left; color: inherit; width: 100%;
+}
+button.lobby-row { cursor: pointer; }
+button.lobby-row:hover:not(:disabled), button.lobby-row:focus-visible { background: hsl(var(--surface2)); outline: none; }
+button.lobby-row:disabled { cursor: default; }
+.lobby-row--on { background: hsl(var(--surface2)); }
+.lobby-dot { width: 10px; height: 10px; border: 1px solid hsl(var(--tx3)); }
+.lobby-dot--on { background: hsl(var(--accent)); border-color: hsl(var(--accent)); }
+.lobby-dot--busy { background: hsl(var(--tx3)); }
+.lobby-name { font-family: var(--font-jersey), monospace; font-size: 24px; line-height: 1; color: hsl(var(--tx)); overflow-wrap: anywhere; }
+.lobby-row:disabled .lobby-name { color: hsl(var(--tx3)); }
+.lobby-meta { font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: hsl(var(--tx3)); }
+.lobby-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lobby-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; cursor: pointer; background: transparent; color: hsl(var(--tx2));
+  border: 1px solid hsl(var(--border2)); font-family: 'Courier New', monospace; font-size: 12px; letter-spacing: 0.08em;
+}
+.lobby-chip:hover:not(:disabled) { color: hsl(var(--tx)); border-color: hsl(var(--tx)); }
+.lobby-chip[aria-pressed="true"] { background: hsl(var(--tx)); color: hsl(var(--bg)); border-color: hsl(var(--tx)); }
+.lobby-chip:disabled { opacity: 0.4; cursor: default; }
+.lobby-panel { display: flex; flex-direction: column; gap: 14px; padding: 14px; border: 1px solid hsl(var(--tx)); }
+.lobby-panel h3 { margin: 0; font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: hsl(var(--tx3)); font-weight: 400; }
+.lobby-invite { border-color: hsl(var(--accent)); box-shadow: 4px 4px 0 hsl(var(--accent)); }
+.lobby-history { display: flex; flex-direction: column; gap: 2px; font-family: 'Courier New', monospace; font-size: 12px; color: hsl(var(--tx2)); }
+.lobby-history li { display: flex; gap: 10px; flex-wrap: wrap; list-style: none; padding: 3px 0; border-bottom: 1px dashed hsl(var(--border)); }
+@media (prefers-reduced-motion: reduce) { .duel-clock--low, .duel-typing, .duel-taunt { animation: none; } }
+
+/* El Errante presenta La Arena: escena oscura de pantalla completa, como su guarida. */
+.arena-herald { position: fixed; inset: 0; z-index: 60; overflow-y: auto; animation: herald-in 0.4s steps(4) both; }
+@keyframes herald-in { from { opacity: 0; } to { opacity: 1; } }
+.arena-herald-badge {
+  display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; gap: 12px; width: 100%;
+  padding: 8px; margin: 4px 0 6px; background: none; border: 1px solid hsl(var(--border2)); cursor: pointer; text-align: left; color: inherit;
+}
+.arena-herald-badge:hover, .arena-herald-badge:focus-visible { border-color: hsl(var(--tx)); outline: none; }
+.arena-herald-badge-art { display: block; background: #000; padding: 4px; }
+@media (prefers-reduced-motion: reduce) { .arena-herald { animation: none; } }

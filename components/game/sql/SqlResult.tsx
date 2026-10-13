@@ -86,7 +86,8 @@ export default function SqlResult({ isCorrect, error, expected, sql, code, seedT
     )
   }
 
-  if (isCorrect) return <Produced sql={sql} />
+  // Sin salida esperada (duelos de la arena: no se le muestra al alumno) solo va lo que hizo.
+  if (isCorrect || !expected) return <Produced sql={sql} />
 
   const exp = parseExpected(expected)
   const expWidth = exp[0]?.length ?? 0

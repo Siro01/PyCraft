@@ -6,6 +6,8 @@ export interface AdminAula {
   /** "08:00:00" (Postgres TIME) — null si el docente no cargó horario. */
   hora_inicio?: string | null
   hora_fin?: string | null
+  /** La Arena abierta en esta aula (migración 013; sin la columna, abierta). */
+  arena_enabled?: boolean | null
 }
 
 const TURNO: Record<string, string> = { 'mañana': 'Mañana', 'tarde': 'Tarde', 'otro': 'Otro' }

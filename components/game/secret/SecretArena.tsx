@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import SecretCanvas from './SecretCanvas'
-import { useTypewriter } from '@/components/game/architect/useTypewriter'
+import { Diamonds } from '@/components/ui/DiamondIcon'
+import Speech from './Speech'
 import PatoDebugWindow from '@/components/game/items/PatoDebugWindow'
 import CompuHackeadaWindow from '@/components/game/items/CompuHackeadaWindow'
 import { parseInventoryCommand } from '@/components/game/items/InventoryConsole'
@@ -460,7 +461,7 @@ export default function SecretArena({ secret, defeatedIds, tier, sandbox = false
 
       <header className="secret-top">
         <button type="button" className="secret-link" onClick={flee}>
-          {confirmFlee ? `¿Huir? Cuesta ${SECRET_LOSS_PENALTY} 💎 · confirmá` : over ? '← mapa' : '← huir'}
+          {confirmFlee ? <>¿Huir? Cuesta <Diamonds n={SECRET_LOSS_PENALTY} size={12} /> · confirmá</> : over ? '← mapa' : '← huir'}
         </button>
         {confirmFlee && <button type="button" className="secret-link" onClick={() => setConfirmFlee(false)}>no, me quedo</button>}
         <span className="secret-top-spacer" />
@@ -613,40 +614,6 @@ function Bar({ value, max, color, label, small = false }: { value: number; max: 
   )
 }
 
-function Speech({ lines, color, onDone, cta, choices }: {
-  lines: string[]; color: string; onDone: () => void; cta?: string
-  choices?: { label: string; onPick: () => void }[]
-}) {
-  const [i, setI] = useState(0)
-  const { shown, done, skip } = useTypewriter(lines[i] ?? '', 'machine', 30)
-  const last = i >= lines.length - 1
-  const next = useCallback(() => {
-    if (!done) { skip(); return }
-    if (!last) { setI((n) => n + 1); return }
-    if (!choices) onDone()
-  }, [done, last, skip, choices, onDone])
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); next() } }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [next])
-
-  return (
-    <div className="secret-speech" onClick={next} style={{ color }}>
-      {lines.slice(0, i).map((l, k) => <p key={k} className="secret-speech-old">{l}</p>)}
-      <p>{shown}<span className="secret-caret">█</span></p>
-      {done && last && (choices ? (
-        <div className="secret-choices">
-          {choices.map((c) => <button key={c.label} type="button" className="secret-go" onClick={(e) => { e.stopPropagation(); c.onPick() }}>{c.label}</button>)}
-        </div>
-      ) : (
-        <button type="button" className="secret-go" onClick={(e) => { e.stopPropagation(); onDone() }}>{cta ?? 'seguir'} ▸</button>
-      ))}
-    </div>
-  )
-}
-
 function End({ phase, lines, color, delta, onRetry, exitHref }: {
   phase: Phase; lines: string[]; color: string; delta: number | null; onRetry?: () => void; exitHref: string
 }) {
@@ -657,7 +624,7 @@ function End({ phase, lines, color, delta, onRetry, exitHref }: {
       </div>
       {lines.map((l) => <p key={l} style={{ color }}>{l}</p>)}
       {delta !== null && delta !== 0 && (
-        <div className="secret-delta">{delta > 0 ? `+${delta}` : `−${-delta}`} 💎</div>
+        <div className="secret-delta"><Diamonds n={delta} sign size={22} /></div>
       )}
       {delta === 0 && phase !== 'won' && <div className="secret-dim">sin diamantes en juego</div>}
       <div className="secret-choices">

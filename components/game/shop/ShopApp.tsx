@@ -7,7 +7,7 @@ import { sfx } from '@/lib/game/architect/sound'
 import { DIAMONDS_PER_BOSS, SHOP_UNLOCK_BOSS_NUMBER, SHOP_CATALOG, SHOP_FOR_SALE, STICKER_COLORWAYS, discountedPrice, getDailyFeatured, getShopItem } from '@/lib/game/shop'
 import { pickDialogue, type MercaderDialogueKind } from '@/lib/game/mercader-dialogue'
 import {
-  addAdminDiamondBonus, buyShopItem, diamondsAvailable, getPlaygroundState, getShopDiscount, getShopOwned, playgroundLevel,
+  addAdminDiamondBonus, buyShopItem, diamondsAvailable, getShopDiscount, getShopOwned, playerXp, playgroundLevel,
   setStickerColorway, startCouponVisit, PLAYGROUND_MAX_LEVEL,
 } from '@/lib/storage/local-store'
 import type { OwnedShopItem, ShopItem } from '@/types'
@@ -61,7 +61,7 @@ export default function ShopApp({ totalDefeated, username, battleNear = false, u
       return
     }
     // El docente compra sin traba de nivel, para poder probar cualquier ítem.
-    setLevel(adminView ? PLAYGROUND_MAX_LEVEL : playgroundLevel(getPlaygroundState().xp).level)
+    setLevel(adminView ? PLAYGROUND_MAX_LEVEL : playgroundLevel(playerXp()).level)
     setOwned(getShopOwned())
     // Un Cupón usado en batalla empieza a correr acá: vale para toda esta visita.
     startCouponVisit()

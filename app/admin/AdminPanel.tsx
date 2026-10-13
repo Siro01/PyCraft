@@ -10,6 +10,7 @@ import StatsPanel from './StatsPanel'
 import TestStudentPanel from './TestStudentPanel'
 import RepasosPanel from './RepasosPanel'
 import ReinosPanel from './ReinosPanel'
+import ArenaPanel from './ArenaPanel'
 import { aulaHorario, aulaLabel, hhmm, type AdminAula } from './aula-label'
 import { TEST_USERNAME } from '@/lib/test-student/constants'
 import { DEFAULT_TIER_ENABLED, TIER_META, TIER_ORDER } from '@/lib/game/tiers'
@@ -79,10 +80,18 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
   const [resetPassword, setResetPassword] = useState('')
   const [resetStatus, setResetStatus] = useState('')
 
-  const [tab, setTab] = useState<'bosses' | 'repasos' | 'exercises' | 'aulas' | 'students' | 'reinos' | 'stats' | 'test'>('bosses')
+  const [tab, setTab] = useState<'bosses' | 'repasos' | 'exercises' | 'aulas' | 'students' | 'reinos' | 'arena' | 'stats' | 'test'>('bosses')
 
   const isTierEnabled = (aulaId: string, tier: ChallengeTier) =>
     tierMap[aulaId]?.[tier] ?? DEFAULT_TIER_ENABLED[tier]
+
+  // La Arena: abierta por defecto (desde el Jefe 3); el docente la cierra por aula.
+  const toggleArena = async (aulaId: string) => {
+    const next = !(aulas.find((a) => a.id === aulaId)?.arena_enabled ?? true)
+    const { error } = await createClient().from('aulas').update({ arena_enabled: next }).eq('id', aulaId)
+    if (error) { alert(`${error.message} — ¿ejecutaste la migración 013_arena.sql?`); return }
+    setAulas((prev) => prev.map((a) => (a.id === aulaId ? { ...a, arena_enabled: next } : a)))
+  }
 
   const toggleTier = async (aulaId: string, tier: ChallengeTier) => {
     const next = !isTierEnabled(aulaId, tier)
@@ -235,6 +244,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
     { key: 'aulas', label: 'Aulas' },
     { key: 'students', label: 'Alumnos' },
     { key: 'reinos', label: 'Reinos SQL' },
+    { key: 'arena', label: 'Arena' },
     { key: 'stats', label: 'Estadísticas' },
     { key: 'test', label: 'Alumno TEST' },
   ] as const
@@ -352,6 +362,8 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
 
       {tab === 'reinos' && <ReinosPanel aulas={aulas} students={students} />}
 
+      {tab === 'arena' && <ArenaPanel aulas={aulas} students={students} />}
+
       {/* ── AULAS TAB ── */}
       {tab === 'aulas' && (
         <div className="flex flex-col gap-6">
@@ -457,6 +469,19 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
                       )
                     })}
                   </div>
+                  <button
+                    onClick={() => toggleArena(a.id)}
+                    aria-pressed={a.arena_enabled !== false}
+                    title={a.arena_enabled !== false ? 'Arena abierta (para quien venció al Jefe 3) — clic para cerrarla' : 'Arena cerrada — clic para abrirla'}
+                    className="font-mono text-[10px] px-2 py-1 pixel-corners-sm border transition-all shrink-0"
+                    style={{
+                      borderColor: a.arena_enabled !== false ? 'hsl(var(--tx))' : 'hsl(var(--border2))',
+                      color: a.arena_enabled !== false ? 'hsl(var(--tx))' : 'hsl(var(--tx3))',
+                      background: a.arena_enabled !== false ? 'hsl(var(--surface2))' : 'transparent',
+                    }}
+                  >
+                    <SquareDot on={a.arena_enabled !== false} />Arena {a.arena_enabled !== false ? 'abierta' : 'cerrada'}
+                  </button>
                   <button
                     onClick={() => deleteAula(a.id)}
                     className="font-mono text-xs px-3 py-1.5 pixel-corners-sm border border-danger/40 text-danger hover:bg-danger/10 transition-all shrink-0"

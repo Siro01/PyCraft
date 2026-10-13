@@ -43,10 +43,17 @@ interface Props {
   banner?: React.ReactNode
   /** Daño que hizo el último acierto (se muestra junto al ✓). */
   lastDamage?: number | null
+  /** Arena PvP: la consigna está tapada (el rival tiró el Zonda). */
+  taskHidden?: boolean
+  /** Texto del botón de ejecutar (por defecto "atacar"). */
+  goLabel?: string
+  /** Texto cuando la salida no es la pedida (por defecto habla del jefe). */
+  wrongLabel?: string
 }
 
 export default function BattleConsole({
   boss, challenge, onSubmit, isLoading = false, lastResult, penguin = false, codeReplace, onCodeChange, banner, lastDamage,
+  taskHidden = false, goLabel = 'atacar', wrongLabel = '✗ Todavía no es lo que pide el jefe',
 }: Props) {
   const [code, setCode] = useState(challenge.initialCode)
   useEffect(() => { onCodeChange?.(code) }, [code, onCodeChange])
@@ -95,10 +102,10 @@ export default function BattleConsole({
 
   return (
     <>
-      <div className="arena-task">
+      <div className={`arena-task${taskHidden ? ' arena-task--hidden' : ''}`}>
         <h2>{challenge.title}</h2>
-        <p>{withCode(challenge.description)}</p>
-        {seedTables.length > 0 && (
+        <p>{taskHidden ? 'El Zonda se llevó la consigna… ya vuelve.' : withCode(challenge.description)}</p>
+        {seedTables.length > 0 && !taskHidden && (
           <div className="arena-task-tables">
             {seedTables.map((t) => <SqlTable key={t.name} label={t.name} isTable columns={t.columns} rows={t.rows} maxHeight={168} />)}
           </div>
@@ -141,7 +148,7 @@ export default function BattleConsole({
         />
         <div className="arena-run">
           <button type="button" className="arena-go" onClick={handleSubmit} disabled={isLoading || !engineReady}>
-            {isLoading ? 'ejecutando…' : !engineReady ? 'cargando python…' : 'atacar ▸'}
+            {isLoading ? 'ejecutando…' : !engineReady ? 'cargando python…' : `${goLabel} ▸`}
           </button>
           {lastResult && (
             <span className={ok ? 'arena-ok' : 'arena-bad'}>
@@ -149,7 +156,7 @@ export default function BattleConsole({
                 ? `✓ ¡Correcto!${lastDamage ? ` −${lastDamage}` : ''}`
                 : lastResult.error
                   ? isPython ? '✗ Error de ejecución' : '✗ SQL no pudo ejecutar tu orden'
-                  : '✗ Todavía no es lo que pide el jefe'}
+                  : wrongLabel}
             </span>
           )}
           {!engineReady && isPython && (
@@ -172,8 +179,12 @@ export default function BattleConsole({
               <>
                 <h4>tu salida</h4>
                 <pre className="arena-out">{lastResult.output || '(vacío)'}</pre>
-                <h4>esperada</h4>
-                <pre className="arena-out arena-out--dim">{lastResult.expected}</pre>
+                {lastResult.expected && (
+                  <>
+                    <h4>esperada</h4>
+                    <pre className="arena-out arena-out--dim">{lastResult.expected}</pre>
+                  </>
+                )}
               </>
             )}
           </div>

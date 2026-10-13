@@ -80,8 +80,33 @@ export function syncOnLoad(): void {
         .eq('user_id', userId)
         .maybeSingle()
       if (!error) hydrateRepasosFromCloud((rep as { repasos: RepasoProgressMap | null } | null)?.repasos ?? null)
+      await syncArenaStats()
     } catch (err) {
       console.error('No se pudo traer el progreso de la nube', err)
     }
   })
+}
+
+/**
+ * Diamantes netos y XP de La Arena (arena_ledger / arena_xp, solo lectura para
+ * el alumno). Si la migración 013 todavía no se corrió, las tablas no existen
+ * y esto no hace nada.
+ */
+export async function syncArenaStats(): Promise<void> {
+  const userId = await getUserId()
+  if (!userId) return
+  try {
+    const { createClient } = await import('@/lib/supabase/client')
+    const supabase = createClient()
+    const [led, xp] = await Promise.all([
+      supabase.from('arena_ledger').select('delta').eq('user_id', userId),
+      supabase.from('arena_xp').select('xp').eq('user_id', userId),
+    ])
+    if (led.error || xp.error) return
+    const { setArenaStats } = await import('@/lib/storage/local-store')
+    setArenaStats({
+      net: (led.data as { delta: number }[]).reduce((s, l) => s + l.delta, 0),
+      xp: (xp.data as { xp: number }[]).reduce((s, l) => s + l.xp, 0),
+    })
+  } catch { /* sin red: queda la copia anterior */ }
 }

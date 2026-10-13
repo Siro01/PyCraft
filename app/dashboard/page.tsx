@@ -14,6 +14,7 @@ import TestHud from '@/components/game/TestHud'
 import { isTestUser } from '@/lib/test-student/server'
 import AdminViewBar from '@/components/game/AdminViewBar'
 import { ADMIN_VIEW_COOKIE, parseAdminView } from '@/lib/admin/view-mode'
+import { ARENA_UNLOCK_BOSS_ID } from '@/lib/game/arena/rules'
 
 // ─── Supabase mode ────────────────────────────────────────────────────────────
 // createClient is dynamically imported so the module doesn't crash when
@@ -27,7 +28,7 @@ async function SupabaseDashboard() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('username, role')
+    .select('username, role, aula_id')
     .eq('id', user.id)
     .single()
 
@@ -64,6 +65,15 @@ async function SupabaseDashboard() {
   const role = profile?.role ?? 'student'
   const totalDefeated = [...battleMap.values()].filter((b) => b.completed).length
 
+  // La Arena: se abre al vencer al Jefe 3 y el docente la puede cerrar por aula
+  // (aulas.arena_enabled, migración 013 — sin la columna, cuenta como abierta).
+  let arenaClosed = false
+  if (!isAdmin && profile?.aula_id) {
+    const { data: aula } = await supabase.from('aulas').select('*').eq('id', profile.aula_id).maybeSingle()
+    arenaClosed = (aula as { arena_enabled?: boolean } | null)?.arena_enabled === false
+  }
+  const arena = isAdmin ? 'open' : !battleMap.get(ARENA_UNLOCK_BOSS_ID)?.completed ? 'locked' : arenaClosed ? 'closed' : 'open'
+
   const progress: Record<string, { hp: number; defeated: boolean }> = {}
   for (const [bossId, b] of battleMap) {
     progress[bossId] = { hp: b.hp, defeated: b.completed }
@@ -82,6 +92,7 @@ async function SupabaseDashboard() {
         username={username}
         totalDefeated={totalDefeated}
         repasoIds={repasoIds}
+        arena={arena}
         headerExtra={tier && enabledTiers.length > 1 ? <TierSelector enabled={enabledTiers} current={tier} /> : undefined}
         emptyState={
           <div className="mb-12 card p-6 text-center">

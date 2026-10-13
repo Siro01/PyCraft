@@ -1,5 +1,6 @@
 'use client'
 
+import { Diamonds } from '@/components/ui/DiamondIcon'
 import { useMemo, useState } from 'react'
 import Win from '@/components/ui/Win'
 import ActMap from '@/components/game/map/ActMap'
@@ -40,7 +41,7 @@ export default function TiendaLab() {
         </p>
         <div className="flex flex-wrap items-end gap-5 mt-3">
           <div className="flex flex-col gap-1">
-            <span className="label-mono">Jefes derrotados · {defeated * DIAMONDS_PER_BOSS}💎</span>
+            <span className="label-mono">Jefes derrotados · <Diamonds n={defeated * DIAMONDS_PER_BOSS} size={11} /></span>
             <div className="flex flex-wrap" role="radiogroup" aria-label="Jefes derrotados" style={{ paddingLeft: 2 }}>
               {Array.from({ length: 15 }, (_, n) => (
                 <button key={n} type="button" role="radio" aria-checked={defeated === n} onClick={() => setDefeated(n)} style={btn(defeated === n)}>{n}</button>

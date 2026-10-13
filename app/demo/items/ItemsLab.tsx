@@ -90,7 +90,7 @@ export default function ItemsLab() {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid hsl(var(--border2))' }}>
-                {['', 'Ítem', 'Se usa con', 'Qué hace', 'Nivel', '💎'].map((h, i) => (
+                {['', 'Ítem', 'Se usa con', 'Qué hace', 'Nivel', 'Precio'].map((h, i) => (
                   <th key={i} className="label-mono" style={{ textAlign: i >= 4 ? 'right' : 'left', padding: '8px 10px', fontWeight: 400 }}>{h}</th>
                 ))}
               </tr>

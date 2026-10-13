@@ -2,14 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import AppWindow, { type WindowMode } from '@/components/ui/AppWindow'
-import { ICON_FILE, ICON_FOLDER, ICON_TERMINAL, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
+import { ICON_FILE, ICON_FOLDER, ICON_SWORDS, ICON_TERMINAL, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
 import InventoryApp from '@/components/game/inventory/InventoryApp'
-import { ShopGlyph } from '@/components/game/shop/ShopIcons'
+import DiamondIcon from '@/components/ui/DiamondIcon'
 import StickerLayer from '@/components/game/stickers/StickerLayer'
 import { ACT_MAPS, MAP_PALETTES, MAP_PALETTE_ON_ACCENT, type MapPoint, type MapTheme } from '@/lib/game/act-maps'
 import { sfx } from '@/lib/game/architect/sound'
 import { DIAMONDS_PER_BOSS, SHOP_UNLOCK_BOSS_ID } from '@/lib/game/shop'
-import { diamondsAvailable, getPlaygroundState, playgroundLevel } from '@/lib/storage/local-store'
+import { ARENA_UNLOCK_BOSS_NAME } from '@/lib/game/arena/rules'
+import { diamondsAvailable, playerXp, playgroundLevel } from '@/lib/storage/local-store'
 import ActMap from './map/ActMap'
 import ActEmblem from './map/ActEmblem'
 import type { AvatarId } from './map/avatars'
@@ -40,6 +41,8 @@ interface BossMapProps {
   avatar?: AvatarId
   /** Repasos con Rodolfo habilitados (ids de jefe) — hacen aparecer la Escuelita en el mapa. */
   repasoIds?: string[]
+  /** La Arena (solo modo cuenta): sin el campo no aparece el ícono. */
+  arena?: 'open' | 'locked' | 'closed'
 }
 
 const PALETTE_LABEL: Record<MapTheme, string> = { light: 'BLANCO', dark: 'NEGRO', red: 'COLOR' }
@@ -53,7 +56,7 @@ interface WinState { mode: WindowMode; x: number; y: number; z: number }
 const WIN_TITLE: Record<WinId, string> = { stats: 'PROGRESO.TXT', log: 'BITÁCORA.LOG', controls: 'CONTROLES.TXT', inventory: 'INVENTARIO.EXE' }
 
 export default function BossMap({
-  bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, emptyState, testMode, isAdmin = false, avatar, repasoIds,
+  bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, emptyState, testMode, isAdmin = false, avatar, repasoIds, arena,
 }: BossMapProps) {
   const firstAvailableId = useMemo(
     () => bosses.find((b) => enabledIds.has(b.id) && !progress[b.id]?.defeated)?.id,
@@ -114,7 +117,7 @@ export default function BossMap({
   const [level, setLevel] = useState(1)
   const [diamonds, setDiamonds] = useState(0)
   useEffect(() => {
-    setLevel(playgroundLevel(getPlaygroundState().xp).level)
+    setLevel(playgroundLevel(playerXp()).level)
     setDiamonds(diamondsAvailable(totalDefeated))
   }, [totalDefeated])
 
@@ -238,7 +241,7 @@ export default function BossMap({
               <span style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--accent))' }}>{level}</span>
             </div>
             <div className="flex items-center gap-1.5" style={{ border: '2px solid hsl(var(--tx))', padding: '2px 8px', background: 'hsl(var(--bg))' }} title={`${totalDefeated} jefes × ${DIAMONDS_PER_BOSS} diamantes + los del patio de juegos — gastalos en la tienda del Mercader del Abismo`}>
-              <ShopGlyph glyph="crystal" size={13} color="hsl(var(--accent))" />
+              <DiamondIcon size={13} />
               <span className="tabular" style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--tx))' }}>{diamonds}</span>
             </div>
             <span className="hidden sm:inline" style={monoLabel}>Abrí los programas · arrastrá las ventanas</span>
@@ -270,6 +273,19 @@ export default function BossMap({
                 <PixelBitmap rows={ICON_FOLDER} scale={4} />
                 <span className="desk-lbl">inventario.exe</span>
               </button>
+              {arena && (
+                <a
+                  href={arena === 'open' ? '/arena' : undefined}
+                  className="desk-icon"
+                  aria-disabled={arena !== 'open'}
+                  onClick={(e) => { if (arena !== 'open') { e.preventDefault(); sfx.denied() } else sfx.open() }}
+                  title={arena === 'open' ? 'Abrir arena.exe: duelos contra tus compañeros' : arena === 'locked' ? `Se abre al vencer al ${ARENA_UNLOCK_BOSS_NAME}` : 'Tu docente cerró la arena por ahora'}
+                  style={{ textDecoration: 'none', opacity: arena === 'open' ? 1 : 0.45, cursor: arena === 'open' ? 'pointer' : 'not-allowed' }}
+                >
+                  <PixelBitmap rows={ICON_SWORDS} scale={4} />
+                  <span className="desk-lbl">arena.exe</span>
+                </a>
+              )}
             </div>
 
           {/* MAPA_DE_JEFES.EXE: ventana del gameplay. Vive en el flujo de la

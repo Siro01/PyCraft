@@ -1,6 +1,7 @@
 'use client'
 
 import type { ChallengeTier, Amulet, OwnedShopItem, ShopItem } from '@/types'
+import type { ArenaStats } from '@/lib/game/arena/types'
 import { PLAYGROUND_ACTS } from '@/lib/game/playground'
 import { DIAMONDS_PER_BOSS, SHOP_CATALOG, discountedPrice } from '@/lib/game/shop'
 import { PERK_SLOT_LIMIT } from '@/lib/game/perk-effects'
@@ -415,9 +416,33 @@ export function addAdminDiamondBonus(amount: number): number {
   return next
 }
 
-/** Jefes (20💎 c/u, la fuente principal) + logros del patio de juegos (fuente chica, ver playground-rewards.ts) + bono del docente. */
+// La Arena: diamantes netos y XP de los duelos. La fuente de verdad es la
+// base (arena_ledger / arena_xp); acá solo se guarda una copia para sumarla
+// al saldo y al nivel sin pedirle nada al servidor en cada pantalla. Se
+// refresca al cargar la sesión (cloud-sync) y al terminar cada duelo.
+const ARENA_KEY = 'pysql:arena'
+
+export function getArenaStats(): ArenaStats {
+  if (typeof window === 'undefined') return { net: 0, xp: 0 }
+  try {
+    const raw = JSON.parse(localStorage.getItem(ARENA_KEY) ?? 'null') as ArenaStats | null
+    return { net: Number(raw?.net) || 0, xp: Number(raw?.xp) || 0 }
+  } catch { return { net: 0, xp: 0 } }
+}
+
+export function setArenaStats(stats: ArenaStats): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(ARENA_KEY, JSON.stringify(stats)) } catch { /* modo privado */ }
+}
+
+/** XP total del jugador: patio de juegos + arena (lo que sube el nivel). */
+export function playerXp(): number {
+  return getPlaygroundState().xp + getArenaStats().xp
+}
+
+/** Jefes (20 diamantes c/u, la fuente principal) + logros del patio de juegos (fuente chica, ver playground-rewards.ts) + arena + bono del docente. */
 export function diamondsEarned(bossesDefeated: number): number {
-  return bossesDefeated * DIAMONDS_PER_BOSS + playgroundDiamonds(getPlaygroundState()) + getAdminDiamondBonus()
+  return bossesDefeated * DIAMONDS_PER_BOSS + playgroundDiamonds(getPlaygroundState()) + getArenaStats().net + getAdminDiamondBonus()
 }
 
 // Gastado = todo lo comprado (también lo ya usado: usar un ítem no devuelve
