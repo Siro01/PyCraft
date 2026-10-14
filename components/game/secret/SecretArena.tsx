@@ -636,7 +636,7 @@ function End({ phase, lines, color, delta, onRetry, exitHref }: {
 }
 
 function Output({ o }: { o: Outcome }) {
-  if (o.error) return <pre className="secret-out secret-bad">{o.error}</pre>
+  if (o.error) return <>{o.output && <pre className="secret-out">{o.output}</pre>}<pre className="secret-out secret-bad">{o.error}</pre></>
   if (o.rows && o.rows.columns.length) return <MiniTable columns={o.rows.columns} rows={o.rows.rows} />
   return <pre className="secret-out">{o.output || '(sin salida)'}</pre>
 }

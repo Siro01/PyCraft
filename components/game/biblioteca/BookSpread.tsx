@@ -15,6 +15,7 @@ import { friendlyError } from '@/lib/game/friendly-error'
 import { markBookPage, setBookLastPage, EMPTY_BOOK_PROGRESS, type BibliotecaProgress, type BookProgress } from '@/lib/storage/local-store'
 import { BookGlyph, Ico, ICO_LEFT, ICO_PLAY, ICO_RIGHT, ICO_STAR, ICO_UNDO } from './LibrarySprites'
 import SpellTable from './SpellTable'
+import { ConsoleAsk, ConsoleLine, ConsoleOutput, usePythonInput, type PendingInput } from '@/components/game/PyConsoleInput'
 
 const jersey = 'var(--font-jersey), monospace'
 const vt = 'var(--font-vt323), monospace'
@@ -285,6 +286,7 @@ function LiveExample({ book, page, accentHex, stamped, tinkered, onRan }: LivePr
   const [result, setResult] = useState<BookRun | null>(null)
   const [fresh, setFresh] = useState<'read' | 'tinker' | null>(null)
   const runId = useRef(0)
+  const { ask, pending, reply, stop } = usePythonInput()
   const changed = normalizeOutput(code) !== normalizeOutput(page.code)
   const file = book.lang === 'sql' ? 'consulta.sql' : 'ejemplo.py'
   const seed = page.seed ?? book.seed
@@ -296,7 +298,8 @@ function LiveExample({ book, page, accentHex, stamped, tinkered, onRan }: LivePr
     setRunning(true)
     const t = setTimeout(() => setSlow(true), 700)
     try {
-      const r = await runBookCode(book.lang, code, { seed, peek: page.peek, prelude: book.prelude })
+      setResult(null)
+      const r = await runBookCode(book.lang, code, { seed, peek: page.peek, prelude: book.prelude, ask })
       if (id !== runId.current) return
       setResult(r)
       if (r.error) {
@@ -315,7 +318,7 @@ function LiveExample({ book, page, accentHex, stamped, tinkered, onRan }: LivePr
       setSlow(false)
       setRunning(false)
     }
-  }, [book.lang, book.prelude, changed, code, onRan, page.peek, running, seed, stamped, tinkered])
+  }, [ask, book.lang, book.prelude, changed, code, onRan, page.peek, running, seed, stamped, tinkered])
 
   const reset = () => { sfx.click(); setCode(page.code); setResult(null) }
 
@@ -342,18 +345,18 @@ function LiveExample({ book, page, accentHex, stamped, tinkered, onRan }: LivePr
       </div>
       <div className="lib-run-row">
         <button type="button" className="cta-btn cta-btn--primary" onClick={run} disabled={running}>
-          <Ico rows={ICO_PLAY} />{running ? 'Ejecutando…' : 'Ejecutar'}
+          <Ico rows={ICO_PLAY} />{pending ? 'Esperando respuesta…' : running ? 'Ejecutando…' : 'Ejecutar'}
         </button>
         {changed && <button type="button" className="lib-ghost-btn" onClick={reset}><Ico rows={ICO_UNDO} /> Volver al original</button>}
         <span className="label-mono" style={{ color: 'hsl(var(--tx3))', marginLeft: 'auto' }}>Ctrl+Enter</span>
       </div>
-      {running && slow && (
+      {running && slow && !pending && (
         <div className="mt-2">
           <LoadingBar size="xs" estimatedMs={6000} label="Despertando el motor" />
           <p className="label-mono" style={{ color: 'hsl(var(--tx3))', marginTop: 4 }}>Despertando el motor (la primera vez tarda un poco)…</p>
         </div>
       )}
-      <Console result={result} lang={book.lang} />
+      <Console result={result} lang={book.lang} pending={pending} onReply={reply} onStop={stop} />
       <div className="lib-stamps" aria-live="polite">
         {(stamped || fresh) && <span className={`lib-stamp${fresh === 'read' ? ' lib-stamp--new' : ''}`}>Probado</span>}
         {(tinkered || fresh === 'tinker') && <span className={`lib-stamp lib-stamp--accent${fresh === 'tinker' ? ' lib-stamp--new' : ''}`}><Ico rows={ICO_STAR} /> Experimentaste</span>}
@@ -363,7 +366,27 @@ function LiveExample({ book, page, accentHex, stamped, tinkered, onRan }: LivePr
   )
 }
 
-export function Console({ result, lang }: { result: BookRun | null; lang: Book['lang'] }) {
+interface ConsoleProps {
+  result: BookRun | null
+  lang: Book['lang']
+  /** input() esperando respuesta: la pregunta se escribe acá mismo. */
+  pending?: PendingInput | null
+  onReply?: (v: string) => void
+  onStop?: () => void
+}
+
+export function Console({ result, lang, pending, onReply, onStop }: ConsoleProps) {
+  if (pending && onReply && onStop) {
+    return (
+      <div className="lib-console">
+        <div className="lib-console-bar">Consola</div>
+        <div className="lib-console-body">
+          <ConsoleOutput display={pending.soFar} lineClassName="lib-out-line" />
+          <ConsoleAsk key={pending.soFar} prompt={pending.prompt} onReply={onReply} onStop={onStop} />
+        </div>
+      </div>
+    )
+  }
   return (
     <div className={`lib-console${result?.error ? ' lib-console--error' : ''}`} aria-live="polite">
       <div className="lib-console-bar">Consola</div>
@@ -371,6 +394,7 @@ export function Console({ result, lang }: { result: BookRun | null; lang: Book['
         {!result && <span style={{ color: 'hsl(var(--tx3))' }}>{lang === 'sql' ? 'Acá aparece la tabla que devuelve la consulta.' : 'Acá aparece lo que imprime el programa.'}</span>}
         {result?.error && (
           <>
+            {result.lines.map((l, i) => <div key={i} className="lib-out-line"><ConsoleLine text={l} /></div>)}
             <div className="lib-err-raw">{result.error}</div>
             <div className="lib-err-kid"><span className="lib-warn-tag">Rodolfo traduce</span> {friendlyError(result.error)}</div>
           </>
@@ -380,7 +404,7 @@ export function Console({ result, lang }: { result: BookRun | null; lang: Book['
         )}
         {result && !result.error && !result.table && (
           result.lines.length > 0
-            ? result.lines.map((l, i) => <div key={i} className="lib-out-line">{l || ' '}</div>)
+            ? result.lines.map((l, i) => <div key={i} className="lib-out-line"><ConsoleLine text={l} /></div>)
             : <span style={{ color: 'hsl(var(--tx3))' }}>{lang === 'sql' ? 'Listo. Esta orden no devuelve filas.' : 'Se ejecutó sin imprimir nada.'}</span>
         )}
       </div>

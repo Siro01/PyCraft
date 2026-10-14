@@ -1,9 +1,11 @@
 'use client'
 
 import type { BookLang } from './biblioteca'
+import type { AskInput } from './executor/pyodide-runner'
 
 export interface BookRun {
-  /** Líneas impresas (Python) — vacío si fue SQL o hubo error. */
+  /** Líneas impresas (Python) — vacío si fue SQL o hubo error. Las respuestas
+   *  de input() vienen marcadas (ver ConsoleLine). */
   lines: string[]
   /** Resultado SQL (la última consulta, o la de "mirar la tabla"). */
   table: { cols: string[]; rows: string[][] } | null
@@ -22,18 +24,18 @@ export function normalizeOutput(s: string): string {
 export async function runBookCode(
   lang: BookLang,
   code: string,
-  opts: { seed?: string; peek?: string; prelude?: string } = {},
+  opts: { seed?: string; peek?: string; prelude?: string; ask?: AskInput } = {},
 ): Promise<BookRun> {
   if (lang === 'python') {
     const { runPython } = await import('./executor/pyodide-runner')
     const pre = opts.prelude ? `${opts.prelude}\n` : ''
     const offset = pre ? pre.split('\n').length - 1 : 0
-    const { output, error } = await runPython(pre + code)
+    const { output, display, error } = await runPython(pre + code, { ask: opts.ask })
     if (error) {
       const fixed = offset ? error.replace(/línea (\d+)/g, (_, n) => `línea ${Math.max(1, Number(n) - offset)}`) : error
-      return { lines: [], table: null, error: fixed, flat: '' }
+      return { lines: display ? display.split('\n') : [], table: null, error: fixed, flat: output }
     }
-    return { lines: output ? output.split('\n') : [], table: null, error: null, flat: output }
+    return { lines: display ? display.split('\n') : [], table: null, error: null, flat: output }
   }
   const { runSQL } = await import('./executor/sql-runner')
   const { rows, columns, error } = await runSQL(code, opts.seed, opts.peek)

@@ -7,6 +7,7 @@
 // a los de Python pero en criollo, para que el error enseñe algo. Rodolfo
 // explica la regla la primera vez; después queda un "?" para volver a verlo.
 
+import { formatPythonError } from '@/lib/game/python-errors'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Win from '@/components/ui/Win'
 import { ItemSprite, itemSpriteKey } from './ItemSprites'
@@ -92,7 +93,7 @@ export function parseInventoryCommand(raw: string, owned: ShopItem[]): Parsed {
     const near = normalize(fn).startsWith('pri') || distance(normalize(fn), 'print') <= 2
     return {
       ok: false,
-      error: `NameError: name '${fn}' is not defined`,
+      error: formatPythonError('NameError', `name '${fn}' is not defined`),
       hint: near ? '¿Quisiste decir print? Va todo en minúscula y con las 5 letras.' : 'La función para usar ítems es print().',
     }
   }
@@ -112,7 +113,7 @@ export function parseInventoryCommand(raw: string, owned: ShopItem[]): Parsed {
   const near = closest(arg, owned)
   return {
     ok: false,
-    error: `NameError: name '${arg}' is not defined`,
+    error: formatPythonError('NameError', `name '${arg}' is not defined`),
     hint: near ? `¿Quisiste decir ${near.printName}? Tiene que estar escrito exacto.` : 'Fijate el nombre exacto en la lista de arriba.',
   }
 }

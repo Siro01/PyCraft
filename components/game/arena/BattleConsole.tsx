@@ -169,7 +169,10 @@ export default function BattleConsole({
             {lastResult.sql && !isPython ? (
               <SqlResult isCorrect={lastResult.isCorrect} error={lastResult.error} expected={lastResult.expected} sql={lastResult.sql} code={submitted} seedTables={seedTables} />
             ) : lastResult.error ? (
-              <pre className="arena-out arena-out--err">{lastResult.error}</pre>
+              <>
+                {lastResult.output && <pre className="arena-out">{lastResult.output}</pre>}
+                <pre className="arena-out arena-out--err">{lastResult.error}</pre>
+              </>
             ) : ok ? (
               <>
                 <h4>salida</h4>

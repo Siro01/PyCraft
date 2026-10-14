@@ -14,6 +14,7 @@ import {
 } from '@/lib/storage/local-store'
 import ZoomControl from '@/components/game/ZoomControl'
 import StickerLayer from '@/components/game/stickers/StickerLayer'
+import { ConsoleAsk, ConsoleOutput, usePythonInput } from '@/components/game/PyConsoleInput'
 
 const jersey = 'var(--font-jersey), monospace'
 const ACCENT = '#DC143C'
@@ -28,7 +29,7 @@ print("Ítem:", nombre_item)
 print("Cantidad:", cantidad)
 `
 
-type RunState = { kind: 'idle' } | { kind: 'ok'; output: string } | { kind: 'error'; message: string }
+type RunState = { kind: 'idle' } | { kind: 'ok'; output: string } | { kind: 'error'; message: string; output?: string; failed?: boolean }
 
 export default function PracticeApp() {
   const [code, setCode] = useState(STARTER_CODE)
@@ -50,6 +51,8 @@ export default function PracticeApp() {
   splitRef.current = split
   const paneRowRef = useRef<HTMLDivElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const consoleRef = useRef<HTMLDivElement>(null)
+  const { ask, pending, reply, stop } = usePythonInput()
 
   // El sitio tiene su propio <header> arriba de esta página — se mide acá
   // para que "pantalla completa" llene lo que queda debajo sin taparlo
@@ -146,15 +149,19 @@ export default function PracticeApp() {
     if (running || !engineReady) return
     sfx.click()
     setRunning(true)
-    const { runPython } = await import('@/lib/game/executor/pyodide-runner')
-    const result = await runPython(code)
+    setRun({ kind: 'idle' })
+    const { runPython, STOPPED_ERROR } = await import('@/lib/game/executor/pyodide-runner')
+    const result = await runPython(code, { ask })
     setRunning(false)
-    if (result.error) {
+    if (result.error === STOPPED_ERROR) {
+      // Lo frenó el alumno: no es un error suyo, se deja lo que alcanzó a imprimir.
+      setRun({ kind: 'error', message: '■ Programa detenido.', output: result.display })
+    } else if (result.error) {
       sfx.miss()
-      setRun({ kind: 'error', message: result.error })
+      setRun({ kind: 'error', message: result.error, output: result.display, failed: true })
     } else {
       sfx.confirm()
-      setRun({ kind: 'ok', output: result.output || '(no imprimió nada)' })
+      setRun({ kind: 'ok', output: result.display || '(no imprimió nada)' })
     }
   }
 
@@ -196,7 +203,7 @@ export default function PracticeApp() {
             <div className="flex items-start gap-2 mb-3" style={{ flexShrink: 0 }}>
               {!introHidden && (
                 <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, color: 'hsl(var(--tx2))', flex: 1 }}>
-                  Escribí el Python que quieras y probalo — sin jefe, sin desafío, solo para practicar. Si tu código usa <code className="font-mono">input()</code>, el navegador te va a pedir el valor con su propia ventanita.
+                  Escribí el Python que quieras y probalo — sin jefe, sin desafío, solo para practicar. Si tu código usa <code className="font-mono">input()</code>, la pregunta aparece en la consola: escribís la respuesta ahí mismo y apretás Enter.
                 </p>
               )}
               <button
@@ -229,6 +236,7 @@ export default function PracticeApp() {
                     style={{ opacity: !engineReady || running ? 0.6 : 1 }}
                   >
                     {!engineReady ? <LoadingBar label="Cargando motor Python..." size="xs" tone="current" estimatedMs={10000} />
+                      : pending ? 'Esperando tu respuesta…'
                       : running ? <LoadingBar label="Ejecutando..." size="xs" tone="current" estimatedMs={1200} />
                       : '▶ Ejecutar (Ctrl+Enter)'}
                   </button>
@@ -259,16 +267,32 @@ export default function PracticeApp() {
               <div className="min-w-0 flex flex-col">
                 <div className="label-mono mb-1" style={{ height: 18, display: 'flex', alignItems: 'center', color: 'hsl(var(--tx3))', flexShrink: 0 }}>Consola</div>
                 <div
+                  ref={consoleRef}
                   className="font-mono overflow-y-auto"
+                  onClick={() => { if (pending && !window.getSelection()?.toString()) consoleRef.current?.querySelector('input')?.focus() }}
                   style={{
-                    minHeight: 160, background: 'hsl(var(--bg))', color: run.kind === 'error' ? 'hsl(var(--danger))' : 'hsl(var(--tx))',
-                    border: '2px solid hsl(var(--border2))', padding: '10px 12px', fontSize: 15, lineHeight: 1.5, whiteSpace: 'pre-wrap',
+                    minHeight: 160, background: 'hsl(var(--bg))', color: 'hsl(var(--tx))', ['--py-ink' as string]: ACCENT,
+                    border: `2px solid ${pending ? ACCENT : 'hsl(var(--border2))'}`, padding: '10px 12px', fontSize: 15, lineHeight: 1.5, whiteSpace: 'pre-wrap',
                     ...(maximized ? { flex: 1 } : { maxHeight: 320 }),
                   }}
                 >
-                  {run.kind === 'idle' && <span style={{ color: 'hsl(var(--tx3))' }}>Todavía no ejecutaste nada.</span>}
-                  {run.kind === 'ok' && run.output}
-                  {run.kind === 'error' && run.message}
+                  {pending ? (
+                    <>
+                      <ConsoleOutput display={pending.soFar} />
+                      <ConsoleAsk key={pending.soFar} prompt={pending.prompt} onReply={reply} onStop={stop} />
+                    </>
+                  ) : (
+                    <>
+                      {run.kind === 'idle' && <span style={{ color: 'hsl(var(--tx3))' }}>{running ? 'Ejecutando…' : 'Todavía no ejecutaste nada.'}</span>}
+                      {run.kind === 'ok' && <ConsoleOutput display={run.output} />}
+                      {run.kind === 'error' && (
+                        <>
+                          {run.output && <ConsoleOutput display={run.output} />}
+                          <div style={{ color: run.failed ? 'hsl(var(--danger))' : 'hsl(var(--tx3))', ...(run.output ? { marginTop: 4 } : {}) }}>{run.message}</div>
+                        </>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </div>

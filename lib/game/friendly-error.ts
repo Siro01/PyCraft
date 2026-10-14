@@ -1,6 +1,8 @@
 /** Traduce el error crudo de Python/SQLite a algo que un chico de 10 años entienda.
  *  Lo comparten la Escuelita de Rodolfo y la Biblioteca. */
 export function friendlyError(err: string): string {
+  if (/InputNoDisponible/.test(err)) return 'Acá nadie puede contestarle a input(): los datos ya vienen en el desafío. Poné el valor directo en una variable.'
+  if (/Detuviste el programa/.test(err)) return 'Frenaste el programa antes de que terminara. Ejecutalo de nuevo cuando quieras.'
   if (/lo frenamos/i.test(err)) return 'El programa no terminaba nunca y lo frenamos. ¿Algo adentro del bucle cambia la condición?'
   if (/SyntaxError/i.test(err)) return 'Python no entendió cómo está escrito. Revisá que no falte ni sobre ningún signo.'
   if (/IndentationError/i.test(err)) return 'La sangría (los espacios de la izquierda) no coincide. Lo de adentro de un if, for o def va corrido 4 espacios.'

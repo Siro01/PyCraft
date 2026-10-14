@@ -36,7 +36,7 @@ async function runBeat(beat: FillBeat, values: string[]): Promise<RunResult> {
   if (beat.lang === 'python') {
     const { runPython } = await import('@/lib/game/executor/pyodide-runner')
     const { output, error } = await runPython(code)
-    if (error) return { ok: false, lines: [], table: null, error }
+    if (error) return { ok: false, lines: output ? output.split('\n') : [], table: null, error }
     return { ok: normalize(output) === normalize(beat.expected), lines: output ? output.split('\n') : [], table: null, error: null }
   }
   const { runSQL } = await import('@/lib/game/executor/sql-runner')
@@ -461,7 +461,14 @@ function FillResult({ result, expected, lang }: { result: RunResult; expected: s
         {ok ? '¡Funciona!' : result.error ? 'Hubo un error' : 'Todavía no'}
       </span>
       {result.error ? (
+        <>
+        {result.lines.map((l, i) => (
+          <div key={i} style={{ fontFamily: vt, fontSize: 22, color: 'hsl(var(--tx))', whiteSpace: 'pre-wrap' }}>
+            <span style={{ color: 'hsl(var(--accent))' }}>&gt; </span>{l}
+          </div>
+        ))}
         <code style={{ fontFamily: vt, fontSize: 17, color: 'hsl(var(--tx3))', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{result.error}</code>
+        </>
       ) : lang === 'sql' && result.table ? (
         result.table.cols.length > 0
           ? <MiniTable table={{ cols: result.table.cols, rows: result.table.rows }} />

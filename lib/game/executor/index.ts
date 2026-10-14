@@ -46,7 +46,7 @@ export async function executeChallenge(
   if (challenge.type === 'python') {
     const { output, error } = await runPython(code)
     if (error) {
-      return { isCorrect: false, actualOutput: '', expectedOutput: expected, error }
+      return { isCorrect: false, actualOutput: output, expectedOutput: expected, error }
     }
     return {
       isCorrect: normalize(output) === normalize(expected),
