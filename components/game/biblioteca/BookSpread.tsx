@@ -344,9 +344,13 @@ function LiveExample({ book, page, accentHex, stamped, tinkered, onRan }: LivePr
         />
       </div>
       <div className="lib-run-row">
-        <button type="button" className="cta-btn cta-btn--primary" onClick={run} disabled={running}>
-          <Ico rows={ICO_PLAY} />{pending ? 'Esperando respuesta…' : running ? 'Ejecutando…' : 'Ejecutar'}
-        </button>
+        {pending ? (
+          <button type="button" className="cta-btn" onClick={() => { sfx.click(); stop() }}>■ Detener</button>
+        ) : (
+          <button type="button" className="cta-btn cta-btn--primary" onClick={run} disabled={running}>
+            <Ico rows={ICO_PLAY} />{running ? 'Ejecutando…' : 'Ejecutar'}
+          </button>
+        )}
         {changed && <button type="button" className="lib-ghost-btn" onClick={reset}><Ico rows={ICO_UNDO} /> Volver al original</button>}
         <span className="label-mono" style={{ color: 'hsl(var(--tx3))', marginLeft: 'auto' }}>Ctrl+Enter</span>
       </div>

@@ -63,15 +63,20 @@ export function ConsoleOutput({ display, lineClassName }: { display: string; lin
   return <>{display.split('\n').map((l, i) => <div key={i} className={lineClassName}><ConsoleLine text={l} /></div>)}</>
 }
 
-/** La pregunta de input() con su cursor, al final de la consola. */
+/** La pregunta de input() con su cursor, al final de la consola — como una
+ *  terminal: el texto de la pregunta y el cursor en la misma línea, sin
+ *  cajas. A la derecha, una pista mínima (↵) que cambia si el campo pierde el
+ *  foco. Detener está en el botón de ejecutar de cada pantalla (y en Esc). */
 export function ConsoleAsk({ prompt, onReply, onStop }: { prompt: string; onReply: (v: string) => void; onStop: () => void }) {
   const [value, setValue] = useState('')
+  const [focused, setFocused] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const el = inputRef.current
     if (!el) return
     el.focus({ preventScroll: true })
+    setFocused(document.activeElement === el)
     el.scrollIntoView({ block: 'nearest' })
     sfx.select()
   }, [])
@@ -82,32 +87,30 @@ export function ConsoleAsk({ prompt, onReply, onStop }: { prompt: string; onRepl
   }
 
   return (
-    <div className="py-ask">
-      <label className="py-ask-line">
-        {prompt && <span className="py-ask-prompt">{prompt}</span>}
-        <input
-          ref={inputRef}
-          className="py-ask-input"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); submit() }
-            else if (e.key === 'Escape') { e.preventDefault(); onStop() }
-          }}
-          placeholder="escribí acá…"
-          aria-label={prompt ? `Respuesta para: ${prompt}` : 'Respuesta para input()'}
-          autoComplete="off"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-        />
-      </label>
-      <div className="py-ask-hint">
-        <span className="py-ask-tag">Python te pregunta</span>
-        <span>escribí tu respuesta y apretá</span>
-        <button type="button" className="py-ask-btn py-ask-btn--go" onClick={submit}>Enter ↵</button>
-        <button type="button" className="py-ask-btn" onClick={onStop}>■ Detener</button>
-      </div>
-    </div>
+    <label className={`py-ask${focused ? '' : ' py-ask--idle'}`}>
+      {prompt && <span className="py-ask-prompt">{prompt}</span>}
+      <input
+        ref={inputRef}
+        className="py-ask-input"
+        value={value}
+        style={{ width: `${value.length + 0.1}ch` }}
+        onChange={(e) => setValue(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); submit() }
+          else if (e.key === 'Escape') { e.preventDefault(); onStop() }
+        }}
+        aria-label={prompt ? `Respuesta para: ${prompt}` : 'Respuesta para input()'}
+        autoComplete="off"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+      />
+      <span className="py-ask-cursor" aria-hidden />
+      <button type="button" className="py-ask-hint" onMouseDown={(e) => e.preventDefault()} onClick={() => (focused ? submit() : inputRef.current?.focus())} tabIndex={-1}>
+        {focused ? 'enter ↵' : 'clic para escribir'}
+      </button>
+    </label>
   )
 }

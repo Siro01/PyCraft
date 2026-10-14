@@ -230,13 +230,13 @@ export default function PracticeApp() {
                 <div className="flex items-center gap-2 mt-3" style={{ flexShrink: 0 }}>
                   <button
                     type="button"
-                    onClick={handleRun}
-                    disabled={!engineReady || running}
-                    className="cta-btn cta-btn--primary"
-                    style={{ opacity: !engineReady || running ? 0.6 : 1 }}
+                    onClick={pending ? () => { sfx.click(); stop() } : handleRun}
+                    disabled={!engineReady || (running && !pending)}
+                    className={`cta-btn${pending ? '' : ' cta-btn--primary'}`}
+                    style={{ opacity: !engineReady || (running && !pending) ? 0.6 : 1 }}
                   >
                     {!engineReady ? <LoadingBar label="Cargando motor Python..." size="xs" tone="current" estimatedMs={10000} />
-                      : pending ? 'Esperando tu respuesta…'
+                      : pending ? '■ Detener (Esc)'
                       : running ? <LoadingBar label="Ejecutando..." size="xs" tone="current" estimatedMs={1200} />
                       : '▶ Ejecutar (Ctrl+Enter)'}
                   </button>

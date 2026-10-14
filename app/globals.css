@@ -3373,35 +3373,26 @@ button.lobby-row:hover .lobby-row-cta, .lobby-pick--on .lobby-row-cta { color: h
 /* ─── input() dentro de la consola (PyConsoleInput.tsx) ───────────────────── */
 /* --py-ink: color de la respuesta (cada consola puede pasar el suyo). */
 /* Lo que el alumno contestó: resaltado para que se distinga de lo que imprimió Python. */
-.py-answer { color: var(--py-ink, hsl(var(--accent))); background: color-mix(in srgb, var(--py-ink, hsl(var(--accent))) 12%, transparent); padding: 0 3px; white-space: pre-wrap; }
-.py-ask { margin-top: 2px; padding: 4px 0 2px 8px; border-left: 3px solid var(--py-ink, hsl(var(--accent))); animation: py-ask-in 0.25s steps(3) both; white-space: normal; }
-.py-ask-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0; cursor: text; }
+.py-answer { color: var(--py-ink, hsl(var(--accent))); }
+/* La pregunta: texto + lo que se escribe + cursor de bloque, en una sola línea,
+   sin cajas. El cursor nativo se oculta y se dibuja uno de bloque que titila. */
+.py-ask { display: flex; align-items: baseline; flex-wrap: wrap; cursor: text; animation: py-ask-in 0.2s steps(2) both; }
 .py-ask-prompt { white-space: pre-wrap; overflow-wrap: anywhere; }
 .py-ask-input {
-  flex: 1 1 8ch; min-width: 8ch; font: inherit; color: var(--py-ink, hsl(var(--accent))); caret-color: var(--py-ink, hsl(var(--accent)));
-  background: color-mix(in srgb, var(--py-ink, hsl(var(--accent))) 8%, transparent); border: 0; border-bottom: 2px solid var(--py-ink, hsl(var(--accent))); border-radius: 0;
-  padding: 0 4px; margin-left: 2px; outline: none;
+  min-width: 0; max-width: 100%; padding: 0; margin: 0; border: 0; border-radius: 0; background: transparent;
+  font: inherit; color: var(--py-ink, hsl(var(--accent))); caret-color: transparent; outline: none !important; box-shadow: none !important;
 }
-.py-ask-input::placeholder { color: hsl(var(--tx3)); opacity: 1; }
-.py-ask-input:focus { background: color-mix(in srgb, var(--py-ink, hsl(var(--accent))) 16%, transparent); }
+.py-ask-cursor { display: inline-block; width: 0.6em; height: 1em; align-self: center; background: var(--py-ink, hsl(var(--accent))); animation: py-ask-blink 1s steps(1) infinite; }
+.py-ask--idle .py-ask-cursor { animation: none; background: transparent; box-shadow: inset 0 0 0 1px var(--py-ink, hsl(var(--accent))); }
 .py-ask-hint {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 6px;
-  font-family: var(--font-vt323), monospace; font-size: 17px; line-height: 1.1; color: hsl(var(--tx3));
+  margin-left: auto; padding: 0 0 0 12px; border: 0; background: transparent; cursor: pointer;
+  font-family: var(--font-vt323), monospace; font-size: 16px; line-height: 1; letter-spacing: 0.02em; color: hsl(var(--tx3));
 }
-.py-ask-tag {
-  padding: 1px 6px; background: var(--py-ink, hsl(var(--accent))); color: var(--on-accent, hsl(var(--bg)));
-  font-family: var(--font-jersey), monospace; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase;
-  animation: py-ask-blink 1.2s steps(1) infinite;
-}
-.py-ask-btn {
-  padding: 1px 8px; border: 2px solid hsl(var(--tx)); background: transparent; color: hsl(var(--tx));
-  font-family: var(--font-jersey), monospace; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
-}
-.py-ask-btn:hover { background: hsl(var(--tx) / 0.08); }
-.py-ask-btn--go { border-color: var(--py-ink, hsl(var(--accent))); color: var(--py-ink, hsl(var(--accent))); }
-@keyframes py-ask-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-@keyframes py-ask-blink { 50% { opacity: 0.55; } }
-@media (prefers-reduced-motion: reduce) { .py-ask, .py-ask-tag { animation: none !important; } }
+.py-ask-hint:hover { color: var(--py-ink, hsl(var(--accent))); }
+.py-ask--idle .py-ask-hint { color: var(--py-ink, hsl(var(--accent))); }
+@keyframes py-ask-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes py-ask-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .py-ask, .py-ask-cursor { animation: none !important; } }
 
 /* ── Cartel de SE BUSCA del Pistolero (components/game/raid/WantedPoster.tsx) ──
    Papel viejo pixel: manchas de polvo en cuadraditos, bordes quemados (clip-path
