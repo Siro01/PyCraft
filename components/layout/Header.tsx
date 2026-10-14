@@ -1,10 +1,11 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { sfx, isMuted, setMuted } from '@/lib/game/architect/sound'
 import { isLocalMode } from '@/lib/local-mode'
+import { clearLocalUser } from '@/lib/storage/local-store'
 
 interface HeaderProps {
   username?: string
@@ -135,7 +136,12 @@ export default function Header({ username, role }: HeaderProps) {
           </button>
 
           {username && (
-            <form action="/api/auth/logout" method="POST">
+            <form
+              action="/api/auth/logout"
+              method="POST"
+              // Modo local: el usuario vive en localStorage; sin borrarlo, "Salir" no cerraba nada.
+              onSubmit={() => { if (isLocalMode()) clearLocalUser() }}
+            >
               <button
                 type="submit"
                 className="hover:text-danger transition-colors"
