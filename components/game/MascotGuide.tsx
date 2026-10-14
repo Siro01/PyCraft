@@ -11,11 +11,13 @@ interface Props {
   variant?: 'gif' | 'pixel'
   /** Si hay apuntes con ejemplos para este jefe: abre la ventana de Rodolfo. */
   onOpenLesson?: () => void
+  /** Aviso puntual (ej.: ejercicio repetido). Cada `key` nuevo abre el globo con este texto. */
+  alert?: { key: number; text: string } | null
 }
 
 type MascotState = 'peeking' | 'open'
 
-export default function MascotGuide({ tip, variant = 'gif', onOpenLesson }: Props) {
+export default function MascotGuide({ tip, variant = 'gif', onOpenLesson, alert }: Props) {
   const [state, setState] = useState<MascotState>('peeking')
   const [wiggling, setWiggling] = useState(false)
   const [reactKey, setReactKey] = useState(0)
@@ -25,7 +27,20 @@ export default function MascotGuide({ tip, variant = 'gif', onOpenLesson }: Prop
     setState('peeking')
   }, [tip])
 
-  if (!tip && !onOpenLesson) return null
+  // Un aviso nuevo hace que Rodolfo salga solo a decirlo.
+  const [alertText, setAlertText] = useState<string | null>(null)
+  useEffect(() => {
+    if (!alert) return
+    setAlertText(alert.text)
+    setState('open')
+    setWiggling(true)
+    setReactKey((k) => k + 1)
+    const t = setTimeout(() => setWiggling(false), 600)
+    return () => clearTimeout(t)
+  }, [alert])
+  useEffect(() => { if (state === 'peeking') setAlertText(null) }, [state])
+
+  if (!tip && !onOpenLesson && !alertText) return null
 
   const handleClick = () => {
     if (state === 'peeking') {
@@ -60,6 +75,11 @@ export default function MascotGuide({ tip, variant = 'gif', onOpenLesson }: Prop
               <IconBulb size={12} color="var(--on-accent)" />
               <span style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 15, letterSpacing: '0.08em' }}>RODOLFO</span>
             </div>
+            {alertText && (
+              <div className="px-3 py-2" role="alert" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, lineHeight: 1.15, color: 'hsl(var(--tx))', borderBottom: tip ? '1px dashed hsl(var(--border2))' : undefined }}>
+                <strong style={{ color: 'hsl(var(--accent))' }}>¡Ojo! </strong>{alertText}
+              </div>
+            )}
             {tip && (
               <div className="px-3 py-2" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, lineHeight: 1.15, color: 'hsl(var(--tx))' }}>
                 {tip}

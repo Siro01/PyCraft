@@ -2,6 +2,8 @@
 
 > Vocabulario: en la plataforma se dice **retarse por diamantes** (nada que suene a juego de azar). **Ningún emoji de diamante**: se usa `components/ui/DiamondIcon.tsx`.
 > Rama de trabajo: `develop`. Orden acordado: **primero el Pistolero, después la raid contra jefes secretos.**
+>
+> **Este archivo es el plan y su historia.** Cómo funciona hoy el Pistolero (para el docente y para quien toque el código) está en **[docs/pistolero.md](docs/pistolero.md)**. Donde este plan y la guía no coinciden, vale la guía.
 
 ---
 
@@ -26,69 +28,21 @@ Si algo de la Arena falla, falla también la raid. Por eso va primero.
 
 ## 2. El Pistolero
 
-### 2.1 Flujo
+**Funcionamiento actual: [docs/pistolero.md](docs/pistolero.md).** En resumen:
 
-1. **Antes de la clase**, desde Admin → Aulas, el docente **arma al Pistolero** en un aula (`aulas.pistolero_armed = true`). Mientras no esté armado, nadie abre ninguna conexión extra.
-2. Con el aula armada, el mapa, el dashboard y las batallas se suscriben a un canal liviano `aula-<id>` (solo Broadcast).
-3. El docente abre la **Mesa del Pistolero** (`/admin/pistolero`) y aprieta **«¡Desenfundar!»**. A todo el aula, esté donde esté, le aparece una pantalla completa: el Pistolero entra caminando, con polvo y un cartel de SE BUSCA, y dice una frase de reto.
-4. El alumno aprieta **«¡Al duelo!»** y va a `/raid/<id>`. Se sortea un ejercicio de su nivel, salvo que el docente ya le haya asignado uno a mano.
-5. Combate: el alumno escribe, ejecuta y envía. El servidor compara la salida con la esperada y le marca **sugerencia ✔ o ✘** al docente. El docente **confirma o corrige**. Con ✔, el Pistolero pierde vida y el alumno recibe el siguiente ejercicio.
-6. Final:
-   - **Ganan** si la vida del Pistolero llega a 0. El Pistolero se retira hacia el atardecer diciendo que **volverá con un nuevo reto** y que **disfruten el botín**.
-   - **Gana el Pistolero** si la vida del equipo llega a 0 o si el docente aprieta **«Se acabó el tiempo»**.
-   - **Si pierden, no pierden nada.** Es un evento sorpresa.
+1. Antes de clase, el docente **arma** el aula desde la Mesa (`/admin/pistolero`). La Mesa arranca **sin sonido** (botón o tecla M) para no delatarse si proyecta con su audio.
+2. **¡DESENFUNDAR!**: a todo el aula le aparece el aviso sorpresa («voy en 1 minuto» si está en otra cosa). El alumno va a **`/pistolero`**.
+3. **EMPEZAR**: vida del Pistolero = 2 por alumno que entró (los que llegan tarde suman 2). Vida del equipo: 100.
+4. El alumno resuelve y **dispara**; el servidor marca la sugerencia ✔/✘; el docente decide (A/R, o «aprobar los que coinciden»). ✔ = −1 al Pistolero y el siguiente ejercicio. ✘ = −4 al equipo y el mismo otra vez.
+5. Termina por vida o con **SE ACABÓ EL TIEMPO**. Botín: 30 diamantes + 20 XP + sticker «SE BUSCA» numerado a quien acertó al menos una vez. Perder no cuesta nada.
 
-### 2.2 Ejercicios prehechos (v1: archivo)
+**Cambios respecto del plan original** (por pedido del docente o por la primera prueba en vivo):
 
-`lib/game/raid/pistolero-ejercicios.ts` lleva `import 'server-only'`, así que **nunca llega al navegador** y las respuestas no se pueden espiar.
-
-```ts
-{ id: 'pist-py-01', lang: 'python', tier: 'junior', title: 'Las balas del tambor',
-  prompt: '...', starter: '...', expected: '...' }
-{ id: 'pist-sql-03', lang: 'sql', tier: 'senior', prompt: '...', seedSQL: '...', expected: '...' }
-```
-
-- **Sorteo:** al azar dentro del nivel del alumno (`tier` del aula y del alumno), sin repetir dentro del mismo evento.
-- **Asignación a mano:** en la Mesa, para cada alumno, un desplegable con los ejercicios para **fijarle el próximo** o **cambiarle el actual**. Sirve para tener en cuenta lo que puede hacer cada uno.
-- **Más adelante:** un editor en el panel docente (tabla `pistolero_exercises`). El archivo queda como respaldo.
-
-### 2.3 La Mesa del Pistolero (vista docente)
-
-| Zona | Qué tiene |
-|---|---|
-| Arriba | Vida del Pistolero, vida del equipo, reloj y botones **¡Desenfundar!** y **Se acabó el tiempo** |
-| Grilla de alumnos | Una tarjeta por alumno: estado (esperando, escribiendo o envió), ejercicio, código, salida, sugerencia ✔/✘ y botones **✔ / ✘ / cambiar ejercicio** |
-| Cola de corrección | Los envíos pendientes, del más viejo al más nuevo. Atajos de teclado: `A` aprueba, `R` rechaza, `↓` pasa al siguiente |
-| Acciones en vivo | Los ataques del Pistolero (§2.5) y un cuadro de **frase en vivo**: lo que escribís les aparece en un globo de diálogo |
-
-La sugerencia automática hace que con 30 alumnos el docente solo tenga que mirar los casos dudosos. **El docente siempre tiene la última palabra.**
-
-### 2.4 El personaje: arte ASCII con mucho detalle
-
-- Arte **100 % por código** en `lib/game/raid/pistolero-art.ts`, en la misma línea que el Arquitecto (`lib/game/architect/art.ts` y `render.ts`): cuadros ASCII sin imports, que se pueden renderizar con `node --experimental-strip-types` para revisarlos.
-- El personaje: sombrero de ala ancha, poncho, bigote, **revólver antiguo de tambor** (cañón largo, tambor que gira), espuelas y una estrella de sheriff oxidada. Polvo y un rodador (tumbleweed) de fondo.
-- **Animaciones:** respirar, mano cerca de la funda, desenfundar, girar el revólver en el dedo, girar el tambor, recargar, recibir un golpe (glitch y retroceso), levantar el sombrero y la retirada.
-- Vitrina en `/demo/pistolero` (solo admin) para elegir entre **2 o 3 variantes** antes de seguir, como con el Guardián y el Mercader.
-- **Tono:** caricatura western. Los disparos le pegan al **editor o al cartel**, nunca a un personaje (es para chicos de 10 a 13).
-
-### 2.5 Ataques del Pistolero (botones del docente, cada uno con su animación)
-
-| Ataque | Animación | Efecto |
-|---|---|---|
-| **Desenfundada rápida** | Desenfunda y dispara; agujero de bala en el editor | Congela el editor de **un** alumno 8 s (lo elige el docente o la suerte) |
-| **Ráfaga del tambor** | El tambor gira y salen 6 tiros | Le saca vida al equipo |
-| **Polvareda** | Una nube de polvo cruza la pantalla | Tapa las consignas de todos durante 8 s |
-| **Ruleta del tambor** | Hace girar el tambor | Cambia el ejercicio de un alumno al azar |
-| **Recargar** | Abre el tambor y mete balas | El Pistolero se cura un 10 % (como mucho 2 veces por evento) |
-| **Gesto de respeto** | Se toca el sombrero | Sin efecto: festeja un buen acierto |
-
-Los ítems de defensa (§4) cortan algunos de estos ataques.
-
-### 2.6 Números del Pistolero (propuesta)
-
-- **Vida del Pistolero** = alumnos conectados × 2 aciertos. Con 30 alumnos hacen falta unos 60 ✔.
-- **Vida del equipo:** compartida por el aula. Baja con cada ✘ y con los ataques. Que la vida sea compartida hace más simple el evento con 30 alumnos.
-- **Botín si ganan:** diamantes y XP para cada alumno con **al menos 1 ✔**, más el sticker **«Cartel de SE BUSCA»** animado (uno por evento ganado, numerado). Ver §8.
+- **Personaje:** quedó una sola versión, **El Bandido sin Nombre**, con más detalle que el resto de los jefes (120×144, 4 tintas). Las otras dos variantes se borraron.
+- **Ejercicios:** cada uno declara qué jefe enseña su tema (`needs`) y solo se sortean temas que el alumno ya venció (antes le podía tocar SQL a quien solo vio Python). No se usa el paquete `server-only`: el archivo corta si lo importa el navegador y nadie del cliente lo importa.
+- **Mesa:** rediseñada para decidir rápido. La cola va al centro, la salida esperada aparece sola cuando no coincide (con las líneas distintas resaltadas), está el botón «aprobar los que coinciden» y el resto va a un costado chico.
+- **Voz y letra:** una planta rodadora escribe, los gritos (MAYÚSCULAS) caen de golpe y el punto final es un disparo. Tiene sonidos del Oeste sintetizados y una fuente pixel propia de cartel.
+- **Cartel SE BUSCA en el mapa:** anticipa al Pistolero. Lleva el sello «¡VISTO!» si el aula está armada.
 
 ---
 
@@ -116,23 +70,19 @@ Los ítems de defensa (§4) cortan algunos de estos ataques.
 
 ---
 
-## 4. Ítems nuevos del Mercader (sección «Para el equipo»)
+## 4. Ítems nuevos del Mercader
 
-Se usan como siempre, con `print(nombre)` en INVENTARIO.PY. Cada uno tiene su sprite 16×16 en `ItemSprites.tsx`, con roles de color del tema.
+Se usan con `print(nombre)` en la línea `>>>` del duelo o de la raid. Fuera de esos modos no se gastan.
 
-| Ítem | `print(...)` | Tipo | Efecto | Precio (propuesta) |
-|---|---|---|---|---|
-| Bandera del Equipo | `bandera` | consumible | Cura 30 de vida a **todo** el equipo | 30 |
-| Botiquín de Campaña | `botiquin` | consumible | Revive al instante a un compañero caído | 35 |
-| Chaleco de Cuero | `chaleco` | consumible | Para el próximo ataque del Pistolero o del jefe que te toque | 25 |
-| Bengala | `bengala` | consumible | Muestra una pista de su ejercicio a **cada** integrante | 40 |
-| Espuelas | `espuelas` | consumible | Tu próximo acierto pega el doble | 30 |
-| Título en el lobby | — | cosmético | «Cazarrecompensas», «Forajido», «Sheriff del aula», etc. Se ve al lado del nombre en los lobbies | 50–80 |
-| Bandera de color | — | cosmético | El color del estandarte del equipo en la raid | 40 |
+| Ítem | `print(...)` | Pistolero | Raid de secretos | Precio | Nivel |
+|---|---|---|---|---|---|
+| Bandera del Equipo | `bandera` | +20 a la vida del equipo | +20 a cada integrante en pie | 30 | 3 |
+| Chaleco de Cuero | `chaleco` | La próxima Desenfundada rebota | — | 25 | 3 |
+| Espuelas de Plata | `espuelas` | Próximo acierto doble | Próximo acierto doble | 30 | 4 |
+| Bengala | `bengala` | 30 s: todos ven una pista | — | 35 | 5 |
+| Botiquín de Campaña | `botiquin` | — | Levanta a un caído con 50 de vida | 35 | 4 |
 
-Los cosméticos se pueden comprar con los diamantes que entran por las raids y no cambian el equilibrio del juego.
-
-Cada ítem nuevo lleva una entrada en `SHOP_CATALOG`, su `case` en `applyItem` (o en un `applyRaidItem` nuevo, porque los efectos son de equipo y pasan por el servidor) y su sprite. Se prueban en `/demo/items`.
+**Cosméticos** (solapa **Títulos**, se ven en las raids): títulos Cazarrecompensas (40), Forajido (50) y Sheriff del Aula (80); estandartes Brasa (40), Jade (40) y Dorado (60), que son el color del equipo de quien arma la raid.
 
 ---
 
@@ -171,9 +121,8 @@ raid_firsts  (user_id, boss_id, raid_id, PK (user_id, boss_id)) -- premio de 40 
 
 | Canal | Quién se suscribe | Para qué |
 |---|---|---|
-| `aula-<id>` | Todo el aula, **solo si `pistolero_armed`** | «¡Desenfundar!» (aviso sorpresa) |
+| `raid-aula-<aula>` | Todo el aula, **solo si `pistolero_armed`** (y el lobby de raids) | «¡Desenfundar!» (aviso sorpresa) y «algo cambió» en el lobby de raids |
 | `raid-<id>` | Integrantes + docente | Golpes, ataques, frases, «escribiendo…» (con throttle de 3 s) y correcciones |
-| `raid-lobby-<aula>` | Quien está en el lobby de raids | Presence e invitaciones |
 
 Todos los canales son **privados**, con la policy `raid_can_join`. **La base es la fuente de verdad**: si se pierde un mensaje, el cliente vuelve a leer la raid.
 
@@ -238,7 +187,7 @@ Todos los canales son **privados**, con la policy `raid_can_join`. **La base es 
 
 ### API `/api/raid`
 
-- `GET` → alumno: `{ armed, raid, joined, task, lastVerdict }`. `GET ?aula=<id>` → docente: la Mesa (`raid`, `tasks` con código/salida/sugerencia, `roster`, `catalog`).
+- `GET` → alumno: `{ aulaId, me, armed, raid, joined, task, lastVerdict, hint, bengalaUntil }`. `GET ?aula=<id>` → docente: la Mesa (`raid`, `tasks` con código/salida/sugerencia, `roster`, `catalog`).
 - `POST` docente: `arm {aulaId, armed}` · `summon {aulaId}` (crea el duelo en lobby) · `start {raidId}` (la vida sale de los que entraron: 2 por alumno; los que llegan tarde suman 2) · `judge {taskId, ok}` (✔ → siguiente ejercicio, ✘ → el mismo otra vez y −4 al equipo) · `assign {raidId, userId, exerciseId}` (cambia el abierto o deja en cola) · `attack {raidId, attackId, targetId?}` · `end {raidId}` (se acabó el tiempo: gana él) · `cancel {raidId}`.
-- `POST` alumno: `join` · `submit {taskId, code, output}` (el servidor marca la sugerencia `auto_ok`; la decisión es del docente).
+- `POST` alumno: `join` · `submit {taskId, code, output}` (el servidor marca la sugerencia `auto_ok`; la decisión es del docente) · `item {itemId}`.
 - Botín: `raid_settle` da 30 diamantes + 20 XP a cada alumno con al menos un ✔ (`raid_ledger`). Lo suman `syncArenaStats` (cliente) y `balances` (servidor); no consume el tope diario de la arena.

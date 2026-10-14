@@ -42,6 +42,9 @@ Al vencer al último jefe, **El Arquitecto**, el alumno construye su propio inve
 | **Rodolfo** | Un cerdito guía con pistas y apuntes paso a paso en una ventana propia. |
 | **El cofre final** | Un escritorio retro (`PYCRAFT OS`) con misiones, autosave, errores que inundan la pantalla y descarga del proyecto. |
 | **El Mercader** | Amuletos coleccionables con estética de cartas. |
+| **La Arena** | Duelos entre compañeros del aula, en tiempo real. |
+| **El Pistolero** | Evento sorpresa en vivo: el docente reta a toda el aula desde la Mesa del Pistolero. Ver [docs/pistolero.md](docs/pistolero.md). |
+| **Raids** | Equipos de 2 a 4 contra los jefes secretos. |
 | **Panel docente** | Aulas, jefes y dificultades por aula, alumnos y estadísticas. |
 | **Alumno TEST** | Recorre el flujo completo con un código temporal y sin datos reales. |
 | **3 temas** | Negro, rojo y blanco: se cambian tocando `BOSSRUSH` en el encabezado. |
@@ -98,10 +101,10 @@ components/
   layout/             Header y footer
   legal/  ui/         Páginas legales y piezas de interfaz (ventanas, sonidos)
 lib/                  Lógica de juego, ejecutores, almacenamiento local, sonido
-docs/                 Guías (por ejemplo, cómo cargar los sprites de los jefes)
+docs/                 Guías (sprites de los jefes, cómo funciona El Pistolero)
 ```
 
-Rutas útiles: `/demo` (todos los jefes sin cuenta), `/demo/mercader` (el Mercader), `/dev/sonidos` (catálogo de sonidos).
+Rutas útiles: `/demo` (todos los jefes sin cuenta), `/demo/mercader` (el Mercader), `/dev/sonidos` (catálogo de sonidos), `/admin/pistolero` (la Mesa del Pistolero; `?ensayo=1` para practicar) y `/demo/pistolero` (su vitrina).
 
 ## Diseño
 

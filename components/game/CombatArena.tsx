@@ -66,6 +66,9 @@ interface CombatArenaProps {
 }
 
 const PENGUIN_TIP_KEY = 'pysql:penguin-tip-seen'
+const SOLVED_KEY_PREFIX = 'pysql:solved:'
+
+const REPEAT_WARNING = 'Ese ejercicio ya lo resolviste: repetirlo no le hace daño al jefe. Podés practicarlo igual, pero para pegarle resolvé uno que te falte.'
 
 /** Código con algo ejecutable de verdad (no solo comentarios, ni huecos ___) — lo pide el Zonda. */
 function hasRealCode(code: string, lang: 'python' | 'sql'): boolean {
@@ -240,6 +243,36 @@ export default function CombatArena({
   }, [])
 
   const challenge = challenges[currentChallengeIdx]
+
+  // ── Ejercicios ya resueltos: cada uno pega una sola vez por batalla ────────
+  // Se recuerdan en este navegador para que recargar la página no los "reinicie".
+  // En práctica y sandbox solo viven en memoria.
+  const solvedKey = practice || sandbox ? null : `${SOLVED_KEY_PREFIX}${persist?.battleId ?? `local:${boss.id}`}`
+  const [solvedIds, setSolvedIds] = useState<string[]>([])
+  const [repeatAlert, setRepeatAlert] = useState<{ key: number; text: string } | null>(null)
+
+  useEffect(() => {
+    if (!solvedKey) return
+    try {
+      const raw = localStorage.getItem(solvedKey)
+      const saved: string[] = raw ? JSON.parse(raw) : []
+      setSolvedIds(saved.filter((id) => challenges.some((c) => c.id === id)))
+    } catch { /* modo privado */ }
+  }, [solvedKey, challenges])
+
+  const saveSolved = useCallback((ids: string[]) => {
+    setSolvedIds(ids)
+    if (!solvedKey) return
+    try {
+      if (ids.length) localStorage.setItem(solvedKey, JSON.stringify(ids))
+      else localStorage.removeItem(solvedKey)
+    } catch { /* modo privado */ }
+  }, [solvedKey])
+
+  // Si los ejercicios del nivel no suman la vida del jefe (pasa en TRAINEE), el daño se
+  // escala para que resolver cada uno una vez alcance para ganar.
+  const totalChallengeDamage = challenges.reduce((sum, c) => sum + c.damage, 0)
+  const damageScale = totalChallengeDamage > 0 && totalChallengeDamage < boss.hpMax ? boss.hpMax / totalChallengeDamage : 1
 
   // Ítems: en el sandbox están los 14 (y nada se gasta); si no, lo que compró el alumno.
   useEffect(() => {
@@ -466,10 +499,12 @@ export default function CombatArena({
       const executed = simulate
         ? { isCorrect: simulate !== 'miss', actualOutput: simulate === 'miss' ? '' : challenge.expectedOutput, expectedOutput: challenge.expectedOutput, error: null }
         : await executeChallenge(challenge, code)
+      // Un ejercicio ya resuelto no pega: el Zonda se guarda para uno que falte.
+      const alreadySolved = solvedIds.includes(challenge.id)
       // Zonda: no importa lo que pidió el jefe — si el código corre sin error, pega.
-      const zondaHit = zondaArmed && !simulate && !executed.isCorrect && !executed.error && hasRealCode(code, challenge.type)
+      const zondaHit = zondaArmed && !simulate && !alreadySolved && !executed.isCorrect && !executed.error && hasRealCode(code, challenge.type)
       const result = zondaHit ? { ...executed, isCorrect: true } : executed
-      if (zondaArmed && !simulate && (result.isCorrect)) {
+      if (zondaArmed && !simulate && !alreadySolved && result.isCorrect) {
         setZondaArmed(false)
         if (zondaHit) { setZondaFx(true); pushLog('[ITM] Zonda: ¡la ráfaga barrió la consigna!') }
       }
@@ -482,14 +517,26 @@ export default function CombatArena({
       }
       setLastResult(attackResult)
 
-      if (result.isCorrect) {
+      if (result.isCorrect && alreadySolved && !simulate) {
+        // ── Ejercicio repetido: está bien resuelto, pero no pega ─────────
+        setLastDamage(null)
+        sfx.denied()
+        setRepeatAlert({ key: Date.now(), text: REPEAT_WARNING })
+        pushLog(`[REP] ${challenge.title}: ya estaba resuelto — sin daño`)
+        persistAttack(code, true, 0, bossHp, false)
+      } else if (result.isCorrect) {
         // ── Correct answer ───────────────────────────────────────────────
         const isLastPhase = currentChallengeIdx >= challenges.length - 1
+        const nextSolved = alreadySolved ? solvedIds : [...solvedIds, challenge.id]
+        const baseDamage = Math.round(challenge.damage * damageScale)
         const boosted = broccoliHits > 0 && simulate !== 'kill'
-        const damage = simulate === 'kill' ? bossHp : boosted ? broccoliDamage(challenge.damage, bossHp, isLastPhase) : challenge.damage
+        let damage = simulate === 'kill' ? bossHp : boosted ? broccoliDamage(baseDamage, bossHp, isLastPhase) : baseDamage
+        // El último ejercicio pendiente siempre termina al jefe (redondeos, curas del jefe, etc.).
+        if (!simulate && nextSolved.length >= challenges.length) damage = Math.max(damage, bossHp)
+        if (!alreadySolved) saveSolved(nextSolved)
         if (boosted) {
           setBroccoliHits((n) => n - 1)
-          pushLog(`[ITM] Brócoli: +${damage - challenge.damage} de daño extra (${broccoliHits - 1} restantes)`)
+          pushLog(`[ITM] Brócoli: +${damage - baseDamage} de daño extra (${broccoliHits - 1} restantes)`)
         }
         const newBossHp = Math.max(0, bossHp - damage)
         setLastDamage(damage)
@@ -564,9 +611,11 @@ export default function CombatArena({
           return
         }
 
-        // Advance to next challenge
-        if (currentChallengeIdx < challenges.length - 1) {
-          setTimeout(() => { setIdx((i) => i + 1); setLastResult(null) }, 1400)
+        // Pasa al siguiente ejercicio que falte resolver
+        const pending = challenges.findIndex((c, i) => i > currentChallengeIdx && !nextSolved.includes(c.id))
+        const nextIdx = pending >= 0 ? pending : challenges.findIndex((c) => !nextSolved.includes(c.id))
+        if (nextIdx >= 0 && nextIdx !== currentChallengeIdx) {
+          setTimeout(() => { setIdx(nextIdx); setLastResult(null) }, 1400)
         }
 
       } else {
@@ -599,6 +648,7 @@ export default function CombatArena({
     currentChallengeIdx, challenges.length, showPlayerHp,
     localMode, boss.id, victoryHref, router, persistAttack, defeatedBefore, tier, boss.type,
     zondaArmed, broccoliHits, pushLog, spawnDamageNumber, practice, sandbox, boss,
+    solvedIds, saveSolved, damageScale,
   ])
 
   // ── Derived ────────────────────────────────────────────────────────────────
@@ -613,6 +663,7 @@ export default function CombatArena({
     setPlayerHp(PLAYER_MAX_HP)
     setIdx(0)
     setLastResult(null)
+    saveSolved([])
 
     setLog([])
     // Reset boss HP to full (or saved initial). En práctica no se toca nada guardado:
@@ -630,7 +681,7 @@ export default function CombatArena({
       })
     }
     setBossHp(boss.hpMax)
-  }, [boss.id, boss.hpMax, localMode, persist, practice])
+  }, [boss.id, boss.hpMax, localMode, persist, practice, saveSolved])
 
   /** Otra revancha sin salir de la pantalla. */
   const restartPractice = useCallback(() => {
@@ -644,7 +695,8 @@ export default function CombatArena({
     setBroccoliHits(0)
     setZondaArmed(false)
     setLog([])
-  }, [boss.hpMax])
+    saveSolved([])
+  }, [boss.hpMax, saveSolved])
 
   // ── Ítems: se usan escribiendo print(nombre) en la línea >>> (como en INVENTARIO.PY)
   const runInventory = () => {
@@ -665,7 +717,13 @@ export default function CombatArena({
 
   return (
     <div className="arena">
-      {showGuide && !showIntro && <MascotGuide tip={challenge?.tip} onOpenLesson={lesson ? openLesson : undefined} />}
+      {(showGuide || repeatAlert) && !showIntro && (
+        <MascotGuide
+          tip={showGuide ? challenge?.tip : undefined}
+          onOpenLesson={showGuide && lesson ? openLesson : undefined}
+          alert={repeatAlert}
+        />
+      )}
       {showLesson && lesson && <LessonWindow lesson={lesson} bossName={boss.name} onClose={() => setShowLesson(false)} />}
       {showInventory && (
         <div
@@ -715,12 +773,12 @@ export default function CombatArena({
               <button
                 key={c.id}
                 type="button"
-                className={`arena-step${i === currentChallengeIdx ? ' arena-step--on' : ''}`}
+                className={`arena-step${i === currentChallengeIdx ? ' arena-step--on' : ''}${solvedIds.includes(c.id) ? ' arena-step--done' : ''}`}
                 onClick={() => { sfx.tab(); setIdx(i); setLastResult(null) }}
                 aria-current={i === currentChallengeIdx ? 'step' : undefined}
-                title={c.title}
+                title={solvedIds.includes(c.id) ? `${c.title} · ya resuelto (no hace daño)` : c.title}
               >
-                E{i + 1}
+                E{i + 1}{solvedIds.includes(c.id) ? ' ✓' : ''}
               </button>
             ))}
           </span>
@@ -826,7 +884,7 @@ export default function CombatArena({
                   <a href={`/battle/${boss.id}?practica=1`} className="arena-go arena-go--ghost" title="Revancha sin premios, para practicar">practicar otra vez</a>
                 )}
                 {sandbox && (
-                  <button type="button" className="arena-go arena-go--ghost" onClick={() => { setIsDefeated(false); setBossHp(boss.hpMax); setIdx(0); setLastResult(null); setBroccoliHits(0); setZondaArmed(false) }}>
+                  <button type="button" className="arena-go arena-go--ghost" onClick={() => { setIsDefeated(false); setBossHp(boss.hpMax); setIdx(0); setLastResult(null); setBroccoliHits(0); setZondaArmed(false); saveSolved([]) }}>
                     revivir al jefe (sandbox)
                   </button>
                 )}
@@ -859,7 +917,11 @@ export default function CombatArena({
                 penguin={penguinOn}
                 codeReplace={codeReplace}
                 onCodeChange={handleCodeChange}
-                banner={zondaArmed ? (
+                banner={solvedIds.includes(challenge.id) && !isLoading && !lastResult?.isCorrect ? (
+                  <div className="arena-banner">
+                    <span><b>Ya resolviste este ejercicio.</b> Podés practicarlo, pero no le hace daño a {boss.name}.</span>
+                  </div>
+                ) : zondaArmed ? (
                   <div className="arena-banner item-status-in">
                     <ItemSprite sprite="zonda" size={24} animated />
                     <span><b>Sopla el Zonda.</b> En este ataque no importa la consigna: cualquier código que funcione sin error le pega al jefe.</span>

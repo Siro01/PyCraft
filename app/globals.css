@@ -2863,6 +2863,7 @@ input[type="number"], input[type="search"], textarea {
 }
 .arena-step:hover { color: hsl(var(--tx)); border-color: hsl(var(--tx)); }
 .arena-step--on { background: hsl(var(--tx)); color: hsl(var(--bg)); border-color: hsl(var(--tx)); }
+.arena-step--done:not(.arena-step--on) { color: hsl(var(--tx2)); border-style: dashed; }
 .arena-grid { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 900px) {
   .arena-grid { grid-template-columns: minmax(280px, 5fr) minmax(0, 7fr); align-items: start; }
