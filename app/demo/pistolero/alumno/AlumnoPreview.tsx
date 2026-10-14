@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import StudentPistolero from '@/components/game/raid/StudentPistolero'
 import SummonOverlay from '@/components/game/raid/SummonOverlay'
+import { WantedPin, WantedPoster } from '@/components/game/raid/WantedPoster'
 import type { RaidView, StudentRaidState } from '@/lib/game/raid/types'
 
 // Vista previa (solo docente) de lo que ve el alumno: el aviso sorpresa y la
@@ -46,6 +47,7 @@ function stateFor(m: Moment): StudentRaidState {
 export default function AlumnoPreview() {
   const [moment, setMoment] = useState<Moment>('python')
   const [summon, setSummon] = useState(false)
+  const [poster, setPoster] = useState<null | 'calma' | 'visto' | 'vencido'>(null)
   const [busy, setBusy] = useState(true)
   const preview = useMemo(() => stateFor(moment), [moment])
 
@@ -58,9 +60,21 @@ export default function AlumnoPreview() {
           <button key={x.id} type="button" aria-pressed={moment === x.id} onClick={() => setMoment(x.id)}>{x.label}</button>
         ))}
         <button type="button" onClick={() => setSummon(true)}>ver el aviso sorpresa</button>
+        <button type="button" onClick={() => setPoster('calma')}>cartel SE BUSCA</button>
+        <button type="button" onClick={() => setPoster('visto')}>cartel · aula armada</button>
+        <button type="button" onClick={() => setPoster('vencido')}>cartel · ya lo venció</button>
+        <span className="pist-preview-pin" title="Así se ve clavado en el mapa (arriba a la derecha del póster)"><WantedPin /></span>
         <label><input type="checkbox" checked={busy} onChange={(e) => setBusy(e.target.checked)} /> el alumno está en una batalla</label>
       </div>
       <StudentPistolero key={moment} preview={preview} />
+      {poster && (
+        <div className="wanted-modal" onClick={() => setPoster(null)}>
+          <div onClick={(e) => e.stopPropagation()}>
+            <WantedPoster seen={poster === 'visto'} beaten={poster === 'vencido' ? 2 : 0} />
+            <button type="button" className="wanted-close" onClick={() => setPoster(null)}>cerrar</button>
+          </div>
+        </div>
+      )}
       {summon && <SummonOverlay busy={busy} onGo={() => setSummon(false)} onLater={() => setSummon(false)} />}
     </div>
   )

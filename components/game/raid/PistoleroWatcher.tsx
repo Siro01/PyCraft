@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { usePathname, useRouter } from 'next/navigation'
 import type { StudentRaidState } from '@/lib/game/raid/types'
 import type { RaidChannel } from '@/lib/game/raid/live'
+import { publishSighting } from '@/lib/game/raid/watch-state'
 
 // El vigía del Pistolero: vive en el layout raíz y escucha el aviso sorpresa
 // esté donde esté el alumno. Para no sumar peso:
@@ -37,6 +38,8 @@ export default function PistoleroWatcher() {
       if (!res.ok) { setState(null); return null }
       const st = (await res.json()) as StudentRaidState
       setState(st)
+      // el cartel SE BUSCA del mapa se entera sin otro pedido
+      publishSighting({ armed: st.armed, live: !!st.raid && (st.raid.status === 'lobby' || st.raid.status === 'active') })
       return st
     } catch { return null }
   }, [])

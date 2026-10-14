@@ -18,6 +18,7 @@ import type { AvatarId } from './map/avatars'
 import PixelTitle from './map/PixelTitle'
 import type { NodeState } from './map/MapNodeIcon'
 import QuestLog from './map/QuestLog'
+import { WantedPin } from './raid/WantedPoster'
 import ResetBossButton from './ResetBossButton'
 import type { Boss } from '@/types'
 
@@ -377,7 +378,9 @@ export default function BossMap({
               className={`map-poster${act.ascii ? ' map-poster--ascii' : ''} ${turning === 'out' ? 'map-page-turn-out' : turning === 'in' ? 'map-page-turn-in' : ''}`}
               style={mapMaximized ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : undefined}
             >
-              <header className="flex flex-col items-center" style={{ padding: '14px 12px 8px', flexShrink: 0 }}>
+              <header className="flex flex-col items-center" style={{ padding: '14px 12px 8px', flexShrink: 0, position: 'relative' }}>
+                {/* Cartel de SE BUSCA del Pistolero (solo con cuenta del taller, como la arena) */}
+                {arena && <WantedPin />}
                 <PixelTitle text={act.title.toUpperCase()} scale={mapMaximized ? 4 : 5} glitch={act.ascii} playKey={act.key} />
                 <div className="label-mono" style={{ color: 'hsl(var(--tx2))', marginTop: 6, fontSize: 12 }}>— {act.roman} —</div>
               </header>

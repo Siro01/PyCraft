@@ -11,6 +11,8 @@ import { ACCENT_H, layoutWestern } from '@/lib/game/raid/western-font'
 const TONES = {
   brasa: { top: '#FFF1D0', hi: '#FF7A50', lo: '#E0401E', shadow: '#46120A' },
   hueso: { top: '#FFF8E8', hi: '#EBC79E', lo: '#C79C6E', shadow: '#3A2A20' },
+  /** Tinta sobre papel viejo (el cartel SE BUSCA). */
+  tinta: { top: '#6B2A12', hi: '#3B1508', lo: '#2A0E05', shadow: '#C9A27A' },
 } as const
 
 interface Props {

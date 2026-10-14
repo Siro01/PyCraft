@@ -3401,3 +3401,80 @@ button.lobby-row:hover .lobby-row-cta, .lobby-pick--on .lobby-row-cta { color: h
 @keyframes py-ask-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @keyframes py-ask-blink { 50% { opacity: 0.55; } }
 @media (prefers-reduced-motion: reduce) { .py-ask, .py-ask-tag { animation: none !important; } }
+
+/* ── Cartel de SE BUSCA del Pistolero (components/game/raid/WantedPoster.tsx) ──
+   Papel viejo pixel: manchas de polvo en cuadraditos, bordes quemados (clip-path
+   escalonado), tinta de cartel y el sello rojo brasa cuando anda cerca. */
+.wanted-paper, .wanted-poster {
+  background-color: #E4C79B;
+  background-image:
+    radial-gradient(circle at 18% 22%, rgba(156, 106, 72, 0.35) 0 9%, transparent 10%),
+    radial-gradient(circle at 82% 70%, rgba(156, 106, 72, 0.3) 0 12%, transparent 13%),
+    radial-gradient(circle at 60% 12%, rgba(156, 106, 72, 0.22) 0 7%, transparent 8%),
+    linear-gradient(rgba(107, 42, 18, 0.08) 50%, transparent 50%);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 4px 4px;
+  image-rendering: pixelated;
+  color: #2A0E05;
+}
+
+/* Miniatura clavada en el póster del mapa */
+.wanted-pin {
+  position: absolute; top: 8px; right: 12px; z-index: 4; width: 92px; padding: 0; border: 0; background: none; cursor: pointer;
+  transform: rotate(4deg); transform-origin: 50% 6px; transition: transform 160ms steps(3);
+  filter: drop-shadow(3px 3px 0 rgba(0, 0, 0, 0.35));
+}
+.wanted-pin:hover, .wanted-pin:focus-visible { transform: rotate(-2deg) scale(1.06); outline: none; }
+.wanted-pin:focus-visible .wanted-paper { outline: 2px solid hsl(var(--accent)); }
+.wanted-pin.is-seen { animation: wanted-swing 2.4s steps(6) infinite; }
+@keyframes wanted-swing { 0%, 100% { transform: rotate(4deg); } 50% { transform: rotate(-3deg); } }
+.wanted-nail { position: absolute; left: 50%; top: -3px; width: 6px; height: 6px; margin-left: -3px; background: #6B4A33; box-shadow: inset -2px -2px 0 #2A0E05; z-index: 2; }
+.wanted-paper { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 6px 6px; }
+.wanted-paper svg { max-width: 100%; height: auto; }
+.wanted-bust { width: 50px; height: 50px; background: #2A0E05; border: 2px solid #2A0E05; box-shadow: 0 0 0 1px #9C6A48; }
+.wanted-pin-prize { display: flex; align-items: center; gap: 3px; font-family: var(--font-jersey), monospace; font-size: 15px; line-height: 1; color: #2A0E05; }
+.wanted-pin-stamp {
+  position: absolute; left: 50%; top: 52%; translate: -50% -50%; rotate: -14deg; padding: 1px 4px;
+  border: 2px solid #FF5A36; color: #FF5A36; background: rgba(228, 199, 155, 0.75);
+  font-family: var(--font-jersey), monospace; font-size: 14px; line-height: 1; letter-spacing: 0.06em; pointer-events: none;
+}
+.wanted-pin-stamp.is-beaten { border-color: #6B2A12; color: #6B2A12; }
+@media (max-width: 640px) { .wanted-pin { width: 58px; top: 4px; right: 6px; } .wanted-bust { width: 28px; height: 28px; } }
+
+/* El cartel grande */
+.wanted-modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(8, 5, 3, 0.8); animation: summon-in 300ms steps(5) both; }
+.wanted-modal > div { display: flex; flex-direction: column; align-items: center; gap: 10px; max-height: 100%; overflow: auto; }
+.wanted-close { background: #0d0907; color: #EBC79E; border: 1px solid #9C6A48; padding: 4px 14px; font-family: 'Courier New', monospace; cursor: pointer; }
+.wanted-close:hover { border-color: #FFF1D0; }
+.wanted-poster { position: relative; width: min(760px, 94vw); padding: 16px 18px; filter: drop-shadow(6px 6px 0 rgba(0, 0, 0, 0.45)); }
+.wanted-frame { border: 2px solid #2A0E05; outline: 1px dashed rgba(42, 14, 5, 0.5); outline-offset: -6px; padding: 12px 14px 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.wanted-kicker { margin: 0; font-family: 'Courier New', monospace; font-weight: bold; font-size: 12px; letter-spacing: 0.14em; }
+.wanted-title { margin: 2px 0 0; }
+.wanted-rule { width: 100%; height: 8px; border-top: 3px solid #2A0E05; border-bottom: 2px solid #2A0E05; }
+.wanted-photo { position: relative; width: 100%; border: 3px solid #2A0E05; box-shadow: 0 0 0 2px #9C6A48; background: #000; }
+.wanted-photo-tag { position: absolute; left: 50%; bottom: -10px; translate: -50% 0; background: #2A0E05; color: #E4C79B; padding: 1px 8px; font-family: var(--font-jersey), monospace; font-size: 16px; letter-spacing: 0.1em; white-space: nowrap; }
+.wanted-facts { margin: 0; width: 100%; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-family: var(--font-vt323), monospace; font-size: 17px; line-height: 1.1; }
+.wanted-facts dt { font-family: 'Courier New', monospace; font-weight: bold; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; padding-top: 3px; color: #6B2A12; }
+.wanted-facts dd { margin: 0; }
+.wanted-reward { display: flex; align-items: center; gap: 10px; margin-top: 4px; padding-top: 8px; border-top: 2px solid #2A0E05; width: 100%; justify-content: center; }
+.wanted-reward small { display: block; font-family: 'Courier New', monospace; font-size: 11px; margin-top: 3px; }
+.wanted-reward-gem { display: flex; }
+.wanted-foot { margin: 2px 0 0; font-family: 'Courier New', monospace; font-weight: bold; font-size: 10.5px; letter-spacing: 0.08em; text-align: center; }
+.wanted-stamp {
+  position: absolute; right: 8%; top: 37%; rotate: -16deg; padding: 4px 10px; text-align: center;
+  border: 3px solid #FF5A36; color: #FF5A36; background: rgba(228, 199, 155, 0.55);
+  font-family: var(--font-jersey), monospace; font-size: 24px; line-height: 0.95; letter-spacing: 0.06em;
+  animation: wanted-stamp 420ms steps(4) both; pointer-events: none;
+}
+.wanted-stamp.is-beaten { border-color: #6B2A12; color: #6B2A12; }
+@keyframes wanted-stamp { from { opacity: 0; transform: scale(2.2); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .wanted-pin.is-seen, .wanted-stamp, .wanted-modal { animation: none; } }
+.pist-preview-pin { position: relative; display: inline-block; width: 116px; height: 150px; background: hsl(var(--bg)); border: 1px dashed #3a2a20; }
+
+/* Cartel grande: foto a la izquierda y datos a la derecha, para que entre en la pantalla sin scroll */
+.wanted-body { display: grid; grid-template-columns: minmax(150px, 36%) 1fr; gap: 14px 18px; align-items: start; width: 100%; margin-top: 4px; }
+@media (max-width: 620px) { .wanted-body { grid-template-columns: 1fr; } .wanted-photo { width: 55%; margin: 0 auto; } }
+.wanted-title svg, .wanted-title { max-height: 13vh; width: auto; }
+.wanted-crimes { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 1px; }
+.wanted-crimes li::before { content: '✕ '; color: #FF5A36; }
+.wanted-crimes code { font-family: 'Courier New', monospace; font-size: 0.85em; font-weight: bold; color: #6B2A12; background: rgba(107, 42, 18, 0.1); padding: 0 3px; }
+.wanted-alert { color: #C2381A; font-weight: bold; }

@@ -100,7 +100,7 @@ export const PISTOLERO_LINES = {
   /** Al aparecer (aviso sorpresa). */
   intro: [
     'Bueno, bueno... ¿así que este es el famoso pueblo de los programadores?',
-    'Me contaron que acá nadie le tiene miedo a un SyntaxError.',
+    'Me contaron que acá nadie le tiene miedo a un SyntaxError. Ni a un NameError. Ya vamos a ver.',
     '¡DESENFUNDEN LOS TECLADOS!',
     'Tengo un ejercicio con el nombre de cada uno. El primero que pestañea, pierde.',
   ],
@@ -118,6 +118,11 @@ export const PISTOLERO_LINES = {
     'Esa salida no la reconoce ni mi caballo.',
     'Revisá la mira y probá otra vez. El desierto es largo.',
     '¡FALLASTE! Pero acá siempre hay revancha.',
+    '¿Y los dos puntos del if, forastero? Hasta mi caballo los pone.',
+    '¡INDENTATIONERROR! Esa sangría está más torcida que mi bigote.',
+    'Print con mayúscula... Python no te conoce, compañero.',
+    'Abriste comillas y te fuiste a dormir. Cerralas, que entra arena.',
+    'Un paréntesis sin cerrar es como una puerta de saloon abierta: entra cualquiera.',
   ],
   /** Al perder: se retira hacia el atardecer. */
   defeat: [
