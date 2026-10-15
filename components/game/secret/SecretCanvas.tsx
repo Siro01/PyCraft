@@ -20,6 +20,8 @@ interface Props {
   hurtSignal?: number
   label?: string
   className?: string
+  /** Cada cuánto cambia el cuadro (ms). Más alto = más liviano. */
+  tickMs?: number
 }
 
 const TICK_MS = 150
@@ -27,7 +29,7 @@ const TWEEN_MS = 650
 const HURT_MS = 420
 
 export default function SecretCanvas({
-  art, mode = 'ascii', integrity = 1, color = '#FFFFFF', animate = true, hurtSignal = 0, label, className,
+  art, mode = 'ascii', integrity = 1, color = '#FFFFFF', animate = true, hurtSignal = 0, label, className, tickMs = TICK_MS,
 }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   const frames = useMemo(() => makeFrames(art), [art])
@@ -41,9 +43,10 @@ export default function SecretCanvas({
 
   useEffect(() => {
     if (!animate || reduced) return
-    const id = setInterval(() => setTick((t) => t + 1), TICK_MS)
+    // Con la pestaña oculta no se anima (no hay nadie mirando).
+    const id = setInterval(() => { if (!document.hidden) setTick((t) => t + 1) }, tickMs)
     return () => clearInterval(id)
-  }, [animate, reduced])
+  }, [animate, reduced, tickMs])
 
   useEffect(() => {
     if (!hurtSignal) return

@@ -78,6 +78,9 @@ export async function middleware(request: NextRequest) {
   if (isLocalMode()) {
     return handleLocalMode(request) ?? NextResponse.next()
   }
+  // La API de la arena se pide muy seguido (lobby, duelo) y cada ruta ya verifica
+  // la sesión por su cuenta (getArenaCaller): acá sería un viaje a Supabase de más.
+  if (request.nextUrl.pathname.startsWith('/api/arena')) return NextResponse.next()
   return handleSupabaseMode(request)
 }
 

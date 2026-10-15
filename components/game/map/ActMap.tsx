@@ -37,13 +37,6 @@ const LOCKED_LINES = [
   'Esa puerta sigue cerrada por ahora. ¡Seguí practicando mientras tanto!',
 ]
 
-const STATE_LABEL: Record<NodeState, string> = {
-  defeated: 'Derrotado',
-  current: 'Siguiente jefe',
-  available: 'Disponible',
-  locked: 'Bloqueado',
-}
-
 type Spot =
   | { kind: 'boss'; p: MapPoint; bossId: string }
   | { kind: PlaceKind; p: MapPoint }
@@ -452,18 +445,13 @@ export default function ActMap({
     if (s.kind === 'boss') {
       const boss = bossById.get(s.bossId)
       if (!boss) return null
-      const state = bossStates[s.bossId] ?? 'locked'
-      const canEnter = state === 'available' || state === 'current' || state === 'defeated'
-      const replay = state === 'defeated' && !reenterDefeated
+      // Solo lo primordial: quién es y qué tema trae. Para entrar alcanza con
+      // Enter o un clic más sobre la puerta; el estado ya lo dice el ícono.
       return (
         <NodeDetailPopover
           icon={<BossTopicIcon bossId={boss.id} size={12} color={ink} />}
           title={`${boss.title} · ${boss.name}`}
-          body={replay ? `${boss.topic} · Revancha para practicar, sin premios.` : boss.topic}
-          status={STATE_LABEL[state]}
-          positive={canEnter}
-          onEnter={standing && canEnter ? () => enterSpot(s) : undefined}
-          enterLabel={replay ? 'Practicar' : 'Pelear'}
+          body={boss.topic}
           below={below}
           align={align}
         />

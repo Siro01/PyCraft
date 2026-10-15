@@ -121,13 +121,14 @@ export async function aulaRoster(admin: SupabaseClient, aulaId: string, meId: st
 
 /** Diamantes netos y XP de la arena de un alumno. */
 export async function arenaStats(admin: SupabaseClient, userId: string): Promise<ArenaStats> {
-  const [{ data: ledger }, { data: xp }] = await Promise.all([
-    admin.from('arena_ledger').select('delta').eq('user_id', userId),
+  const [ledger, { data: xp }] = await Promise.all([
+    ledgerRows(admin.from('arena_ledger'), (q) => q.eq('user_id', userId)),
     admin.from('arena_xp').select('xp').eq('user_id', userId),
   ])
   return {
-    net: ((ledger ?? []) as { delta: number }[]).reduce((s, l) => s + l.delta, 0),
-    xp: ((xp ?? []) as { xp: number }[]).reduce((s, l) => s + l.xp, 0),
+    net: ledger.reduce((s, l) => s + l.delta, 0),
+    // + el XP de revancha del 2 vs 2, que vive en arena_ledger.xp (017).
+    xp: ((xp ?? []) as { xp: number }[]).reduce((s, l) => s + l.xp, 0) + ledger.reduce((s, l) => s + (l.xp ?? 0), 0),
   }
 }
 
@@ -156,21 +157,33 @@ export async function usernames(admin: SupabaseClient, ids: string[]): Promise<M
   return new Map(((data ?? []) as { id: string; username: string }[]).map((p) => [p.id, p.username]))
 }
 
-export async function toView(admin: SupabaseClient, m: MatchRow, meId: string, names?: Map<string, string>): Promise<MatchView> {
-  const n = names ?? await usernames(admin, [m.player_a, m.player_b])
+/**
+ * Diamantes y XP de varios duelos terminados, en 2 consultas en total (antes
+ * eran 2 POR duelo: con el historial, hasta 16 viajes a la base por lectura).
+ */
+export async function matchResults(admin: SupabaseClient, matchIds: string[], meId: string): Promise<Map<string, { diamonds: number; xp: number }>> {
+  const out = new Map<string, { diamonds: number; xp: number }>()
+  if (!matchIds.length) return out
+  const [{ data: led }, { data: xp }] = await Promise.all([
+    admin.from('arena_ledger').select('match_id, delta').eq('user_id', meId).in('match_id', matchIds),
+    admin.from('arena_xp').select('match_id, xp').eq('user_id', meId).in('match_id', matchIds),
+  ])
+  for (const id of matchIds) out.set(id, { diamonds: 0, xp: 0 })
+  for (const l of (led ?? []) as { match_id: string; delta: number }[]) out.get(l.match_id)!.diamonds += l.delta
+  for (const x of (xp ?? []) as { match_id: string; xp: number }[]) out.get(x.match_id)!.xp += x.xp
+  return out
+}
+
+export async function toView(
+  admin: SupabaseClient, m: MatchRow, meId: string, names?: Map<string, string>, results?: Map<string, { diamonds: number; xp: number }>,
+): Promise<MatchView> {
+  const [n, res] = await Promise.all([
+    names ?? usernames(admin, [m.player_a, m.player_b]),
+    m.status === 'finished' && !results?.has(m.id) ? matchResults(admin, [m.id], meId) : Promise.resolve(results),
+  ])
   const iAmA = m.player_a === meId
   const rivalId = iAmA ? m.player_b : m.player_a
-  let result: MatchView['result']
-  if (m.status === 'finished') {
-    const [{ data: led }, { data: xp }] = await Promise.all([
-      admin.from('arena_ledger').select('delta').eq('match_id', m.id).eq('user_id', meId),
-      admin.from('arena_xp').select('xp').eq('match_id', m.id).eq('user_id', meId),
-    ])
-    result = {
-      diamonds: ((led ?? []) as { delta: number }[]).reduce((s, l) => s + l.delta, 0),
-      xp: ((xp ?? []) as { xp: number }[]).reduce((s, l) => s + l.xp, 0),
-    }
-  }
+  const result: MatchView['result'] = m.status === 'finished' ? res?.get(m.id) ?? { diamonds: 0, xp: 0 } : undefined
   return {
     id: m.id,
     status: m.status,
@@ -190,4 +203,17 @@ export async function toView(admin: SupabaseClient, m: MatchRow, meId: string, n
     endReason: m.end_reason,
     result,
   }
+}
+
+/**
+ * Filas de arena_ledger con su XP de revancha (columna xp, migración 017). Si
+ * la 017 todavía no se corrió, la columna no existe: se vuelve a pedir sin ella.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function ledgerRows(table: any, where: (q: any) => any, extra = ''): Promise<{ delta: number; xp?: number; room_id?: string | null }[]> {
+  const cols = extra ? `delta, ${extra}` : 'delta'
+  const first = await where(table.select(`${cols}, xp`))
+  if (!first.error) return first.data ?? []
+  const second = await where(table.select(cols))
+  return second.data ?? []
 }

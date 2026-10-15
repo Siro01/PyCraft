@@ -99,8 +99,10 @@ export async function syncArenaStats(): Promise<void> {
   try {
     const { createClient } = await import('@/lib/supabase/client')
     const supabase = createClient()
+    // xp de arena_ledger = XP de revancha del 2 vs 2 (017); sin la columna, se pide sin ella.
+    const ledWithXp = await supabase.from('arena_ledger').select('delta, xp').eq('user_id', userId)
     const [led, xp, raid] = await Promise.all([
-      supabase.from('arena_ledger').select('delta').eq('user_id', userId),
+      ledWithXp.error ? supabase.from('arena_ledger').select('delta').eq('user_id', userId) : Promise.resolve(ledWithXp),
       supabase.from('arena_xp').select('xp').eq('user_id', userId),
       supabase.from('raid_ledger').select('delta, xp, reason, raids(boss_id)').eq('user_id', userId),
     ])
@@ -122,7 +124,8 @@ export async function syncArenaStats(): Promise<void> {
     setArenaStats({
       pistolero,
       net: (led.data as { delta: number }[]).reduce((s, l) => s + l.delta, 0) + raidRows.reduce((s, l) => s + l.delta, 0),
-      xp: (xp.data as { xp: number }[]).reduce((s, l) => s + l.xp, 0) + raidRows.reduce((s, l) => s + l.xp, 0),
+      xp: (xp.data as { xp: number }[]).reduce((s, l) => s + l.xp, 0) + raidRows.reduce((s, l) => s + l.xp, 0)
+        + (led.data as { xp?: number }[]).reduce((s, l) => s + (l.xp ?? 0), 0),
     })
   } catch { /* sin red: queda la copia anterior */ }
 }

@@ -30,6 +30,7 @@ export const ARENA_INTRO_LINES = [
   `Se pueden retar por ${LOW} o ${HIGH} diamantes: lo que gana uno, lo pierde el otro. O jugar un amistoso, donde nadie pierde nada.`,
   'Tus ítems funcionan contra el rival: la daga le congela el editor, el Zonda le vuela la consigna... pero se gastan aunque pierdas.',
   `El primer duelo contra cada compañero en cada acto da experiencia: ${ARENA_XP_WIN} si ganás, ${ARENA_XP_LOSS} si perdés. Los demás, solo la gloria.`,
+  'Si son cuatro, jueguen 2 vs 2: el primero que termina su parte le hace relevo a su compañero y le saca el último.',
   'Elegí a alguien conectado y retalo. Yo voy a estar mirando.',
 ]
 
@@ -98,7 +99,7 @@ export function ErranteStage({ line, onExplain }: { line: string; onExplain: () 
   return (
     <section className="errante-stage" style={{ ...DARK_VARS, ['--phos' as string]: ERRANTE.color }} aria-label="El Errante">
       <div className="errante-stage-art">
-        <SecretCanvas art={ERRANTE.art} color={ERRANTE.color} label={ERRANTE.name} />
+        <SecretCanvas art={ERRANTE.art} color={ERRANTE.color} label={ERRANTE.name} tickMs={320} />
       </div>
       <div className="errante-stage-say">
         <span className="errante-stage-name">{ERRANTE.name}</span>

@@ -6,7 +6,8 @@ interface Props {
   icon?: ReactNode
   title: string
   body?: string
-  status: string
+  /** Línea de estado; sin ella (y sin botón) la placa queda en título + cuerpo. */
+  status?: string
   /** Estado "bueno" (disponible/abierto) — la línea de estado va en acento. */
   positive?: boolean
   /** Si está parado encima, se puede entrar con este botón (o Enter). */
@@ -32,11 +33,11 @@ export default function NodeDetailPopover({ icon, title, body, status, positive,
         </span>
       </div>
       {body && (
-        <div className="px-2 pt-1.5" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, lineHeight: 1.1, color: 'hsl(var(--tx2))' }}>
+        <div className={status || onEnter ? 'px-2 pt-1.5' : 'px-2 py-1.5'} style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, lineHeight: 1.1, color: 'hsl(var(--tx2))' }}>
           {body}
         </div>
       )}
-      <div className="px-2 py-1.5 flex items-center justify-between gap-2">
+      {(status || onEnter) && <div className="px-2 py-1.5 flex items-center justify-between gap-2">
         <span className="label-mono" style={{ color: positive ? 'hsl(var(--accent))' : 'hsl(var(--tx3))' }}>{status}</span>
         {onEnter && (
           <button
@@ -48,7 +49,7 @@ export default function NodeDetailPopover({ icon, title, body, status, positive,
             {enterLabel} ↵
           </button>
         )}
-      </div>
+      </div>}
     </div>
   )
 

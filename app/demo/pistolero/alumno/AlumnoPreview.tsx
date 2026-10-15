@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import StudentPistolero from '@/components/game/raid/StudentPistolero'
 import SummonOverlay from '@/components/game/raid/SummonOverlay'
-import { WantedPin, WantedPoster } from '@/components/game/raid/WantedPoster'
+import { WantedDeskIcon, WantedPoster } from '@/components/game/raid/WantedPoster'
 import type { RaidView, StudentRaidState } from '@/lib/game/raid/types'
 
 // Vista previa (solo docente) de lo que ve el alumno: el aviso sorpresa y la
@@ -63,7 +63,7 @@ export default function AlumnoPreview() {
         <button type="button" onClick={() => setPoster('calma')}>cartel SE BUSCA</button>
         <button type="button" onClick={() => setPoster('visto')}>cartel · aula armada</button>
         <button type="button" onClick={() => setPoster('vencido')}>cartel · ya lo venció</button>
-        <span className="pist-preview-pin" title="Así se ve clavado en el mapa (arriba a la derecha del póster)"><WantedPin /></span>
+        <span className="pist-preview-pin" title="Así se ve en el escritorio del mapa (arriba a la derecha)"><WantedDeskIcon /></span>
         <label><input type="checkbox" checked={busy} onChange={(e) => setBusy(e.target.checked)} /> el alumno está en una batalla</label>
       </div>
       <StudentPistolero key={moment} preview={preview} />

@@ -639,20 +639,20 @@ export function buildFromTemplate(t: Template, seed: number): ArenaExercise {
 }
 
 /**
- * Los 3 ejercicios de un duelo. Con un tema: plantillas distintas de ese tema
+ * Los ejercicios de un duelo (3 en el 1 vs 1, 6 en el 2 vs 2). Con un tema: plantillas distintas de ese tema
  * (si hay menos de 3, se repite alguna con otros datos). Con 'mezcla': cada
  * ejercicio de un tema distinto de los que vieron los dos.
  */
-export function buildDuel(topic: string, shared: Boss[], seed: number): ArenaExercise[] {
+export function buildDuel(topic: string, shared: Boss[], seed: number, count = ARENA_EXERCISES): ArenaExercise[] {
   const r = arenaRng(seed)
   const seeds = () => Math.floor(r() * 2 ** 31)
   let picks: Template[]
   if (topic === ARENA_MIX) {
     const topics = shuffle(r, shared.filter((b) => ARENA_TOPIC_IDS.has(b.id)))
-    picks = Array.from({ length: ARENA_EXERCISES }, (_, i) => pick(r, templatesFor(topics[i % topics.length].id)))
+    picks = Array.from({ length: count }, (_, i) => pick(r, templatesFor(topics[i % topics.length].id)))
   } else {
     const pool = shuffle(r, templatesFor(topic))
-    picks = Array.from({ length: ARENA_EXERCISES }, (_, i) => pool[i % pool.length])
+    picks = Array.from({ length: count }, (_, i) => pool[i % pool.length])
   }
   return picks.map((t) => buildFromTemplate(t, seeds()))
 }

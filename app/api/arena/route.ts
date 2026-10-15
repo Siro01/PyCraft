@@ -6,7 +6,7 @@ import {
   duelActKey, maxStakeFor, normalizeOutput, sharedTopics,
 } from '@/lib/game/arena/rules'
 import {
-  arenaStats, balances, defeatedBy, getArenaCaller, startOfDayAR, toView, usernames,
+  arenaStats, balances, defeatedBy, getArenaCaller, matchResults, startOfDayAR, toView, usernames,
   type ArenaCaller, type MatchRow,
 } from '@/lib/game/arena/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -27,14 +27,21 @@ async function loadMatch(admin: SupabaseClient, id: string): Promise<MatchRow | 
   return (data as MatchRow | null) ?? null
 }
 
-/** Pone al día lo vencido de este alumno: retos sin respuesta y duelos sin tiempo. */
-async function sweep(admin: SupabaseClient, userId: string) {
-  const cutoff = new Date(Date.now() - ARENA_INVITE_SECONDS * 1000).toISOString()
-  await admin.from('arena_matches').update({ status: 'expired', finished_at: new Date().toISOString() })
-    .eq('status', 'pending').lt('created_at', cutoff).or(`player_a.eq.${userId},player_b.eq.${userId}`)
-  const { data: stale } = await admin.from('arena_matches').select('id')
-    .eq('status', 'active').lt('ends_at', new Date().toISOString()).or(`player_a.eq.${userId},player_b.eq.${userId}`)
-  for (const m of (stale ?? []) as { id: string }[]) await admin.rpc('arena_timeout', { p_match: m.id })
+/**
+ * Pone al día lo vencido entre estas filas (retos sin respuesta, duelos sin
+ * tiempo). Devuelve true si cambió algo. Como mira las filas que ya se
+ * leyeron, en el caso normal (nada vencido) no cuesta ninguna consulta.
+ */
+async function sweep(admin: SupabaseClient, rows: MatchRow[]): Promise<boolean> {
+  const now = Date.now()
+  const expired = rows.filter((m) => m.status === 'pending' && Date.parse(m.created_at) < now - ARENA_INVITE_SECONDS * 1000).map((m) => m.id)
+  const timedOut = rows.filter((m) => m.status === 'active' && m.ends_at && Date.parse(m.ends_at) < now).map((m) => m.id)
+  if (!expired.length && !timedOut.length) return false
+  await Promise.all([
+    expired.length ? admin.from('arena_matches').update({ status: 'expired', finished_at: new Date().toISOString() }).in('id', expired).eq('status', 'pending') : null,
+    ...timedOut.map((id) => admin.rpc('arena_timeout', { p_match: id })),
+  ])
+  return true
 }
 
 async function canOpenArena(admin: SupabaseClient, who: ArenaCaller): Promise<string | null> {
@@ -77,23 +84,31 @@ export async function GET() {
   const me = await getArenaCaller()
   if (!me) return err('No autenticado', 401)
   const admin = adminClient()
-  await sweep(admin, me.id)
-
-  const { data: rows, error } = await admin.from('arena_matches').select(MATCH_COLS)
+  const readMine = () => admin.from('arena_matches').select(MATCH_COLS)
     .or(`player_a.eq.${me.id},player_b.eq.${me.id}`).order('created_at', { ascending: false }).limit(12)
-  if (error) return err(`${error.message} — ¿ejecutaste la migración 013_arena.sql?`, 500)
-  const list = (rows ?? []) as MatchRow[]
-  const names = await usernames(admin, list.flatMap((m) => [m.player_a, m.player_b]).concat(me.id))
+
+  // Las estadísticas no dependen de nada: salen en paralelo con la lista.
+  const [first, stats] = await Promise.all([readMine(), arenaStats(admin, me.id)])
+  if (first.error) return err(`${first.error.message} — ¿ejecutaste la migración 013_arena.sql?`, 500)
+  let list = (first.data ?? []) as MatchRow[]
+  if (await sweep(admin, list)) list = ((await readMine()).data ?? []) as MatchRow[]
 
   const live = list.find((m) => m.status === 'active') ?? list.find((m) => m.status === 'pending' && m.player_a === me.id) ?? null
   const incoming = list.filter((m) => m.status === 'pending' && m.player_b === me.id)
   const history = list.filter((m) => m.status === 'finished').slice(0, 8)
+  const finished = [...new Set([...history, ...(live ? [live] : [])].filter((m) => m.status === 'finished').map((m) => m.id))]
+
+  const [names, results] = await Promise.all([
+    usernames(admin, list.flatMap((m) => [m.player_a, m.player_b]).concat(me.id)),
+    matchResults(admin, finished, me.id),
+  ])
+  const view = (m: MatchRow) => toView(admin, m, me.id, names, results)
 
   return NextResponse.json({
-    stats: await arenaStats(admin, me.id),
-    live: live ? await toView(admin, live, me.id, names) : null,
-    incoming: await Promise.all(incoming.map((m) => toView(admin, m, me.id, names))),
-    history: await Promise.all(history.map((m) => toView(admin, m, me.id, names))),
+    stats,
+    live: live ? await view(live) : null,
+    incoming: await Promise.all(incoming.map(view)),
+    history: await Promise.all(history.map(view)),
   })
 }
 

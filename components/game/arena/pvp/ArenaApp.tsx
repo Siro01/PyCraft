@@ -10,12 +10,19 @@ import { sfx } from '@/lib/game/architect/sound'
 import { ARENA_TOPIC_IDS } from '@/lib/game/arena/generators'
 import { ARENA_INVITE_SECONDS, ARENA_MIX, sharedTopics, type ArenaStake } from '@/lib/game/arena/rules'
 import type { RosterEntry } from '@/lib/game/arena/server'
-import type { ArenaStats, LobbyEvent, MatchView } from '@/lib/game/arena/types'
+import type { ArenaStats, LobbyEvent, MatchView, RoomView } from '@/lib/game/arena/types'
 import { diamondsAvailable, setArenaStats } from '@/lib/storage/local-store'
+import dynamic from 'next/dynamic'
 import ArenaDuel from './ArenaDuel'
+import { teamLine, TeamLobbyPanel, useTeamRooms } from './team/TeamLobby'
+import type { RoomTransport } from './team/transport'
 import ArenaHerald, { ErranteStage } from './ArenaHerald'
+import { useSecondTick } from './useSecondTick'
 import { callArena, createLiveTransport } from './live'
 import type { DuelTransport } from './transport'
+
+// El duelo 2 vs 2 se descarga recién al entrar a uno (quien no juega 2 vs 2 no lo baja).
+const TeamDuel = dynamic(() => import('./team/TeamDuel'), { ssr: false })
 
 // El lobby de La Arena: los compañeros del aula que están conectados (Supabase
 // Presence), el armado del reto y los retos que te llegan. Los avisos de reto
@@ -35,7 +42,7 @@ interface Props {
   myDefeated: string[]
   myMaxStake: ArenaStake
   /** Solo /demo/arena: datos fijos, sin servidor ni tiempo real. */
-  preview?: { online: Presence[]; state: ArenaState }
+  preview?: { online: Presence[]; state: ArenaState; team?: { rooms: RoomView[]; mine: RoomView | null } }
 }
 
 export interface ArenaState { stats: ArenaStats; live: MatchView | null; incoming: MatchView[]; history: MatchView[] }
@@ -89,8 +96,9 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
   const [online, setOnline] = useState<Map<string, Presence>>(new Map())
   const chRef = useRef<RealtimeChannel | null>(null)
   const statusRef = useRef<'lobby' | 'duel'>('lobby')
-  statusRef.current = shownDuel ? 'duel' : 'lobby'
   const onLobbyRef = useRef<(ev: LobbyEvent) => void>(() => {})
+  const roomsReload = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (roomsReload.current) clearTimeout(roomsReload.current) }, [])
 
   useEffect(() => {
     if (!supabase) { setOnline(new Map((preview?.online ?? []).map((p) => [p.id, p]))); return }
@@ -108,16 +116,36 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
     return () => { chRef.current = null; void supabase.removeChannel(ch) }
   }, [supabase, aulaId, me.id, me.username, me.isAdmin])
 
-  const presenceStatus = shownDuel ? 'duel' : 'lobby'
-  useEffect(() => {
-    void chRef.current?.track({ id: me.id, username: me.username, isAdmin: me.isAdmin, status: presenceStatus })
-  }, [presenceStatus, me.id, me.username, me.isAdmin])
-
   const broadcast = useCallback((ev: LobbyEvent) => {
     void chRef.current?.send({ type: 'broadcast', event: 'lobby', payload: ev })
   }, [])
 
+  // ── 2 vs 2
+  const [mode, setMode] = useState<'1v1' | '2v2'>('1v1')
+  const team = useTeamRooms({ me, aulaId, active: mode === '2v2', supabase, preview: preview?.team, lobbySend: broadcast })
+  useEffect(() => { if (team.mine?.status === 'lobby') setMode('2v2') }, [team.mine?.status])
+  // ?modo=2v2 (el "Sumarme" del panel docente) abre directo en la pestaña 2 vs 2.
+  useEffect(() => { if (new URLSearchParams(window.location.search).get('modo') === '2v2') setMode('2v2') }, [])
+  const [teamEnd, setTeamEnd] = useState<RoomView | null>(null)
+  const [teamEndTransport, setTeamEndTransport] = useState<RoomTransport | null>(null)
+  // El transporte del duelo que se está jugando (no el de la sala de la revancha).
+  useEffect(() => { if (team.transport && team.mine?.status === 'active') setTeamEndTransport(team.transport) }, [team.transport, team.mine?.status])
+  const teamDuel = team.mine?.status === 'active' ? team.mine : teamEnd
+
+  // Presencia: "en duelo" también durante un 2 vs 2.
+  const presenceStatus = shownDuel || teamDuel ? 'duel' : 'lobby'
+  statusRef.current = presenceStatus
+  useEffect(() => {
+    void chRef.current?.track({ id: me.id, username: me.username, isAdmin: me.isAdmin, status: presenceStatus })
+  }, [presenceStatus, me.id, me.username, me.isAdmin])
+
   onLobbyRef.current = (ev: LobbyEvent) => {
+    if (ev.type === 'rooms') {
+      // Todo el aula recibe este aviso a la vez: cada uno relee con una espera
+      // al azar (hasta 1,5 s) y varios avisos seguidos se juntan en una lectura.
+      if (!roomsReload.current) roomsReload.current = setTimeout(() => { roomsReload.current = null; void team.load() }, 200 + Math.random() * 1300)
+      return
+    }
     if (ev.to !== me.id) return
     if (ev.type === 'invite') sfx.notify()
     if (ev.type === 'answer' && !ev.accepted) setNotice('Rechazó el reto.')
@@ -202,10 +230,34 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
   }
 
   // Reloj para los retos (vencen al minuto).
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1_000); return () => clearInterval(id) }, [])
+  // El lobby solo necesita reloj si hay un reto con cuenta regresiva en pantalla.
+  const now = useSecondTick((state?.incoming.length ?? 0) > 0 || !!waiting)
   const left = (m: MatchView) => Math.max(0, ARENA_INVITE_SECONDS - Math.floor((now - Date.parse(m.createdAt)) / 1000))
   const incoming = (state?.incoming ?? []).filter((m) => left(m) > 0)
+
+  // ── Duelo 2 vs 2 en pantalla
+  const teamTransport = teamEnd ? teamEndTransport : team.transport
+  // Alguno de los cuatro ya armó la revancha: yo ya estoy sentado en mi lugar.
+  const rematchReady = !!teamEnd && team.mine?.status === 'lobby' && team.mine.id !== teamEnd.id
+  const goToRematch = () => { setTeamEnd(null); setTeamEndTransport(null); setMode('2v2') }
+  if (teamDuel && teamTransport) {
+    return (
+      <TeamDuel
+        key={teamDuel.id}
+        initial={teamDuel}
+        transport={teamTransport}
+        meId={me.id}
+        onFinished={(r) => { setTeamEnd(r); void load() }}
+        onExit={() => { setTeamEnd(null); setTeamEndTransport(null); if (!rematchReady) team.setMine(null); void team.load(); void load() }}
+        rematchReady={rematchReady}
+        onRematch={async () => {
+          if (rematchReady) { goToRematch(); return }
+          const next = await team.rematch(teamDuel.id)
+          if (next) goToRematch()
+        }}
+      />
+    )
+  }
 
   // ── Duelo en pantalla
   if (shownDuel && (transport ?? endTransport)) {
@@ -233,7 +285,7 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
   const away = people.filter((p) => !ready.includes(p) && !busyNow.includes(p))
 
   // La única línea de ayuda de la pantalla: la dice El Errante y cambia con lo que pasa.
-  const line = notice
+  const line = mode === '2v2' && !incoming[0] && !waiting ? teamLine(team, me) : notice
     ?? (incoming[0] ? `¡${incoming[0].rival.username} te desafía! ¿Aceptás?`
       : waiting ? `Le llevé tu reto a ${waiting.rival.username}. Tiene un minuto para contestar.`
       : rival ? `¿Contra ${rival.username}? Elegí el tema y si va por diamantes.`
@@ -309,7 +361,25 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
             </div>
           )}
 
-          {!incoming.length && !waiting && (
+          <div className="mode-tabs" role="tablist" aria-label="Tipo de duelo">
+            {(['1v1', '2v2'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={mode === m}
+                className="mode-tab"
+                onClick={() => { if (mode !== m) { sfx.tab(); setMode(m) } }}
+              >
+                {m === '1v1' ? '1 vs 1' : '2 vs 2'}
+                {m === '2v2' && mode !== '2v2' && team.rooms.some((r) => r.status === 'lobby' && r.seats.length < 4) && <span className="mode-tab-dot" aria-label="hay salas abiertas" />}
+              </button>
+            ))}
+          </div>
+
+          {mode === '2v2' && !waiting && <TeamLobbyPanel t={team} me={me} myDefeated={myDefeated} myMaxStake={myMaxStake} />}
+
+          {mode === '1v1' && !incoming.length && !waiting && (
             <>
               <h2 className="lobby-title">¿Contra quién?</h2>
 
@@ -379,7 +449,7 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
             </>
           )}
 
-          {away.length > 0 && (
+          {mode === '1v1' && away.length > 0 && (
             <details className="lobby-more">
               <summary>{away.length === 1 ? '1 compañero no está' : `${away.length} compañeros no están`} en la arena</summary>
               <ul>
@@ -388,7 +458,7 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
             </details>
           )}
 
-          {(state?.history.length ?? 0) > 0 && (
+          {mode === '1v1' && (state?.history.length ?? 0) > 0 && (
             <details className="lobby-more">
               <summary>tus últimos duelos</summary>
               <ul>

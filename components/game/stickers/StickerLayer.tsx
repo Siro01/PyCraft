@@ -16,6 +16,8 @@ const jersey = 'var(--font-jersey), monospace'
 
 interface Props {
   surface: StickerSurface
+  /** Modo decorar manejado desde afuera (el ícono decorar.exe del escritorio): sin el botón flotante. */
+  decorate?: boolean
 }
 
 // Capa de decoración — se monta absoluta (inset:0) adentro de un contenedor
@@ -24,11 +26,13 @@ interface Props {
 // pegado, para no tapar clics del mapa/editor de abajo. Arrastre con
 // pointer events (mismo mecanismo que el divisor del patio de prácticas):
 // desde la bandeja "suelta" uno nuevo, sobre un sticker ya puesto lo mueve.
-export default function StickerLayer({ surface }: Props) {
+export default function StickerLayer({ surface, decorate: decorateProp }: Props) {
   const [loaded, setLoaded] = useState(false)
   const [owned, setOwned] = useState<OwnedShopItem[]>([])
   const [placements, setPlacements] = useState<Record<string, StickerPlacement>>({})
-  const [decorate, setDecorate] = useState(false)
+  const [decorateOwn, setDecorate] = useState(false)
+  const controlled = decorateProp !== undefined
+  const decorate = controlled ? decorateProp : decorateOwn
   const [ghost, setGhost] = useState<{ id: string; x: number; y: number } | null>(null)
   const layerRef = useRef<HTMLDivElement>(null)
 
@@ -156,7 +160,7 @@ export default function StickerLayer({ surface }: Props) {
       })}
 
       {/* Botón + bandeja de decoración — únicas zonas clickeables del layer además de los stickers ya puestos. */}
-      <div className="absolute" style={{ left: 8, bottom: 8, pointerEvents: 'auto' }}>
+      {!controlled && <div className="absolute" style={{ left: 8, bottom: 8, pointerEvents: 'auto' }}>
         <button
           type="button"
           onClick={() => { sfx.click(); setDecorate((d) => !d) }}
@@ -169,13 +173,13 @@ export default function StickerLayer({ surface }: Props) {
         >
           {decorate ? '✓ Decorando' : '✦ Decorar'}
         </button>
-      </div>
+      </div>}
 
       {decorate && (
         <div
           className="absolute flex items-center gap-2 overflow-x-auto"
           style={{
-            left: 8, right: 8, bottom: 44, maxWidth: 420, padding: '8px 10px', pointerEvents: 'auto',
+            left: 8, right: 8, bottom: controlled ? 8 : 44, maxWidth: 420, padding: '8px 10px', pointerEvents: 'auto',
             border: '2px solid hsl(var(--tx))', background: 'hsl(var(--surface) / 0.96)', boxShadow: '3px 3px 0 hsl(var(--tx) / 0.15)',
           }}
         >

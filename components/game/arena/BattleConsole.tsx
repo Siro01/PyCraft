@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { isPyodideLoaded, type SqlDetail } from '@/lib/game/executor'
 import { getSeedTables, runSQL, type TableSnapshot } from '@/lib/game/executor/sql-runner'
@@ -51,7 +51,7 @@ interface Props {
   wrongLabel?: string
 }
 
-export default function BattleConsole({
+function BattleConsole({
   boss, challenge, onSubmit, isLoading = false, lastResult, penguin = false, codeReplace, onCodeChange, banner, lastDamage,
   taskHidden = false, goLabel = 'atacar', wrongLabel = '✗ Todavía no es lo que pide el jefe',
 }: Props) {
@@ -196,6 +196,10 @@ export default function BattleConsole({
     </>
   )
 }
+
+// Memorizada: en los duelos la pantalla se redibuja con el reloj; la consola
+// (y el editor) solo cuando cambia algo suyo.
+export default memo(BattleConsole)
 
 /** `código` dentro de una consigna → chip de código (en vez de mostrar los backticks). */
 function withCode(text: string): React.ReactNode {

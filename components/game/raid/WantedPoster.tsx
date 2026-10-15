@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import WesternText from './WesternText'
 import DiamondIcon from '@/components/ui/DiamondIcon'
+import { ICON_WANTED, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
 import { PISTOLERO_REWARD_DIAMONDS, PISTOLERO_REWARD_XP } from '@/lib/game/raid/pistolero'
 import { watchSighting, type PistoleroSighting } from '@/lib/game/raid/watch-state'
 import { getArenaStats } from '@/lib/storage/local-store'
@@ -94,6 +95,37 @@ export function WantedPin() {
         </span>
         {seen && <span className="wanted-pin-stamp" aria-hidden>¡VISTO!</span>}
         {!seen && beaten > 0 && <span className="wanted-pin-stamp is-beaten" aria-hidden>×{beaten}</span>}
+      </button>
+      {open && <WantedModal seen={seen} live={!!sighting?.live} beaten={beaten} onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
+/**
+ * El cartel como ícono del escritorio PyCraft OS: pixel 1-bit con los colores
+ * del mapa, sin papel quemado. Si lo vieron, una marquita de acento parpadea.
+ * Al tocarlo se abre el cartel grande de siempre.
+ */
+export function WantedDeskIcon() {
+  const [open, setOpen] = useState(false)
+  const sighting = useSighting()
+  const beaten = useBeaten()
+  const seen = !!sighting?.armed || !!sighting?.live
+
+  return (
+    <>
+      <button
+        type="button"
+        className="desk-icon"
+        onClick={() => { westernSfx.spurs(); setOpen(true) }}
+        aria-label={`Cartel de se busca: El Pistolero.${seen ? ' ¡Lo vieron en este pueblo!' : ''}`}
+        title={seen ? '¡Vieron al Pistolero en este pueblo!' : 'SE BUSCA: El Pistolero'}
+      >
+        <span className="relative">
+          <PixelBitmap rows={ICON_WANTED} scale={4} />
+          {seen && <span className="wanted-desk-flag" aria-hidden>!</span>}
+        </span>
+        <span className="desk-lbl">se_busca.png</span>
       </button>
       {open && <WantedModal seen={seen} live={!!sighting?.live} beaten={beaten} onClose={() => setOpen(false)} />}
     </>

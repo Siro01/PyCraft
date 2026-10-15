@@ -4,24 +4,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import BattleConsole, { type BattleResult } from '@/components/game/arena/BattleConsole'
 import PatoDebugWindow from '@/components/game/items/PatoDebugWindow'
 import CompuHackeadaWindow from '@/components/game/items/CompuHackeadaWindow'
-import { parseInventoryCommand } from '@/components/game/items/InventoryConsole'
 import DiamondIcon, { Diamonds } from '@/components/ui/DiamondIcon'
 import { executeChallenge, preloadPyodide, preloadSqlJs } from '@/lib/game/executor'
-import { autoFixCode, type CodeFix } from '@/lib/game/items/auto-fix'
 import { BOSSES } from '@/lib/game/bosses'
-import { BATTLE_ITEMS } from '@/lib/game/shop'
 import { sfx } from '@/lib/game/architect/sound'
-import { ownedPerkItems, PERK_SLOT_LIMIT } from '@/lib/game/perk-effects'
 import { arenaChallenge } from '@/lib/game/arena/challenge'
-import {
-  ARENA_ATTACKS_PER_DUEL, ARENA_CLOVER_DODGE, ARENA_IMMUNITY_SECONDS, arenaItemConsumes, arenaItemEffect,
-} from '@/lib/game/arena/items'
+import { ARENA_ATTACKS_PER_DUEL } from '@/lib/game/arena/items'
 import { ARENA_EXERCISES, ARENA_MIX, ARENA_REASON_LABEL } from '@/lib/game/arena/rules'
 import type { DuelEvent, MatchView } from '@/lib/game/arena/types'
-import { consumePerk, getEquippedPerks, getShopOwned, setEquippedPerks } from '@/lib/storage/local-store'
-import type { Boss, ShopItem } from '@/types'
+import type { Boss } from '@/types'
 import { createSandboxDuel } from './sandbox'
 import type { DuelTransport } from './transport'
+import { useArenaCombat } from './useArenaCombat'
+import { useSecondTick } from './useSecondTick'
 
 // Pantalla de un duelo de la arena. Misma distribución que la arena de los
 // jefes: a la izquierda el marcador (reloj, los dos jugadores y su avance), a
@@ -76,11 +71,7 @@ function DuelView({ sandbox = false, initial, transport: given, onExit, onRematc
   }, [])
   useEffect(() => { if (start) apply(start) }, [start, apply])
 
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 250)
-    return () => clearInterval(id)
-  }, [])
+  const now = useSecondTick()
   const serverNow = now + skew.current
 
   const startedAt = match?.startedAt ? Date.parse(match.startedAt) : 0
@@ -135,100 +126,32 @@ function DuelView({ sandbox = false, initial, transport: given, onExit, onRematc
   const [lastResult, setLastResult] = useState<BattleResult | null>(null)
   useEffect(() => { setLastResult(null); setCodeReplace(null) }, [challenge?.id])
 
-  // ── Efectos recibidos y propios
-  const [frozenUntil, setFrozenUntil] = useState(0)
-  const [windUntil, setWindUntil] = useState(0)
-  const [tauntUntil, setTauntUntil] = useState(0)
-  const immuneUntil = useRef(0)
-  const received = useRef(0)
-  const [shield, setShield] = useState(0)
-  const [power, setPower] = useState(false)
-  const [thrown, setThrown] = useState(0)
-  const [rivalTypingUntil, setRivalTypingUntil] = useState(0)
-  const [hit, setHit] = useState(false)
-  const frozen = now < frozenUntil
-  const windy = now < windUntil
-
-  // ── Ítems
-  const [items, setItems] = useState<ShopItem[]>([])
-  const [equipped, setEquipped] = useState<string[]>([])
-  useEffect(() => {
-    setItems(sandbox ? BATTLE_ITEMS : ownedPerkItems(getShopOwned()))
-    setEquipped(sandbox ? [] : getEquippedPerks())
-  }, [sandbox])
-  const penguin = equipped.includes('item-pinguino')
-  const clover = equipped.includes('item-trebol')
-  const [duck, setDuck] = useState<'off' | 'open' | 'hidden'>('off')
-  const [compuFix, setCompuFix] = useState<{ fixes: CodeFix[]; hasBlanks: boolean } | null>(null)
-  const [invLine, setInvLine] = useState('')
-  const [invEcho, setInvEcho] = useState<{ text: string; ok: boolean } | null>(null)
-  /** El primer ítem que se gasta en el duelo pide confirmación: se pierde aunque pierdas. */
-  const [pendingConfirm, setPendingConfirm] = useState<string | null>(null)
-  const confirmed = useRef(false)
-
   const meId = match?.me.id ?? ''
   const rivalId = match?.rival.id ?? ''
   const rivalName = match?.rival.username ?? 'rival'
+  const [rivalTypingUntil, setRivalTypingUntil] = useState(0)
+
+  // ── Ítems (compartido con el 2 vs 2)
+  const send = useCallback((ev: DuelEvent) => transport?.send(ev), [transport])
+  const nameOf = useCallback((id: string) => (id === rivalId ? rivalName : 'rival'), [rivalId, rivalName])
+  const replaceCode = useCallback((code: string) => setCodeReplace({ code, nonce: Date.now() }), [])
+  const getCode = useCallback(() => codeRef.current, [])
+  const combat = useArenaCombat({
+    sandbox, send, meId, now, challenge, target: rivalId ? { id: rivalId, username: rivalName } : null, nameOf, getCode, replaceCode,
+  })
+  const { frozen, windy, hit, duck, setDuck, compuFix, setCompuFix, items, penguin, invLine, setInvLine, invEcho, consoleRef } = combat
 
   // ── Mensajes del rival
   const onEvent = useCallback((ev: DuelEvent) => {
     if (ev.from === meId) return
     if (ev.type === 'progress' || ev.type === 'left') { refresh(); if (ev.type === 'progress') sfx.notify(); return }
     if (ev.type === 'typing') { setRivalTypingUntil(Date.now() + 4_000); return }
-    if (ev.type === 'blocked') {
-      if (ev.to !== meId) return
-      const why = ev.reason === 'shield' ? 'tenía la mandarina puesta' : ev.reason === 'clover' ? 'lo esquivó con el trébol' : ev.reason === 'immune' ? 'estaba protegido' : 'ya no puede recibir más ataques'
-      setInvEcho({ ok: false, text: `Rebotó: ${rivalName} ${why}.` })
-      sfx.denied()
-      return
-    }
-    if (ev.type === 'item' && ev.to === meId) {
-      const t = Date.now()
-      if (ev.effect === 'taunt') { setTauntUntil(t + ev.seconds * 1000); sfx.jingle(); return }
-      const block = (reason: 'shield' | 'clover' | 'immune' | 'limit') => transport?.send({ type: 'blocked', from: meId, to: ev.from, reason })
-      if (received.current >= ARENA_ATTACKS_PER_DUEL) return block('limit')
-      received.current += 1
-      if (t < immuneUntil.current) return block('immune')
-      if (shield > 0) {
-        setShield((s) => s - 1)
-        setInvEcho({ ok: true, text: `¡La mandarina frenó ${ev.item === 'Zonda' ? 'el Zonda' : `la ${ev.item}`} de ${rivalName}!` })
-        sfx.denied()
-        return block('shield')
-      }
-      if (clover && Math.random() < ARENA_CLOVER_DODGE) {
-        setInvEcho({ ok: true, text: `El trébol esquivó el ataque de ${rivalName}.` })
-        return block('clover')
-      }
-      const until = t + ev.seconds * 1000
-      immuneUntil.current = until + ARENA_IMMUNITY_SECONDS * 1000
-      if (ev.effect === 'freeze') {
-        setFrozenUntil(until)
-        ;(document.activeElement as HTMLElement | null)?.blur?.()
-      } else setWindUntil(until)
-      setHit(true); setTimeout(() => setHit(false), 380)
-      sfx.damage()
-      setInvEcho({ ok: false, text: `${rivalName} te tiró ${ev.item}: ${ev.effect === 'freeze' ? `editor congelado ${ev.seconds} s` : `sin consigna ${ev.seconds} s`}.` })
-    }
-  }, [meId, rivalName, refresh, transport, shield, clover])
+    combat.onItemEvent(ev)
+  }, [meId, refresh, combat])
 
   const onEventRef = useRef(onEvent)
   onEventRef.current = onEvent
   useEffect(() => transport?.listen((ev) => onEventRef.current(ev)), [transport])
-
-  // Congelado: el editor no recibe teclas, pegado ni clics (el inventario sí).
-  const consoleRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!frozen) return
-    const stop = (e: Event) => { if (consoleRef.current?.contains(e.target as Node)) { e.preventDefault(); e.stopPropagation() } }
-    window.addEventListener('keydown', stop, true)
-    window.addEventListener('beforeinput', stop, true)
-    window.addEventListener('paste', stop, true)
-    return () => {
-      window.removeEventListener('keydown', stop, true)
-      window.removeEventListener('beforeinput', stop, true)
-      window.removeEventListener('paste', stop, true)
-    }
-  }, [frozen])
 
   // "Escribiendo…": como mucho un aviso cada 3 s.
   const lastTyping = useRef(0)
@@ -266,76 +189,6 @@ function DuelView({ sandbox = false, initial, transport: given, onExit, onRematc
     }
   }, [transport, challenge, busy, frozen, phase, idx, apply, meId])
 
-  // ── Usar un ítem: print(nombre)
-  const applyItem = useCallback((item: ShopItem): { ok: boolean; text: string } => {
-    const fx = arenaItemEffect(item)
-    if (fx.kind === 'none') return { ok: false, text: fx.text }
-    if (arenaItemConsumes(fx) && !confirmed.current && !sandbox) {
-      if (pendingConfirm !== item.id) {
-        setPendingConfirm(item.id)
-        sfx.warn()
-        return { ok: false, text: `Ojo: ${item.name} se gasta aunque pierdas el duelo. Escribilo otra vez para usarlo.` }
-      }
-      confirmed.current = true
-    }
-    setPendingConfirm(null)
-    const spend = () => {
-      if (sandbox) return
-      consumePerk(item.id)
-      setItems((list) => {
-        const i = list.findIndex((x) => x.id === item.id)
-        return i < 0 ? list : [...list.slice(0, i), ...list.slice(i + 1)]
-      })
-    }
-
-    if (fx.kind === 'passive') {
-      const on = equipped.includes(item.id)
-      if (!on && equipped.length >= PERK_SLOT_LIMIT) return { ok: false, text: `Ya tenés ${PERK_SLOT_LIMIT} ítems equipados.` }
-      const next = on ? equipped.filter((id) => id !== item.id) : [...equipped, item.id]
-      setEquipped(next)
-      if (!sandbox) setEquippedPerks(next)
-      sfx.equip(!on)
-      return { ok: true, text: on ? `${item.name} desequipado.` : `${item.name} equipado: ${fx.text}.` }
-    }
-    if (fx.kind === 'attack') {
-      if (fx.effect !== 'taunt' && thrown >= ARENA_ATTACKS_PER_DUEL) return { ok: false, text: `Ya tiraste ${ARENA_ATTACKS_PER_DUEL} ataques en este duelo. El resto, con código.` }
-      const seconds = fx.effect !== 'taunt' && power ? fx.seconds * 2 : fx.seconds
-      transport?.send({ type: 'item', from: meId, to: rivalId, effect: fx.effect, seconds, item: item.name })
-      if (fx.effect !== 'taunt') { setThrown((n) => n + 1); if (power) setPower(false) }
-      if (fx.consumes) spend()
-      sfx.perkUse()
-      return { ok: true, text: fx.effect === 'taunt' ? `67. ${rivalName} lo vio.` : `¡Le tiraste ${item.name} a ${rivalName}! ${fx.effect === 'freeze' ? `Editor congelado ${seconds} s` : `Sin consigna ${seconds} s`}${power ? ' (con brócoli)' : ''}.` }
-    }
-    if (fx.kind === 'shield') { setShield((s) => s + 1); spend(); sfx.potion(); return { ok: true, text: `Mandarina puesta: ${fx.text}.` } }
-    if (fx.kind === 'power') {
-      if (power) return { ok: false, text: 'Ya comiste brócoli. Tirá un ataque primero.' }
-      setPower(true); spend(); sfx.perkUse(); return { ok: true, text: `Puaj… pero ${fx.text}.` }
-    }
-    if (fx.kind === 'duck') {
-      if (duck !== 'off') { setDuck('open'); return { ok: true, text: 'El pato ya está con vos en este duelo. Cuac.' } }
-      setDuck('open'); spend(); sfx.perkUse(); return { ok: true, text: 'Cuac. El Pato Debug se sentó al lado de tu código.' }
-    }
-    // autofix
-    if (!challenge) return { ok: false, text: 'Todavía no hay código para revisar.' }
-    const r = autoFixCode(codeRef.current, challenge.type)
-    if (!r.fixes.length) return { ok: false, text: 'La Compu no encontró errores para corregir. No se gastó.' }
-    setCodeReplace({ code: r.code, nonce: Date.now() })
-    setCompuFix({ fixes: r.fixes, hasBlanks: r.hasBlanks })
-    spend(); sfx.perkUse()
-    return { ok: true, text: `La Compu Hackeada corrigió ${r.fixes.length} ${r.fixes.length === 1 ? 'error' : 'errores'}.` }
-  }, [sandbox, pendingConfirm, equipped, thrown, power, transport, meId, rivalId, rivalName, duck, challenge])
-
-  const runInventory = useCallback(() => {
-    const line = invLine.trim()
-    if (!line) return
-    setInvLine('')
-    if (phase !== 'fight') { setInvEcho({ ok: false, text: 'Esperá a que arranque el duelo.' }); return }
-    const p = parseInventoryCommand(line, items)
-    const res = p.ok ? applyItem(p.item) : { ok: false, text: p.hint ? `${p.error} · ${p.hint}` : p.error }
-    if (!res.ok) sfx.denied()
-    setInvEcho(res)
-  }, [invLine, items, applyItem, phase])
-
   // ── Rendirse
   const [confirmLeave, setConfirmLeave] = useState(false)
   const leave = useCallback(async () => {
@@ -353,19 +206,12 @@ function DuelView({ sandbox = false, initial, transport: given, onExit, onRematc
 
   const topicLabel = match.bossId === ARENA_MIX ? 'Mezcla de temas' : BOSSES.find((b) => b.id === match.bossId)?.topic ?? ''
   const rivalTyping = now < rivalTypingUntil
-  const statusTags = [
-    frozen && `congelado ${Math.ceil((frozenUntil - now) / 1000)}`,
-    windy && `sin consigna ${Math.ceil((windUntil - now) / 1000)}`,
-    shield > 0 && `mandarina ×${shield}`,
-    power && 'brócoli',
-    penguin && 'pingüino',
-    clover && 'trébol',
-  ].filter(Boolean) as string[]
+  const statusTags = combat.statusTags
 
   return (
     <div className="duel" data-phase={phase}>
       {hit && <div className="secret-hurt" aria-hidden />}
-      {now < tauntUntil && <div className="duel-taunt" aria-hidden>67</div>}
+      {combat.tauntOn && <div className="duel-taunt" aria-hidden>67</div>}
       {duck === 'open' && challenge && (
         <PatoDebugWindow boss={topicBoss} challenge={challenge} getCode={() => codeRef.current} onClose={() => setDuck('hidden')} />
       )}
@@ -402,7 +248,7 @@ function DuelView({ sandbox = false, initial, transport: given, onExit, onRematc
             </div>
           )}
           {phase === 'fight' && (
-            <div className="arena-num">ataques: {ARENA_ATTACKS_PER_DUEL - thrown} de {ARENA_ATTACKS_PER_DUEL} · print(item) abajo</div>
+            <div className="arena-num">ataques: {combat.attacksLeft} de {ARENA_ATTACKS_PER_DUEL} · print(item) abajo</div>
           )}
         </section>
 
@@ -425,7 +271,7 @@ function DuelView({ sandbox = false, initial, transport: given, onExit, onRematc
                 <BattleConsole
                   boss={topicBoss}
                   challenge={challenge}
-                  onSubmit={(c) => submit(c)}
+                  onSubmit={submit}
                   isLoading={busy}
                   lastResult={lastResult}
                   penguin={penguin}
@@ -438,7 +284,7 @@ function DuelView({ sandbox = false, initial, transport: given, onExit, onRematc
                 {frozen && (
                   <div className="duel-freeze" role="status">
                     <span>congelado</span>
-                    <strong>{Math.ceil((frozenUntil - now) / 1000)}</strong>
+                    <strong>{combat.frozenLeft}</strong>
                   </div>
                 )}
               </div>
@@ -450,7 +296,7 @@ function DuelView({ sandbox = false, initial, transport: given, onExit, onRematc
                 </div>
               )}
 
-              <form className="arena-inv" onSubmit={(e) => { e.preventDefault(); runInventory() }}>
+              <form className="arena-inv" onSubmit={(e) => { e.preventDefault(); combat.runInventory(phase === 'fight') }}>
                 <label htmlFor="duel-inv">&gt;&gt;&gt;</label>
                 <input
                   id="duel-inv"

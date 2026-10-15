@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import AppWindow, { type WindowMode } from '@/components/ui/AppWindow'
-import { ICON_FILE, ICON_FOLDER, ICON_RAID, ICON_SWORDS, ICON_TERMINAL, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
+import { ICON_BRUSH, ICON_FILE, ICON_FOLDER, ICON_KEYS, ICON_RAID, ICON_SWORDS, ICON_TERMINAL, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
 import { RAID_UNLOCK_DEFEATED } from '@/lib/game/raid/secret-raid'
 import InventoryApp from '@/components/game/inventory/InventoryApp'
 import DiamondIcon from '@/components/ui/DiamondIcon'
@@ -18,7 +18,7 @@ import type { AvatarId } from './map/avatars'
 import PixelTitle from './map/PixelTitle'
 import type { NodeState } from './map/MapNodeIcon'
 import QuestLog from './map/QuestLog'
-import { WantedPin } from './raid/WantedPoster'
+import { WantedDeskIcon } from './raid/WantedPoster'
 import ResetBossButton from './ResetBossButton'
 import type { Boss } from '@/types'
 
@@ -49,13 +49,10 @@ interface BossMapProps {
 
 const PALETTE_LABEL: Record<MapTheme, string> = { light: 'BLANCO', dark: 'NEGRO', red: 'COLOR' }
 const jersey = 'var(--font-jersey), monospace'
-const monoLabel = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'hsl(var(--tx3))' }
 const DESK_MENU_H = 28
-const DESK_TASKBAR_H = 34
 
 type WinId = 'stats' | 'log' | 'controls' | 'inventory'
 interface WinState { mode: WindowMode; x: number; y: number; z: number }
-const WIN_TITLE: Record<WinId, string> = { stats: 'PROGRESO.TXT', log: 'BITÁCORA.LOG', controls: 'CONTROLES.TXT', inventory: 'INVENTARIO.EXE' }
 
 export default function BossMap({
   bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, emptyState, testMode, isAdmin = false, avatar, repasoIds, arena,
@@ -96,22 +93,26 @@ export default function BossMap({
   // que el alumno abre desde los íconos, arrastra, minimiza a la barra de
   // tareas o cierra — así no tiene por qué ver todo junto de entrada.
   const zRef = useRef(3)
-  const [activeWin, setActiveWin] = useState<'map' | WinId>('map')
+  const [activeWin, setActiveWin] = useState<'map' | WinId | null>(null)
   const [mapMaximized, setMapMaximized] = useState(false)
   // El mapa ahora es una ventana de verdad: se minimiza a la barra de tareas
   // (con un "chupón" de 0.22s antes de desaparecer) y se restaura desde ahí
   // o desde el ícono mapa.exe. El avatar vuelve a donde estaba.
-  const [mapMode, setMapMode] = useState<'open' | 'closing' | 'minimized'>('open')
+  // Arranca minimizado: el alumno entra a un escritorio limpio y descubre
+  // solo que mapa.exe se abre con un clic.
+  const [mapMode, setMapMode] = useState<'open' | 'closing' | 'minimized'>('minimized')
   const posByAct = useRef<Record<string, MapPoint>>({})
   const [arrival, setArrival] = useState<'entry' | 'exit' | 'saved'>('saved')
   // Arrancan un casillero por debajo de la fila de íconos, para no taparla
   // apenas se carga la página.
-  const [stats, setStats] = useState<WinState>({ mode: 'normal', x: 16, y: 80, z: 1 })
+  const [stats, setStats] = useState<WinState>({ mode: 'minimized', x: 16, y: 80, z: 1 })
   const [log, setLog] = useState<WinState>({ mode: 'minimized', x: 48, y: 160, z: 2 })
   // Los controles eran un párrafo fijo dentro del mapa — ahora es su propia
   // ventana, cerrada por defecto, así el mapa queda más limpio de entrada.
   const [controls, setControls] = useState<WinState>({ mode: 'minimized', x: 80, y: 120, z: 0 })
   const [inventory, setInventory] = useState<WinState>({ mode: 'minimized', x: 112, y: 100, z: 0 })
+  // decorar.exe: el modo de pegar stickers, que antes era un botón flotante.
+  const [decorating, setDecorating] = useState(false)
 
   // Nivel del patio de juegos y diamantes disponibles — vienen de
   // localStorage, así que se leen recién montado (server-safe: 0/1 al
@@ -200,13 +201,6 @@ export default function BossMap({
 
   const styleVars = { ...MAP_PALETTES[palette], '--on-accent': MAP_PALETTE_ON_ACCENT[palette] } as React.CSSProperties
 
-  const minimized: { id: WinId | 'map'; title: string }[] = [
-    ...(mapMode === 'minimized' ? [{ id: 'map' as const, title: 'MAPA_DE_JEFES.EXE' }] : []),
-    ...(['stats', 'log', 'controls', 'inventory'] as WinId[])
-      .filter((id) => ({ stats, log, controls, inventory }[id].mode === 'minimized'))
-      .map((id) => ({ id, title: WIN_TITLE[id] })),
-  ]
-
   const startAt = arrival === 'entry' ? act.entry : arrival === 'exit' ? act.exitApproach ?? act.entry : posByAct.current[act.key]
   const actDefeated = (i: number) => ACT_MAPS[i].bosses.filter((b) => bossStates[b.id] === 'defeated').length
 
@@ -229,7 +223,7 @@ export default function BossMap({
             boxShadow: '6px 6px 0 hsl(var(--tx) / 0.18)',
           }}
         >
-          <StickerLayer surface="dashboard" />
+          <StickerLayer surface="dashboard" decorate={decorating} />
 
           {/* Menú superior — igual al de PycraftOS en la landing */}
           <div
@@ -246,10 +240,9 @@ export default function BossMap({
               <DiamondIcon size={13} />
               <span className="tabular" style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--tx))' }}>{diamonds}</span>
             </div>
-            <span className="hidden sm:inline" style={monoLabel}>Abrí los programas · arrastrá las ventanas</span>
           </div>
 
-          <div className="p-3" style={mapMode === 'minimized' ? { minHeight: 520 } : undefined}>
+          <div className="p-3 flex flex-col" style={mapMode === 'minimized' ? { minHeight: 600 } : undefined}>
             {/* Íconos para abrir cada ventana — reemplazan a los paneles que
                 antes estaban todos visibles a la vez. */}
             <div className="flex items-center gap-2 mb-1 flex-wrap" role="group" aria-label="Programas del escritorio">
@@ -266,10 +259,6 @@ export default function BossMap({
               <button type="button" className="desk-icon" onClick={() => openWin('log')} title="Abrir bitacora.log">
                 <PixelBitmap rows={ICON_TERMINAL} scale={4} />
                 <span className="desk-lbl">bitacora.log</span>
-              </button>
-              <button type="button" className="desk-icon" onClick={() => openWin('controls')} title="Abrir controles.txt">
-                <PixelBitmap rows={ICON_FILE} scale={4} />
-                <span className="desk-lbl">controles.txt</span>
               </button>
               <button type="button" className="desk-icon" onClick={() => openWin('inventory')} title="Abrir inventario.exe">
                 <PixelBitmap rows={ICON_FOLDER} scale={4} />
@@ -302,6 +291,18 @@ export default function BossMap({
                   <span className="desk-lbl">raid.exe</span>
                 </a>
               )}
+              <button
+                type="button"
+                className={`desk-icon${decorating ? ' desk-icon--on' : ''}`}
+                onClick={() => { sfx.click(); setDecorating((d) => !d) }}
+                aria-pressed={decorating}
+                title={decorating ? 'Terminar de decorar' : 'Decorar el escritorio con tus stickers'}
+              >
+                <PixelBitmap rows={ICON_BRUSH} scale={4} />
+                <span className="desk-lbl">{decorating ? 'listo.exe' : 'decorar.exe'}</span>
+              </button>
+              {/* El cartel del Pistolero vive lejos, en la otra punta del escritorio (solo con cuenta del taller). */}
+              {arena && <span className="ml-auto"><WantedDeskIcon /></span>}
             </div>
 
           {/* MAPA_DE_JEFES.EXE: ventana del gameplay. Vive en el flujo de la
@@ -323,7 +324,7 @@ export default function BossMap({
             bodyStyle={{ padding: mapMaximized ? 10 : 12 }}
           >
           <div className="flex flex-col" style={mapMaximized ? { height: '100%' } : undefined}>
-            {/* Pestañas de acto: un ícono por acto, el número y cuántos jefes van. */}
+            {/* Pestañas de acto: solo el ícono y el número romano. */}
             <div className="flex items-end justify-between gap-2 flex-wrap" style={{ flexShrink: 0 }}>
               <div className="flex items-end gap-1 flex-wrap" role="tablist" aria-label="Actos">
                 {ACT_MAPS.map((a, i) => {
@@ -336,7 +337,7 @@ export default function BossMap({
                       role="tab"
                       aria-selected={on}
                       aria-label={`${a.roman}: ${a.title}${reached ? '' : ' (todavía no llegaste)'}`}
-                      title={`${a.roman} · ${a.title}`}
+                      title={`${a.roman} · ${a.title} · ${actDefeated(i)}/${a.bosses.length} jefes`}
                       onClick={() => selectAct(i)}
                       onMouseEnter={() => sfx.hover()}
                       className={`act-tab${on ? ' act-tab--on' : ''}${a.ascii ? ' act-tab--glitch' : ''}`}
@@ -344,9 +345,6 @@ export default function BossMap({
                     >
                       <ActEmblem actKey={a.key} size={18} color={on ? 'hsl(var(--bg))' : 'hsl(var(--tx))'} />
                       <span style={{ fontFamily: jersey, fontSize: 20, lineHeight: 1 }}>{a.roman.replace('ACTO ', '')}</span>
-                      <span className="tabular" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 16, lineHeight: 1, opacity: 0.8 }}>
-                        {actDefeated(i)}/{a.bosses.length}
-                      </span>
                     </button>
                   )
                 })}
@@ -379,8 +377,6 @@ export default function BossMap({
               style={mapMaximized ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : undefined}
             >
               <header className="flex flex-col items-center" style={{ padding: '14px 12px 8px', flexShrink: 0, position: 'relative' }}>
-                {/* Cartel de SE BUSCA del Pistolero (solo con cuenta del taller, como la arena) */}
-                {arena && <WantedPin />}
                 <PixelTitle text={act.title.toUpperCase()} scale={mapMaximized ? 4 : 5} glitch={act.ascii} playKey={act.key} />
                 <div className="label-mono" style={{ color: 'hsl(var(--tx2))', marginTop: 6, fontSize: 12 }}>— {act.roman} —</div>
               </header>
@@ -406,7 +402,7 @@ export default function BossMap({
                 )}
               </div>
 
-              {/* Pie: un casillero por jefe del acto + el emblema en la esquina, como la pokébola del póster. */}
+              {/* Pie: un casillero por jefe del acto. */}
               <footer className="flex items-center justify-between gap-3" style={{ padding: '8px 14px 12px', flexShrink: 0 }}>
                 <div className="flex items-center gap-1.5" aria-label={`${actDefeated(actIndex)} de ${act.bosses.length} jefes derrotados en este acto`}>
                   {act.bosses.map((b) => {
@@ -424,8 +420,6 @@ export default function BossMap({
                     )
                   })}
                 </div>
-                <span className="label-mono hidden sm:inline" style={{ color: 'hsl(var(--tx3))' }}>WASD / ↑↓←→ · Enter · o hacé clic</span>
-                <span className="map-poster-emblem"><ActEmblem actKey={act.key} size={20} color="hsl(var(--tx))" /></span>
               </footer>
             </div>
 
@@ -442,12 +436,13 @@ export default function BossMap({
           </AppWindow>
           </div>
 
-          {mapMode === 'minimized' && (
-            <button type="button" className="map-minimized-hint" onClick={restoreMap}>
-              <ActEmblem actKey={act.key} size={20} color="hsl(var(--tx))" />
-              <span>El mapa está minimizado. <u>Abrirlo</u></span>
+          {/* controles.txt: abajo a la derecha, fuera del mapa. */}
+          <div className="flex justify-end mt-auto">
+            <button type="button" className="desk-icon" onClick={() => openWin('controls')} title="Cómo moverte por el mapa">
+              <PixelBitmap rows={ICON_KEYS} scale={4} />
+              <span className="desk-lbl">controles.txt</span>
             </button>
-          )}
+          </div>
 
           {/* PROGRESO.TXT — bienvenida, jefes derrotados y ajustes de dificultad. */}
           <AppWindow
@@ -501,7 +496,7 @@ export default function BossMap({
               del mapa; ahora es opcional, para que el mapa arranque limpio. */}
           <AppWindow
             title="CONTROLES.TXT"
-            icon={<PixelBitmap rows={ICON_FILE} scale={2} ink={activeWin === 'controls' ? 'hsl(var(--bg))' : 'hsl(var(--tx))'} />}
+            icon={<PixelBitmap rows={ICON_KEYS} scale={2} ink={activeWin === 'controls' ? 'hsl(var(--bg))' : 'hsl(var(--tx))'} />}
             x={controls.x} y={controls.y} w={300} z={controls.z}
             active={activeWin === 'controls'}
             mode={controls.mode}
@@ -538,34 +533,6 @@ export default function BossMap({
 
           </div>
 
-          {/* Barra de tareas — siempre visible, igual que en PycraftOS de la
-              landing: los minimizados se restauran desde acá. Deja lugar a la
-              izquierda para el "✦ Decorar" de StickerLayer, que flota encima,
-              y se desplaza de costado si no entra todo. */}
-          <div
-            className="flex items-center gap-2 px-2.5"
-            style={{ height: DESK_TASKBAR_H, background: 'hsl(var(--surface))', borderTop: '2px solid hsl(var(--tx))', overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'none', paddingLeft: 136 }}
-            role="group"
-            aria-label="Barra de tareas"
-          >
-            {minimized.length === 0 ? (
-              <span style={monoLabel}>Nada minimizado</span>
-            ) : minimized.map((w) => (
-              <button
-                key={w.id}
-                type="button"
-                onClick={() => (w.id === 'map' ? restoreMap() : openWin(w.id))}
-                style={{
-                  fontFamily: 'var(--font-vt323), monospace', fontSize: 17, lineHeight: 1, padding: '2px 10px', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap',
-                  background: 'transparent', color: 'hsl(var(--tx2))', border: '2px solid hsl(var(--tx))',
-                }}
-              >
-                {w.title}
-              </button>
-            ))}
-            <span style={{ flex: 1 }} />
-            <span className="hidden sm:inline" style={{ ...monoLabel, whiteSpace: 'nowrap' }}>{minimized.length} minimizada{minimized.length === 1 ? '' : 's'}</span>
-          </div>
         </div>
       )}
     </main>

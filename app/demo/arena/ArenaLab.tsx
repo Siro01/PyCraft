@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BOSSES } from '@/lib/game/bosses'
 import { executeChallenge, preloadPyodide, preloadSqlJs } from '@/lib/game/executor'
 import { ARENA_TEMPLATES, buildFromTemplate, type ArenaExercise } from '@/lib/game/arena/generators'
@@ -9,7 +9,9 @@ import ArenaDuel from '@/components/game/arena/pvp/ArenaDuel'
 import ArenaHerald from '@/components/game/arena/pvp/ArenaHerald'
 import ArenaApp, { type ArenaState, type Presence } from '@/components/game/arena/pvp/ArenaApp'
 import type { RosterEntry } from '@/lib/game/arena/server'
-import type { MatchView } from '@/lib/game/arena/types'
+import type { MatchView, RoomView } from '@/lib/game/arena/types'
+import TeamDuel from '@/components/game/arena/pvp/team/TeamDuel'
+import { createSandboxRoom, SANDBOX_ME } from '@/components/game/arena/pvp/team/sandbox'
 
 // Laboratorio de La Arena (solo docente):
 // 1) Plantillas: cada una con varias semillas, corriendo su solución en el
@@ -22,7 +24,7 @@ type Check = { ok: boolean; got: string; error: string | null }
 const SEEDS_PER_TEMPLATE = 6
 
 export default function ArenaLab() {
-  const [tab, setTab] = useState<'plantillas' | 'duelo' | 'lobby'>('plantillas')
+  const [tab, setTab] = useState<'plantillas' | 'duelo' | 'equipos' | 'lobby'>('plantillas')
   const [withInvite, setWithInvite] = useState(false)
   // Memo: los datos tienen que ser estables, si no el lobby recarga en cada render.
   const lobby = useMemo(() => demoLobby(withInvite), [withInvite])
@@ -65,6 +67,7 @@ export default function ArenaLab() {
           <span className="arena-top-spacer" />
           <button type="button" className={`arena-link${tab === 'plantillas' ? ' arena-link--on' : ''}`} onClick={() => setTab('plantillas')}>plantillas</button>
           <button type="button" className={`arena-link${tab === 'duelo' ? ' arena-link--on' : ''}`} onClick={() => setTab('duelo')}>duelo de prueba</button>
+          <button type="button" className={`arena-link${tab === 'equipos' ? ' arena-link--on' : ''}`} onClick={() => setTab('equipos')}>2 vs 2</button>
           <button type="button" className={`arena-link${tab === 'lobby' ? ' arena-link--on' : ''}`} onClick={() => setTab('lobby')}>lobby</button>
           <button type="button" className="arena-link" onClick={() => setHerald('full')}>presentación</button>
           <button type="button" className="arena-link" onClick={() => setHerald('short')}>saludo</button>
@@ -72,6 +75,8 @@ export default function ArenaLab() {
         {herald && <ArenaHerald key={herald} full={herald === 'full'} onDone={() => setHerald(null)} onExplain={() => setHerald('full')} />}
 
         {tab === 'duelo' && <ArenaDuel sandbox />}
+
+        {tab === 'equipos' && <SandboxTeamDuel />}
 
         {tab === 'lobby' && (
           <>
@@ -182,6 +187,38 @@ function demoLobby(withInvite: boolean) {
   return {
     me: { id: 'yo', username: 'vos', isAdmin: false, isTest: false },
     aulaId: 'demo', aulaName: 'aula de ejemplo', roster, myDefeated: FIRST(4), myMaxStake: 10 as const,
-    preview: { online, state },
+    preview: { online, state, team: { rooms: demoRooms(), mine: null } },
   }
+}
+
+// ─── 2 vs 2 de práctica (3 bots) ───────────────────────────────────────────
+function SandboxTeamDuel() {
+  const [round, setRound] = useState(0)
+  const [demo, setDemo] = useState<ReturnType<typeof createSandboxRoom> | null>(null)
+  // El que crea el transporte lo cierra (en un efecto: StrictMode lo monta dos veces).
+  useEffect(() => {
+    const d = createSandboxRoom()
+    setDemo(d)
+    return () => d.transport.close()
+  }, [round])
+  if (!demo) return null
+  return <TeamDuel key={round} sandbox initial={demo.initial} transport={demo.transport} meId={SANDBOX_ME} onExit={() => setRound((r) => r + 1)} onRematch={() => setRound((r) => r + 1)} />
+}
+
+/** Salas de ejemplo para el lobby 2 vs 2. */
+function demoRooms(): RoomView[] {
+  const base = {
+    actKey: 'python', needsTeacher: false, exercises: [], tasks: [], createdAt: new Date().toISOString(), startedAt: null, endsAt: null,
+    serverNow: new Date().toISOString(), winnerTeam: null, endReason: null,
+  }
+  const seat = (team: 'espada' | 'escudo', slot: 1 | 2, userId: string, ready = false) =>
+    ({ team, slot, userId, username: userId, role: 'alumno' as const, ready, relays: 0, gone: false })
+  return [
+    { ...base, id: 'sala-1', status: 'lobby', leaderId: 'romi', bossId: 'golem-infinito', stake: 5, topics: ['golem-infinito'],
+      seats: [seat('espada', 1, 'romi', true), seat('escudo', 1, 'tomi'), seat('escudo', 2, 'benja')] },
+    { ...base, id: 'sala-2', status: 'lobby', leaderId: 'mica', bossId: 'oraculo-oscuro', stake: 0, topics: ['oraculo-oscuro'],
+      seats: [seat('espada', 1, 'mica')] },
+    { ...base, id: 'sala-3', status: 'active', leaderId: 'juana', bossId: 'mezcla', stake: 10, topics: ['creeper-formulario'],
+      seats: [seat('espada', 1, 'juana'), seat('espada', 2, 'sofi'), seat('escudo', 1, 'lucas'), seat('escudo', 2, 'cata')] },
+  ]
 }

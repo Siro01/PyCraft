@@ -884,6 +884,7 @@ input[type="number"], input[type="search"], textarea {
 .desk-icon .desk-lbl { font-family: var(--font-vt323), monospace; font-size: 16px; line-height: 1; padding: 2px 4px; color: hsl(var(--tx)); text-align: center; }
 .desk-icon:hover .desk-lbl, .desk-icon:focus-visible .desk-lbl { background: hsl(var(--tx)); color: hsl(var(--bg)); }
 .desk-icon:disabled { opacity: 0.4; cursor: default; }
+.desk-icon--on .desk-lbl { background: hsl(var(--accent)); color: var(--on-accent, hsl(var(--bg))); }
 
 .desk button:focus-visible, .desk input:focus-visible, .desk textarea:focus-visible {
   outline: 2px solid hsl(var(--accent));
@@ -1130,7 +1131,6 @@ input[type="number"], input[type="search"], textarea {
   border-color: hsl(var(--accent));
   box-shadow: inset 0 0 0 4px hsl(var(--bg)), inset 0 0 0 5px hsl(var(--accent) / 0.6), 4px 4px 0 hsl(var(--accent) / 0.3);
 }
-.map-poster-emblem { display: inline-flex; padding: 3px; border: 2px solid hsl(var(--tx)); }
 
 .map-scroll { scrollbar-width: thin; scrollbar-color: hsl(var(--tx)) hsl(var(--bg)); }
 .map-stage { cursor: var(--cursor-hand, pointer); user-select: none; -webkit-user-select: none; touch-action: manipulation; }
@@ -1239,12 +1239,6 @@ input[type="number"], input[type="search"], textarea {
   0%   { transform: scale(1); opacity: 1; }
   100% { transform: scale(0.15, 0.04) translateY(40%); opacity: 0.2; }
 }
-.map-minimized-hint {
-  display: inline-flex; align-items: center; gap: 10px; margin: 24px auto 0; padding: 10px 14px;
-  font-family: var(--font-vt323), monospace; font-size: 20px; color: hsl(var(--tx));
-  background: hsl(var(--surface)); border: 2px dashed hsl(var(--tx2)); cursor: pointer;
-}
-.map-minimized-hint:hover { border-style: solid; }
 
 /* Botón "Entrar/Pelear" de la placa de detalle. */
 .map-enter-btn {
@@ -3079,6 +3073,98 @@ button.lobby-row:hover .lobby-row-cta, .lobby-pick--on .lobby-row-cta { color: h
 @media (prefers-reduced-motion: reduce) { .lobby-dot--on, .lobby-invite, .lobby-pick { animation: none; transition: none; } }
 @media (prefers-reduced-motion: reduce) { .duel-clock--low, .duel-typing, .duel-taunt { animation: none; } }
 
+/* ─── La Arena 2 vs 2 ─────────────────────────────────────────────────────
+   Equipos sin color (tema 1-bit): Espada = relleno liso (acento), Escudo =
+   relleno tramado. Mismo lenguaje del lobby: tinta invertida, sombra dura. */
+.mode-tabs { display: inline-flex; align-self: flex-start; border: 2px solid hsl(var(--tx)); }
+.mode-tab {
+  position: relative; padding: 7px 18px 6px; background: transparent; color: hsl(var(--tx)); border: 0; cursor: pointer;
+  font-family: var(--font-jersey), monospace; font-size: 22px; line-height: 1; letter-spacing: 0.04em;
+}
+.mode-tab + .mode-tab { border-left: 2px solid hsl(var(--tx)); }
+.mode-tab[aria-selected="true"] { background: hsl(var(--tx)); color: hsl(var(--bg)); }
+.mode-tab:focus-visible { outline: 2px solid hsl(var(--tx)); outline-offset: 3px; }
+.mode-tab-dot { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; background: hsl(var(--accent)); animation: lobby-pulse 1.6s steps(2) infinite; }
+.team-lobby { display: flex; flex-direction: column; gap: 14px; }
+
+/* Sala: dos equipos, cuatro lugares */
+.room-board { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+@media (min-width: 600px) { .room-board { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; } .room-vs { display: none; } }
+.room-team-wrap { display: contents; }
+.room-vs { justify-self: center; }
+.room-team { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 2px solid hsl(var(--border2)); background: hsl(var(--bg)); }
+.room-team-head { display: flex; align-items: center; gap: 10px; font-family: var(--font-jersey), monospace; font-size: 24px; line-height: 1; color: hsl(var(--tx)); }
+.room-seat { display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 8px 12px; border: 2px solid hsl(var(--tx)); background: hsl(var(--bg)); }
+.room-seat-name { flex: 1; min-width: 0; font-family: var(--font-jersey), monospace; font-size: 26px; line-height: 1; color: hsl(var(--tx)); overflow-wrap: anywhere; }
+.room-seat--me { box-shadow: 4px 4px 0 hsl(var(--tx) / 0.22); }
+.room-seat--ready { background: hsl(var(--tx)); }
+.room-seat--ready .room-seat-name, .room-seat--ready .arena-label { color: hsl(var(--bg)); }
+.room-seat--ready .room-seat-check svg { --tx: var(--bg); }
+.room-seat--free { justify-content: center; border-style: dashed; border-color: hsl(var(--border2)); background: transparent; color: hsl(var(--tx3)); cursor: pointer; }
+.room-seat--free:hover:not(:disabled), .room-seat--free:focus-visible { border-style: solid; border-color: hsl(var(--tx)); color: hsl(var(--tx)); outline: none; }
+.room-seat-plus {
+  width: 18px; height: 18px;
+  background: linear-gradient(currentColor, currentColor) center / 18px 4px no-repeat, linear-gradient(currentColor, currentColor) center / 4px 18px no-repeat;
+}
+.room-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+.room-seat-plus--sm { width: 14px; height: 14px; color: hsl(var(--tx)); background-size: 14px 4px, 4px 14px; }
+.room-row-terms { display: flex; flex-wrap: wrap; gap: 4px 14px; font-family: var(--font-vt323), monospace; font-size: 21px; line-height: 1.1; color: hsl(var(--tx2)); }
+.room-mini { display: inline-flex; align-items: center; gap: 12px; }
+.room-mini-team { display: inline-flex; align-items: center; gap: 4px; }
+.room-mini-dot { width: 9px; height: 9px; border: 2px solid hsl(var(--tx3)); }
+.room-mini-dot.on { background: hsl(var(--tx)); border-color: hsl(var(--tx)); }
+button.lobby-row:disabled { cursor: not-allowed; opacity: 0.55; }
+.lobby-pick--call { border-color: hsl(var(--accent)); animation: call-blink 1.2s steps(2) infinite; }
+@keyframes call-blink { 50% { border-color: hsl(var(--border2)); } }
+
+/* Duelo 2 vs 2 */
+.team-block { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 12px; border: 2px solid hsl(var(--border2)); }
+.team-block--won { border-color: hsl(var(--tx)); box-shadow: 5px 5px 0 hsl(var(--tx) / 0.22); }
+.team-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-bottom: 2px; }
+.team-name { font-family: var(--font-jersey), monospace; font-size: 24px; line-height: 1; color: hsl(var(--tx)); }
+.team-total { font-family: var(--font-jersey), monospace; font-size: 34px; line-height: 1; color: hsl(var(--tx)); font-variant-numeric: tabular-nums; }
+.team-total small { font-size: 18px; color: hsl(var(--tx3)); }
+.tplayer { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; }
+.tplayer--gone { opacity: 0.45; }
+.tplayer-who {
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 3px 6px; margin-left: -8px;
+  border: 2px solid transparent; background: none; color: inherit; text-align: left; font: inherit;
+}
+.tplayer-who--btn { cursor: crosshair; }
+.tplayer-who--btn:hover, .tplayer-who--btn:focus-visible { border-color: hsl(var(--border2)); outline: none; }
+.tplayer-who--on, .tplayer-who--on:hover { border-color: hsl(var(--tx)); }
+.tplayer-name { font-family: var(--font-jersey), monospace; font-size: 24px; line-height: 1; color: hsl(var(--tx)); overflow-wrap: anywhere; }
+.crosshair { color: hsl(var(--accent)); flex-shrink: 0; }
+.tpips { display: inline-flex; gap: 4px; }
+.tpip { width: 22px; height: 12px; border: 2px solid hsl(var(--border2)); }
+.tpip.on.tpip--espada { background: hsl(var(--accent)); border-color: hsl(var(--accent)); }
+.tpip.on.tpip--escudo { background: repeating-linear-gradient(45deg, hsl(var(--tx)) 0 2px, transparent 2px 4px); border-color: hsl(var(--tx)); }
+.tpip--now { border-color: hsl(var(--tx)); animation: lobby-pulse 1s steps(2) infinite; }
+.tpip--relay { border-style: dashed; }
+.tpip--relay:not(.on) { background: repeating-linear-gradient(-45deg, hsl(var(--tx3)) 0 1px, transparent 1px 4px); }
+.sena-bubble {
+  grid-column: 1 / -1; justify-self: start; padding: 3px 10px 2px; background: hsl(var(--tx)); color: hsl(var(--bg));
+  font-family: var(--font-vt323), monospace; font-size: 20px; line-height: 1.1; animation: lobby-invite-in 0.2s steps(3) both;
+}
+.senas { display: flex; flex-wrap: wrap; gap: 6px; }
+.sena-btn {
+  padding: 4px 10px 3px; background: transparent; border: 2px solid hsl(var(--border2)); color: hsl(var(--tx2)); cursor: pointer;
+  font-family: var(--font-vt323), monospace; font-size: 19px; line-height: 1;
+}
+.sena-btn:hover, .sena-btn:focus-visible { border-color: hsl(var(--tx)); color: hsl(var(--tx)); outline: none; }
+.sena-btn:active { background: hsl(var(--tx)); color: hsl(var(--bg)); }
+.relay-panel { display: flex; flex-direction: column; align-items: flex-start; gap: 18px; padding: 24px; border: 2px dashed hsl(var(--border2)); }
+.relay-panel--ready { border-style: solid; border-color: hsl(var(--tx)); box-shadow: 6px 6px 0 hsl(var(--tx) / 0.22); }
+.relay-mate { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.relay-mate .tpip { width: 38px; height: 20px; }
+.relay-go { font-size: 30px; padding: 12px 28px 10px; }
+/* La revancha ya está armada: el botón llama la atención (como un reto recibido). */
+.rematch-ready { box-shadow: 6px 6px 0 hsl(var(--accent) / 0.45); animation: lobby-invite-in 0.32s steps(4) both; }
+.team-vs-strip { display: flex; align-items: center; gap: 18px; font-family: var(--font-jersey), monospace; font-size: 26px; color: hsl(var(--tx3)); }
+.team-score { display: flex; align-items: center; gap: 14px; font-family: var(--font-jersey), monospace; font-size: 44px; line-height: 1; color: hsl(var(--tx)); }
+.team-score span { color: hsl(var(--tx3)); }
+@media (prefers-reduced-motion: reduce) { .tpip--now, .mode-tab-dot, .lobby-pick--call, .sena-bubble { animation: none; } }
+
 /* El Errante presenta La Arena: escena oscura de pantalla completa, como su guarida. */
 .arena-herald { position: fixed; inset: 0; z-index: 60; overflow-y: auto; animation: herald-in 0.4s steps(4) both; }
 @keyframes herald-in { from { opacity: 0; } to { opacity: 1; } }
@@ -3431,6 +3517,17 @@ button.lobby-row:hover .lobby-row-cta, .lobby-pick--on .lobby-row-cta { color: h
 }
 .wanted-pin-stamp.is-beaten { border-color: #6B2A12; color: #6B2A12; }
 @media (max-width: 640px) { .wanted-pin { width: 58px; top: 4px; right: 6px; } .wanted-bust { width: 28px; height: 28px; } }
+
+/* El cartel como ícono del escritorio del mapa: si lo vieron, marquita de acento */
+.wanted-desk-flag {
+  position: absolute; top: -4px; right: -8px; width: 16px; height: 16px;
+  display: flex; align-items: center; justify-content: center;
+  background: hsl(var(--accent)); color: var(--on-accent, hsl(var(--bg))); border: 2px solid hsl(var(--tx));
+  font-family: var(--font-jersey), monospace; font-size: 14px; line-height: 1;
+  animation: wanted-flag-blink 1.2s steps(2) infinite;
+}
+@keyframes wanted-flag-blink { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .wanted-desk-flag { animation: none; } }
 
 /* El cartel grande */
 .wanted-modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(8, 5, 3, 0.8); animation: summon-in 300ms steps(5) both; }

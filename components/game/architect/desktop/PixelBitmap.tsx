@@ -130,6 +130,38 @@ export const ICON_FILE: Bitmap = [
   '############',
 ]
 
+/** Estandarte del Equipo Espada (2 vs 2). */
+export const ICON_TEAM_SWORD: Bitmap = [
+  '.....##.....',
+  '....#hh#....',
+  '....#hh#....',
+  '....#hh#....',
+  '....#hh#....',
+  '....#hh#....',
+  '....#hh#....',
+  '.##########.',
+  '.#aaaaaaaa#.',
+  '.####aa####.',
+  '....#aa#....',
+  '.....##.....',
+]
+
+/** Estandarte del Equipo Escudo (2 vs 2). */
+export const ICON_TEAM_SHIELD: Bitmap = [
+  '.##########.',
+  '#hhhhhhhhhh#',
+  '#hh######hh#',
+  '#hh#aaaa#hh#',
+  '#hh#aaaa#hh#',
+  '#hh#aaaa#hh#',
+  '.#h#aaaa#h#.',
+  '.#hh####hh#.',
+  '..#hhhhhh#..',
+  '...#hhhh#...',
+  '....#hh#....',
+  '.....##.....',
+]
+
 /** Dos espadas cruzadas: La Arena. */
 export const ICON_SWORDS: Bitmap = [
   'h..........h',
@@ -406,4 +438,50 @@ export const ICON_BIN_OPEN: Bitmap = [
   '.#oo#oo#oo#.',
   '.#oo#oo#oo#.',
   '.##########.',
+]
+
+/** Cartel de SE BUSCA chiquito para el escritorio: clavo, letras, sombrero, cara y pañuelo. */
+export const ICON_WANTED: Bitmap = [
+  '......##......',
+  '.############.',
+  '.#oooooooooo#.',
+  '.#o##o##o##o#.',
+  '.#oooooooooo#.',
+  '.#ooo####ooo#.',
+  '.#o########o#.',
+  '.#ooo#bb#ooo#.',
+  '.#ooo#aa#ooo#.',
+  '.#oo######oo#.',
+  '.#oooooooooo#.',
+  '.#ooo#aa#ooo#.',
+  '.#oooooooooo#.',
+  '.############.',
+]
+
+/** Pincel de decorar.exe. */
+export const ICON_BRUSH: Bitmap = [
+  '.........##.',
+  '........#aa#',
+  '.......#aa#.',
+  '......#aa#..',
+  '.....#aa#...',
+  '....####....',
+  '...#oo#.....',
+  '..#ooo#.....',
+  '.#ooo#......',
+  '#ooo#.......',
+  '####........',
+]
+
+/** Teclado de controles.txt. */
+export const ICON_KEYS: Bitmap = [
+  '################',
+  '#oooooooooooooo#',
+  '#o#o#o#o#o#o#oo#',
+  '#oooooooooooooo#',
+  '#oo#o#o#o#o#o#o#',
+  '#oooooooooooooo#',
+  '#ooo########ooo#',
+  '#oooooooooooooo#',
+  '################',
 ]
