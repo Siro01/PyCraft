@@ -261,6 +261,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
         <span className="inline-block w-2 h-2" style={{ background: totalActive > 0 ? 'hsl(var(--python))' : 'hsl(var(--tx3))' }} />
         {totalActive} alumno{totalActive === 1 ? '' : 's'} activo{totalActive === 1 ? '' : 's'} (últimos 10 min)
         <span className="ml-auto flex gap-2">
+          <a href="/planificacion" className="btn-ghost font-mono text-xs">Planificación →</a>
           <a href="/admin/pistolero" className="btn-ghost font-mono text-xs">Mesa del Pistolero →</a>
           <a href="/admin/pistolero?ensayo=1" className="btn-ghost font-mono text-xs">ensayar</a>
         </span>
