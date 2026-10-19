@@ -1,0 +1,63 @@
+/* /demo/ascii — laboratorio del arte ASCII. Lenguaje de PyCraft OS: ventanas de
+   2px, sombra dura, Jersey para nombrar, VT323 para hablar, Silkscreen para
+   etiquetar. Todo por tokens del tema. */
+
+.ascii-lab { max-width: 1400px; margin: 0 auto; padding: 28px 24px 56px; display: flex; flex-direction: column; gap: 22px; }
+
+.ascii-lab-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.ascii-lab-title { font-family: var(--font-jersey), monospace; font-size: clamp(2rem, 4.4vw, 2.9rem); line-height: 0.95; letter-spacing: 0.02em; color: hsl(var(--tx)); }
+.ascii-lab-sub { margin-top: 6px; font-family: var(--font-vt323), monospace; font-size: 20px; color: hsl(var(--tx2)); }
+.ascii-lab-nav { display: flex; gap: 10px; }
+
+.ascii-arrow {
+  width: 48px; height: 48px; display: grid; place-items: center;
+  border: 2px solid hsl(var(--tx)); background: hsl(var(--surface)); color: hsl(var(--tx));
+  box-shadow: 3px 3px 0 hsl(var(--tx) / 0.14);
+  transition: transform 0.08s steps(2), box-shadow 0.08s steps(2);
+}
+.ascii-arrow:hover { background: hsl(var(--tx)); color: hsl(var(--bg)); transform: translate(-1px, -1px); box-shadow: 4px 4px 0 hsl(var(--tx) / 0.2); }
+.ascii-arrow:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 hsl(var(--tx) / 0.14); }
+.ascii-arrow:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
+
+.ascii-lab-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.ascii-pixel { display: grid; place-items: center; transform-origin: center; image-rendering: pixelated; }
+.ascii-pixel img, .ascii-pixel canvas { image-rendering: pixelated; }
+.ascii-loading { font-family: var(--font-vt323), monospace; font-size: 20px; color: hsl(0 0% 64%); }
+
+.ascii-lab-controls { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.ascii-toggle { display: flex; }
+.ascii-toggle button {
+  font-family: var(--font-pixel), monospace; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 10px 16px; border: 2px solid hsl(var(--tx)); background: hsl(var(--surface)); color: hsl(var(--tx));
+}
+.ascii-toggle button + button { border-left: 0; }
+.ascii-toggle button[aria-pressed="true"] { background: hsl(var(--tx)); color: hsl(var(--bg)); }
+.ascii-toggle button:hover:not([aria-pressed="true"]) { background: hsl(var(--surface2)); }
+.ascii-toggle button:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; position: relative; }
+
+.ascii-lab-list { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 18px; border-top: 2px solid hsl(var(--border2)); }
+.ascii-lab-list button {
+  font-family: var(--font-vt323), monospace; font-size: 20px; line-height: 1; padding: 6px 10px;
+  border: 2px solid hsl(var(--border2)); background: hsl(var(--bg)); color: hsl(var(--tx2));
+}
+.ascii-lab-list button:hover { border-color: hsl(var(--tx)); color: hsl(var(--tx)); }
+.ascii-lab-list button[aria-current="true"] { border-color: hsl(var(--tx)); background: hsl(var(--tx)); color: hsl(var(--bg)); }
+.ascii-lab-list button:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
+
+@media (max-width: 860px) {
+  .ascii-lab-pair { grid-template-columns: 1fr; }
+}
+
+/* Dibujo a mano: el ASCII manda (ventana ancha) y el pixel art queda de referencia. */
+.ascii-lab-pair--hand { grid-template-columns: 360px 1fr; }
+.ascii-pane { width: 100%; height: 100%; padding: 20px; display: grid; place-items: center; }
+.hand-ascii { position: relative; }
+.hand-ascii canvas[role="img"] { cursor: zoom-in; }
+.hand-ascii-lens {
+  position: absolute; pointer-events: none; background: #000;
+  border: 2px solid hsl(var(--tx)); box-shadow: 4px 4px 0 hsl(var(--tx) / 0.2);
+  image-rendering: pixelated;
+}
+@media (max-width: 860px) {
+  .ascii-lab-pair--hand { grid-template-columns: 1fr; }
+}

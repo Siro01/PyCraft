@@ -271,34 +271,8 @@ export function recordPlaygroundResult(topicKey: string, xpGained: number, strea
   return { state: next, xpAwarded: awarded }
 }
 
-// Nivel 1-20 como fracción del XP MÁXIMO posible hoy en el patio de juegos
-// (todas las tandas, todos los ejercicios, con la mejor racha) — no un XP
-// fijo por nivel. Así nivel 20 es exactamente "completaste todo lo que hay"
-// sin importar cuántos actos tenga el patio de juegos en el futuro: al
-// agregar más tandas, el nivel de un alumno existente se recalcula solo
-// (baja proporcionalmente) hasta que también complete lo nuevo.
-export const PLAYGROUND_MAX_LEVEL = 20
-
-function playgroundMaxXp(): number {
-  let max = 0
-  for (const act of PLAYGROUND_ACTS) {
-    for (const topic of act.topics) {
-      const n = topic.exercises.length
-      max += n * 10 + Math.max(0, n - 2) * 2
-    }
-  }
-  return max
-}
-
-export function playgroundLevel(xp: number): { level: number; xpIntoLevel: number; xpForNext: number } {
-  const maxXp = playgroundMaxXp()
-  const perLevel = maxXp > 0 ? maxXp / (PLAYGROUND_MAX_LEVEL - 1) : PLAYGROUND_XP_PER_LEVEL
-  const level = Math.min(PLAYGROUND_MAX_LEVEL, 1 + Math.floor(xp / perLevel))
-  const levelFloorXp = (level - 1) * perLevel
-  const xpIntoLevel = Math.round(Math.max(0, xp - levelFloorXp))
-  const xpForNext = level >= PLAYGROUND_MAX_LEVEL ? xpIntoLevel : Math.round(perLevel)
-  return { level, xpIntoLevel, xpForNext }
-}
+// El nivel (1-20) se calcula en lib/game/level.ts (también lo usa el servidor).
+export { PLAYGROUND_MAX_LEVEL, playgroundLevel } from '@/lib/game/level'
 
 // ─── Patio de prácticas: el código Python libre del alumno ──────────────────
 // Un solo bloc de notas que persiste entre visitas — no hay "proyectos" ni
@@ -978,4 +952,28 @@ export function resetSecretsForDemo(): void {
   if (typeof window === 'undefined') return
   saveShopOwnedRaw(getShopLedger().filter((o) => !o.id.startsWith(SECRET_PREFIX)))
   clearSecretRun()
+}
+
+// ─── Progreso de cada alumno en ESTA PC ───────────────────────────────────
+// En el taller varias cuentas usan la misma PC. Todo lo de abajo es progreso
+// de UNA cuenta (no preferencias de la PC): cuando entra otra, se borra antes
+// de traer lo suyo de la nube (ver cloud-sync.ts). Si no, se mezclaba: la
+// cuenta nueva "heredaba" las compras de la anterior y le bajaban los diamantes.
+// Quedan: zoom, sonido, distribución del patio de prácticas y el modo local.
+export function clearUserProgress(): void {
+  if (typeof window === 'undefined') return
+  const keys = [
+    SHOP_OWNED_KEY, PLAYGROUND_KEY, AMULETS_KEY, FINALE_KEY, FINALE_DECO_KEY, EQUIPPED_PERKS_KEY, REPASOS_KEY,
+    ARENA_KEY, ARMOR_KEY, SHOP_COUPON_KEY, SECRET_RUN_KEY, SECRET_PATHS_KEY, STICKER_POKES_KEY, STICKER_PLACEMENTS_KEY,
+    BIBLIOTECA_KEY, PRACTICE_KEY, ADMIN_DIAMOND_BONUS_KEY,
+    'pysql:mercader-visited', 'pysql:mercader-ambulante-visited', 'pysql:inventario-py-rodolfo', 'pysql:penguin-tip-seen',
+  ]
+  const prefixes = ['pysql:solved:', 'pysql:repaso-nudge-']
+  try {
+    for (const k of keys) localStorage.removeItem(k)
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i)
+      if (k && prefixes.some((p) => k.startsWith(p))) localStorage.removeItem(k)
+    }
+  } catch { /* modo privado */ }
 }

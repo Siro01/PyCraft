@@ -4,12 +4,23 @@ import { isLocalMode } from '@/lib/local-mode'
 import type { CloudExtras, RepasoProgressMap } from '@/lib/storage/local-store'
 
 // ─── Sync con Supabase para lo que vive 100% en el navegador ────────────────
-// El patio de juegos (XP), los amuletos y el cofre final se guardan y leen de
-// localStorage siempre, incluso en modo cuenta — este módulo además los
-// empuja a la tabla `game_extras` (con debounce, sin romper el juego si falla
-// la red) y trae la fila guardada una vez por sesión para combinarla con lo
-// que ya haya en el dispositivo (ver `hydrateFromCloud` en local-store.ts).
-// Así un alumno que cambia de PC en el aula no pierde ese progreso.
+// El patio de juegos (XP), los amuletos, la tienda y el cofre final se guardan
+// y leen de localStorage siempre, incluso en modo cuenta — este módulo además
+// los empuja a la tabla `game_extras` (con debounce, sin romper el juego si
+// falla la red) y trae la fila guardada para combinarla con lo que ya haya en
+// el dispositivo (ver `hydrateFromCloud` en local-store.ts). Así un alumno
+// que cambia de PC en el aula no pierde ese progreso.
+//
+// Tres reglas para no PERDER ni MEZCLAR progreso (incidente del 15/10):
+// 1. Lo guardado en la PC es de UNA cuenta (pysql:owner). Si entra otra, se
+//    borra su progreso local antes de traer el de la cuenta nueva.
+// 2. Nada se sube a la nube hasta que la carga inicial salió BIEN. Si falla
+//    (wifi del taller), se reintenta; nunca se toma "no pude leer" como
+//    "no tiene nada" (eso subía listas vacías y pisaba los ítems).
+// 3. La carga arranca en cualquier página (CloudSyncBoot en el layout raíz),
+//    no solo en las que tienen Header (el Pistolero y los raids no lo tienen).
+
+const OWNER_KEY = 'pysql:owner'
 
 let cachedUserId: string | null | undefined
 
@@ -21,7 +32,8 @@ async function getUserId(): Promise<string | null> {
     const { data } = await createClient().auth.getUser()
     cachedUserId = data.user?.id ?? null
   } catch {
-    cachedUserId = null
+    // Sin red no sabemos quién es: no se guarda el "nadie", se vuelve a preguntar.
+    return null
   }
   return cachedUserId
 }
@@ -29,19 +41,38 @@ async function getUserId(): Promise<string | null> {
 type Field = 'amulets' | 'playground' | 'finale' | 'finale_deco' | 'shop' | 'equipped_perks' | 'repasos'
 const timers: Partial<Record<Field, ReturnType<typeof setTimeout>>> = {}
 
+// ─── Estado de la carga inicial ────────────────────────────────────────────
+type LoadState = 'idle' | 'loading' | 'ready'
+let loadState: LoadState = 'idle'
+let retryMs = 2_000
+let retryTimer: ReturnType<typeof setTimeout> | null = null
+const readyWaiters: (() => void)[] = []
+
+/** Se resuelve cuando la carga inicial terminó bien (el progreso local ya es el de esta cuenta). */
+function whenReady(): Promise<void> {
+  if (loadState === 'ready') return Promise.resolve()
+  syncOnLoad()
+  return new Promise((resolve) => readyWaiters.push(resolve))
+}
+
 /** Sube un campo del progreso a la nube (con un pequeño debounce por campo). */
 export function queueCloudSync(field: Field, value: unknown): void {
   if (typeof window === 'undefined') return
   getUserId().then((userId) => {
     if (!userId) return
+    // Antes de la carga inicial NO se sube nada: lo local puede ser de otra
+    // cuenta o estar incompleto. El cambio queda guardado en la PC y la carga,
+    // al combinar con la nube, lo vuelve a subir ya mezclado con lo de la nube.
+    if (loadState !== 'ready') { syncOnLoad(); return }
     const existing = timers[field]
     if (existing) clearTimeout(existing)
     timers[field] = setTimeout(async () => {
       try {
         const { createClient } = await import('@/lib/supabase/client')
-        await createClient()
+        const { error } = await createClient()
           .from('game_extras')
           .upsert({ user_id: userId, [field]: value, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+        if (error) console.error('No se pudo sincronizar el progreso con la nube', error)
       } catch (err) {
         console.error('No se pudo sincronizar el progreso con la nube', err)
       }
@@ -49,43 +80,60 @@ export function queueCloudSync(field: Field, value: unknown): void {
   })
 }
 
-let hydrated = false
-
 /**
- * Se corre una sola vez por sesión de navegador (y solo en modo cuenta): trae
- * la fila guardada en la nube y la combina con lo que ya haya en este
- * dispositivo. Llamarla más de una vez no hace nada después de la primera.
+ * Carga inicial (una vez por página cargada, solo en modo cuenta): trae la
+ * fila guardada en la nube y la combina con lo que ya haya en este
+ * dispositivo. Si falla, reintenta con espera creciente (hasta 30 s).
+ * Llamarla de nuevo mientras carga o después de cargar no hace nada.
  */
 export function syncOnLoad(): void {
-  if (hydrated) return
-  hydrated = true
-  getUserId().then(async (userId) => {
-    if (!userId) return
+  if (typeof window === 'undefined' || loadState !== 'idle') return
+  loadState = 'loading'
+  void (async () => {
+    const userId = await getUserId()
+    if (!userId) { loadState = 'idle'; return }
     try {
       const { createClient } = await import('@/lib/supabase/client')
-      const { data } = await createClient()
+      const supabase = createClient()
+      const main = await supabase
         .from('game_extras')
         .select('amulets, playground, finale, finale_deco, shop, equipped_perks')
         .eq('user_id', userId)
         .maybeSingle()
-      const { hydrateFromCloud, hydrateRepasosFromCloud } = await import('@/lib/storage/local-store')
-      hydrateFromCloud(
-        (data as CloudExtras | null) ?? { amulets: null, playground: null, finale: null, finale_deco: null, shop: null, equipped_perks: null }
-      )
+      // Un error NO es "no tiene nada": sin esto, una falla de red subía listas vacías.
+      if (main.error) throw main.error
       // Consulta aparte: si la migración 011 todavía no se corrió, la columna
       // no existe y esto falla solo — sin arrastrar al resto del progreso.
-      const { data: rep, error } = await createClient()
-        .from('game_extras')
-        .select('repasos')
-        .eq('user_id', userId)
-        .maybeSingle()
-      if (!error) hydrateRepasosFromCloud((rep as { repasos: RepasoProgressMap | null } | null)?.repasos ?? null)
+      const rep = await supabase.from('game_extras').select('repasos').eq('user_id', userId).maybeSingle()
+
+      const local = await import('@/lib/storage/local-store')
+      // Regla 1: lo que haya en esta PC de OTRA cuenta no se mezcla con esta.
+      let owner: string | null = null
+      try { owner = localStorage.getItem(OWNER_KEY) } catch { /* modo privado */ }
+      if (owner && owner !== userId) local.clearUserProgress()
+      try { localStorage.setItem(OWNER_KEY, userId) } catch { /* modo privado */ }
+
+      loadState = 'ready'
+      retryMs = 2_000
+      local.hydrateFromCloud(
+        (main.data as CloudExtras | null) ?? { amulets: null, playground: null, finale: null, finale_deco: null, shop: null, equipped_perks: null }
+      )
+      if (!rep.error) local.hydrateRepasosFromCloud((rep.data as { repasos: RepasoProgressMap | null } | null)?.repasos ?? null)
+      readyWaiters.splice(0).forEach((r) => r())
+      window.dispatchEvent(new Event(CLOUD_READY_EVENT))
       await syncArenaStats()
     } catch (err) {
-      console.error('No se pudo traer el progreso de la nube', err)
+      console.error('No se pudo traer el progreso de la nube; reintento en', retryMs / 1000, 's', err)
+      loadState = 'idle'
+      if (retryTimer) clearTimeout(retryTimer)
+      retryTimer = setTimeout(() => { retryTimer = null; syncOnLoad() }, retryMs)
+      retryMs = Math.min(retryMs * 2, 30_000)
     }
-  })
+  })()
 }
+
+/** Se dispara cuando el progreso local ya es el de la cuenta (para que las pantallas se actualicen). */
+export const CLOUD_READY_EVENT = 'pysql:cloud-ready'
 
 /**
  * Diamantes netos y XP de La Arena y de las raids (arena_ledger / arena_xp /
@@ -96,6 +144,9 @@ export function syncOnLoad(): void {
 export async function syncArenaStats(): Promise<void> {
   const userId = await getUserId()
   if (!userId) return
+  // Entrega stickers (escribe la lista de compras): solo con la carga inicial
+  // hecha, para no subir una lista de esta PC que no es la de la cuenta.
+  await whenReady()
   try {
     const { createClient } = await import('@/lib/supabase/client')
     const supabase = createClient()

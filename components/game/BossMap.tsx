@@ -12,6 +12,7 @@ import { sfx } from '@/lib/game/architect/sound'
 import { DIAMONDS_PER_BOSS, SHOP_UNLOCK_BOSS_ID } from '@/lib/game/shop'
 import { ARENA_UNLOCK_BOSS_NAME } from '@/lib/game/arena/rules'
 import { diamondsAvailable, playerXp, playgroundLevel } from '@/lib/storage/local-store'
+import { useCloudReadyTick } from '@/lib/storage/use-cloud-ready'
 import ActMap from './map/ActMap'
 import ActEmblem from './map/ActEmblem'
 import type { AvatarId } from './map/avatars'
@@ -119,10 +120,11 @@ export default function BossMap({
   // principio) para no desincronizar el HTML del servidor con el del cliente.
   const [level, setLevel] = useState(1)
   const [diamonds, setDiamonds] = useState(0)
+  const cloudReady = useCloudReadyTick()
   useEffect(() => {
     setLevel(playgroundLevel(playerXp()).level)
     setDiamonds(diamondsAvailable(totalDefeated))
-  }, [totalDefeated])
+  }, [totalDefeated, cloudReady])
 
   const SETTERS: Record<WinId, React.Dispatch<React.SetStateAction<WinState>>> = { stats: setStats, log: setLog, controls: setControls, inventory: setInventory }
 

@@ -7,6 +7,7 @@ import { AMULET_META } from '@/lib/game/amulets'
 import { SHOP_CATALOG, STICKER_COLORWAYS } from '@/lib/game/shop'
 import { ACT_LABEL, CHEST_STICKERS, SE_BUSCA_ID, getChestSticker, heardLines, type ChestSticker } from '@/lib/game/chest-stickers'
 import { getArenaStats } from '@/lib/storage/local-store'
+import { useCloudReadyTick } from '@/lib/storage/use-cloud-ready'
 import ChestStickerToy, { ChestSparkle, PixelStar, SecretTag, type ToySay } from '@/components/game/stickers/ChestStickerToy'
 import { CHEST_CLOSED, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
 import { PERK_SLOT_LIMIT, applyItem, ownedPerkItems, type ItemUseResult } from '@/lib/game/perk-effects'
@@ -113,6 +114,8 @@ export default function InventoryApp({ inBattle = false, itemsOverride, equipped
   const gridRef = useRef<HTMLDivElement>(null)
   const uid = useId()
 
+  // También al terminar la carga desde la nube: los ítems de la cuenta, no los de la PC.
+  const cloudReady = useCloudReadyTick()
   useEffect(() => {
     if (demo) {
       setAmulets(demo.amulets); setOwned(demo.owned); setEquipped(demo.equipped)
@@ -121,7 +124,7 @@ export default function InventoryApp({ inBattle = false, itemsOverride, equipped
       setPokes(getStickerPokes())
     }
     setLoaded(true)
-  }, [demo])
+  }, [demo, cloudReady])
 
   const equippedNow = equippedOverride ?? equipped
   const perkItems = useMemo(() => itemsOverride ?? ownedPerkItems(owned), [itemsOverride, owned])

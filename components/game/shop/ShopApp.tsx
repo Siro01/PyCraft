@@ -10,6 +10,7 @@ import {
   addAdminDiamondBonus, buyShopItem, diamondsAvailable, getShopDiscount, getShopOwned, playerXp, playgroundLevel,
   setStickerColorway, startCouponVisit, PLAYGROUND_MAX_LEVEL,
 } from '@/lib/storage/local-store'
+import { useCloudReadyTick } from '@/lib/storage/use-cloud-ready'
 import type { OwnedShopItem, ShopItem } from '@/types'
 import { ShopGlyph } from './ShopIcons'
 import MerchantBook from './MerchantBook'
@@ -78,6 +79,15 @@ export default function ShopApp({ totalDefeated, username, battleNear = false, u
   }, [battleNear, unlocked]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { if (preview) setLevel(preview.level) }, [preview])
+
+  // Terminó la carga desde la nube: nivel, ítems y cupón de la cuenta (no los de la PC).
+  const cloudReady = useCloudReadyTick()
+  useEffect(() => {
+    if (!cloudReady || preview) return
+    setLevel(adminView ? PLAYGROUND_MAX_LEVEL : playgroundLevel(playerXp()).level)
+    setOwned(getShopOwned())
+    setDiscount(getShopDiscount())
+  }, [cloudReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const diamonds = preview
     ? totalDefeated * DIAMONDS_PER_BOSS - owned.reduce((sum, o) => sum + o.pricePaid, 0)
