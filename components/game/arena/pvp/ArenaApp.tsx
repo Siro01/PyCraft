@@ -11,7 +11,7 @@ import { ARENA_TOPIC_IDS } from '@/lib/game/arena/generators'
 import { ARENA_INVITE_SECONDS, ARENA_MIX, sharedTopics, type ArenaStake } from '@/lib/game/arena/rules'
 import type { RosterEntry } from '@/lib/game/arena/server'
 import type { ArenaStats, LobbyEvent, MatchView, RoomView } from '@/lib/game/arena/types'
-import { diamondsAvailable, setArenaStats } from '@/lib/storage/local-store'
+import { diamondsAvailable } from '@/lib/storage/local-store'
 import dynamic from 'next/dynamic'
 import ArenaDuel from './ArenaDuel'
 import { teamLine, TeamLobbyPanel, useTeamRooms } from './team/TeamLobby'
@@ -78,8 +78,10 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
       const json = await res.json()
       if (!res.ok) { setNotice(json.error ?? 'No se pudo cargar la arena.'); return null }
       const s = json as ArenaState
-      setArenaStats(s.stats)
+      // La copia local suma arena + raids (cloud-sync); s.stats es solo la arena,
+      // así que no se escribe encima: se vuelve a sincronizar todo junto.
       setDiamonds(diamondsAvailable(myDefeated.length))
+      void import('@/lib/storage/cloud-sync').then((m) => m.syncArenaStats()).then(() => setDiamonds(diamondsAvailable(myDefeated.length)))
       setState(s)
       return s
     } catch { setNotice('Sin conexión con el servidor.'); return null }

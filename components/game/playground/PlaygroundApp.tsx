@@ -5,7 +5,7 @@ import Link from 'next/link'
 import AppWindow from '@/components/ui/AppWindow'
 import { PixelBitmap, ICON_TERMINAL } from '@/components/game/architect/desktop/PixelBitmap'
 import { sfx } from '@/lib/game/architect/sound'
-import { EMPTY_PLAYGROUND, getPlaygroundState, getTextZoom, recordPlaygroundResult, setTextZoom, TEXT_ZOOM_DEFAULT } from '@/lib/storage/local-store'
+import { EMPTY_PLAYGROUND, getArenaStats, getPlaygroundState, getTextZoom, recordPlaygroundResult, setTextZoom, TEXT_ZOOM_DEFAULT } from '@/lib/storage/local-store'
 import { getPlaygroundAct, type PlaygroundTopic } from '@/lib/game/playground'
 import ExerciseCard from './ExerciseCard'
 import LevelBar from './LevelBar'
@@ -36,7 +36,10 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
   // en el useState inicial desincroniza el HTML del servidor con el del
   // cliente y React tira un error de hidratación.
   const [playground, setPlayground] = useState(EMPTY_PLAYGROUND)
-  useEffect(() => { setPlayground(getPlaygroundState()) }, [])
+  // El nivel es del XP TOTAL (patio + arena + raids + compensaciones), igual que
+  // en el mapa: con solo el XP del patio, quien sumó por otro lado "bajaba" de nivel acá.
+  const [otherXp, setOtherXp] = useState(0)
+  useEffect(() => { setPlayground(getPlaygroundState()); setOtherXp(getArenaStats().xp) }, [])
   const [view, setView] = useState<View>({ kind: 'home' })
   const [exerciseIdx, setExerciseIdx] = useState(0)
   const [score, setScore] = useState(0)
@@ -81,7 +84,7 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
     setScore(0)
     setStreak(0)
     setBestStreak(0)
-    setXpBefore(playground.xp)
+    setXpBefore(playground.xp + otherXp)
     setAnswered(false)
     setView({ kind: 'quiz', topic })
   }
@@ -151,7 +154,7 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
           {view.kind !== 'results' && (
             <div className="mb-4 flex flex-wrap items-end gap-x-8 gap-y-3">
               <div style={{ width: 320, maxWidth: '100%' }}>
-                <LevelBar fromXp={playground.xp} toXp={playground.xp} />
+                <LevelBar fromXp={playground.xp + otherXp} toXp={playground.xp + otherXp} />
               </div>
               <DiamondCounter from={playgroundDiamonds(playground)} to={playgroundDiamonds(playground)} max={playgroundMaxDiamonds()} />
             </div>
