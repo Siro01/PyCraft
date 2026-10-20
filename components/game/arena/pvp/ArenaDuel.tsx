@@ -131,6 +131,20 @@ function DuelView({ sandbox = false, initial, transport: given, onExit, onRematc
   const rivalName = match?.rival.username ?? 'rival'
   const [rivalTypingUntil, setRivalTypingUntil] = useState(0)
 
+  // ── Acierto del rival: aviso con su nombre y un sonido propio, para que nadie
+  // lo confunda con un punto suyo. Sale de lo que dice el servidor, no del aviso
+  // en tiempo real (que se puede perder).
+  const rivalProgress = match?.rival.progress ?? 0
+  const seenRival = useRef(rivalProgress)
+  const [rivalSolved, setRivalSolved] = useState<{ n: number; until: number } | null>(null)
+  useEffect(() => {
+    if (rivalProgress > seenRival.current && !finished) {
+      setRivalSolved({ n: rivalProgress, until: Date.now() + 5_000 })
+      sfx.rivalSolve()
+    }
+    seenRival.current = rivalProgress
+  }, [rivalProgress, finished])
+
   // ── Ítems (compartido con el 2 vs 2)
   const send = useCallback((ev: DuelEvent) => transport?.send(ev), [transport])
   const nameOf = useCallback((id: string) => (id === rivalId ? rivalName : 'rival'), [rivalId, rivalName])
@@ -144,7 +158,7 @@ function DuelView({ sandbox = false, initial, transport: given, onExit, onRematc
   // ── Mensajes del rival
   const onEvent = useCallback((ev: DuelEvent) => {
     if (ev.from === meId) return
-    if (ev.type === 'progress' || ev.type === 'left') { refresh(); if (ev.type === 'progress') sfx.notify(); return }
+    if (ev.type === 'progress' || ev.type === 'left') { refresh(); return }
     if (ev.type === 'typing') { setRivalTypingUntil(Date.now() + 4_000); return }
     combat.onItemEvent(ev)
   }, [meId, refresh, combat])
@@ -239,7 +253,12 @@ function DuelView({ sandbox = false, initial, transport: given, onExit, onRematc
 
           <Player label="vos" name={match.me.username} progress={match.me.progress} hurt={hit} />
           <div className="duel-vs">vs</div>
-          <Player label="rival" name={rivalName} progress={match.rival.progress} typing={rivalTyping && phase === 'fight'} />
+          <Player rival label="rival" name={rivalName} progress={match.rival.progress} typing={rivalTyping && phase === 'fight'} />
+          {rivalSolved && now < rivalSolved.until && phase === 'fight' && (
+            <div className="duel-rival-solved" role="status">
+              {rivalName} resolvió el {rivalSolved.n} de {ARENA_EXERCISES}
+            </div>
+          )}
 
           {statusTags.length > 0 && (
             <div className="arena-status" aria-label="Efectos activos">
@@ -327,9 +346,9 @@ function DuelView({ sandbox = false, initial, transport: given, onExit, onRematc
 
 // ─── Piezas ────────────────────────────────────────────────────────────────
 
-function Player({ label, name, progress, typing = false, hurt = false }: { label: string; name: string; progress: number; typing?: boolean; hurt?: boolean }) {
+function Player({ label, name, progress, rival = false, typing = false, hurt = false }: { label: string; name: string; progress: number; rival?: boolean; typing?: boolean; hurt?: boolean }) {
   return (
-    <div className={`duel-player${hurt ? ' arena-player--hurt' : ''}`}>
+    <div className={`duel-player${rival ? ' duel-player--rival' : ''}${hurt ? ' arena-player--hurt' : ''}`}>
       <div className="duel-player-head">
         <span className="arena-label">{label}</span>
         <span className="duel-player-name">{name}</span>

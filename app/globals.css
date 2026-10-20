@@ -2962,6 +2962,10 @@ input[type="number"], input[type="search"], textarea {
 .duel-pips span:not(.arena-num) { width: 34px; height: 14px; border: 1px solid hsl(var(--border2)); transition: background 0.25s steps(2); }
 .duel-pips span.on { background: hsl(var(--accent)); border-color: hsl(var(--accent)); }
 .duel-pips .arena-num { margin-left: 6px; }
+/* El rival se ve distinto a vos: nombre más chico y apagado, barritas rayadas. */
+.duel-player--rival .duel-player-name { font-size: 22px; color: hsl(var(--tx2)); }
+.duel-player--rival .duel-pips span.on { background: repeating-linear-gradient(135deg, hsl(var(--tx3)) 0 3px, transparent 3px 6px); border-color: hsl(var(--tx3)); }
+.duel-rival-solved { font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 0.08em; color: hsl(var(--tx2)); border: 1px dashed hsl(var(--border2)); padding: 6px 10px; margin-top: 8px; align-self: flex-start; }
 .duel-console { position: relative; }
 .duel-console--frozen .arena-console { filter: grayscale(1) brightness(0.8); }
 .duel-freeze {
