@@ -202,6 +202,11 @@ export const sfx = {
     tone(1568, 0.09, 'triangle', 0.06)
     tone(2093, 0.16, 'triangle', 0.05, { at: 0.09 })
   },
+  /** Arena: acertó el rival. Grave y hacia abajo, para no confundirlo con un acierto propio. */
+  rivalSolve() {
+    tone(392, 0.08, 'square', 0.045)
+    tone(294, 0.14, 'square', 0.04, { at: 0.09, to: 247 })
+  },
   // ── Mapa 2D de actos ──────────────────────────────────────────────────────
   /** Paso del jugador en el mapa: tic corto y percusivo, alterna leve. */
   step() {
