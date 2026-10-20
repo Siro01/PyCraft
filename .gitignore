@@ -64,3 +64,8 @@ PLAN-SQL.md
 PLAN-ARENA.md
 PLAN-ARENA-2V2.md
 PLAN-MANUAL-MARCA.md
+
+# Manual de marca: el PDF y las capturas se regeneran con
+# scripts/export-manual.mjs y scripts/capture-manual-shots.mjs
+docs/manual-de-marca*.pdf
+public/manual/shots/
