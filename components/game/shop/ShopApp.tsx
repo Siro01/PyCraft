@@ -10,7 +10,7 @@ import {
   addAdminDiamondBonus, buyShopItem, diamondsAvailable, getShopDiscount, getShopOwned, playerXp, playgroundLevel,
   setStickerColorway, startCouponVisit, PLAYGROUND_MAX_LEVEL,
 } from '@/lib/storage/local-store'
-import { useCloudReadyTick } from '@/lib/storage/use-cloud-ready'
+import { useCloudReadyTick, useProgressLoaded } from '@/lib/storage/use-cloud-ready'
 import type { OwnedShopItem, ShopItem } from '@/types'
 import { ShopGlyph } from './ShopIcons'
 import MerchantBook from './MerchantBook'
@@ -82,6 +82,8 @@ export default function ShopApp({ totalDefeated, username, battleNear = false, u
 
   // Terminó la carga desde la nube: nivel, ítems y cupón de la cuenta (no los de la PC).
   const cloudReady = useCloudReadyTick()
+  // Hasta que llegue todo el progreso de la cuenta: "…" y no se puede comprar.
+  const progressLoaded = useProgressLoaded() || !!preview
   useEffect(() => {
     if (!cloudReady || preview) return
     setLevel(adminView ? PLAYGROUND_MAX_LEVEL : playgroundLevel(playerXp()).level)
@@ -109,6 +111,7 @@ export default function ShopApp({ totalDefeated, username, battleNear = false, u
       if (ok) sfx.confirm(); else sfx.denied()
       return { ok }
     }
+    if (!progressLoaded) { sfx.denied(); return { ok: false } }
     // Siempre con el ítem original del catálogo: buyShopItem ya aplica el cupón.
     const result = buyShopItem(getShopItem(item.id) ?? item, totalDefeated, level)
     if (result) {
@@ -159,11 +162,11 @@ export default function ShopApp({ totalDefeated, username, battleNear = false, u
         <span className="hidden sm:block" style={{ flex: 1 }} />
         <div className="flex items-center gap-1" title={`Nivel ${level} de ${PLAYGROUND_MAX_LEVEL} — jugá el patio de juegos para subir`}>
           <span className="label-mono" style={{ color: 'hsl(var(--tx3))' }}>NIVEL</span>
-          <span style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--accent))' }}>{level}</span>
+          <span style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--accent))' }}>{progressLoaded ? level : '…'}</span>
         </div>
         <div className="flex items-center gap-1.5" style={{ border: '2px solid hsl(var(--tx))', padding: '2px 8px', background: 'hsl(var(--surface2))' }} title={`${totalDefeated} jefes × ${DIAMONDS_PER_BOSS} diamantes + los del patio de juegos`}>
           <ShopGlyph glyph="crystal" size={13} color="hsl(var(--accent))" />
-          <span className="tabular" style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--tx))' }}>{diamonds}</span>
+          <span className="tabular" style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--tx))' }}>{progressLoaded ? diamonds : '…'}</span>
         </div>
         <Link href="/dashboard" className="label-mono" style={{ color: 'hsl(var(--tx2))' }}>← Volver al mapa</Link>
       </div>

@@ -18,6 +18,7 @@ import { teamLine, TeamLobbyPanel, useTeamRooms } from './team/TeamLobby'
 import type { RoomTransport } from './team/transport'
 import ArenaHerald, { ErranteStage } from './ArenaHerald'
 import { useSecondTick } from './useSecondTick'
+import { useProgressLoaded } from '@/lib/storage/use-cloud-ready'
 import { callArena, createLiveTransport } from './live'
 import type { DuelTransport } from './transport'
 
@@ -56,6 +57,7 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [diamonds, setDiamonds] = useState(0)
+  const progressLoaded = useProgressLoaded() || !!preview
 
   // ── El Errante presenta la arena: completa la primera vez, un saludo después.
   const introKey = `pysql:arena-intro:${me.id}`
@@ -322,7 +324,7 @@ export default function ArenaApp({ me, aulaId, aulaName, aulas, roster, myDefeat
           </select>
         )}
         <span className="arena-top-spacer" />
-        <span className="lobby-purse" title="Tus diamantes"><Diamonds n={diamonds} size={13} /></span>
+        <span className="lobby-purse" title="Tus diamantes">{progressLoaded ? <Diamonds n={diamonds} size={13} /> : '…'}</span>
         <span className="arena-tag" title="Experiencia ganada en la arena">{stats.xp} xp</span>
       </header>
 

@@ -12,7 +12,7 @@ import { sfx } from '@/lib/game/architect/sound'
 import { DIAMONDS_PER_BOSS, SHOP_UNLOCK_BOSS_ID } from '@/lib/game/shop'
 import { ARENA_UNLOCK_BOSS_NAME } from '@/lib/game/arena/rules'
 import { diamondsAvailable, playerXp, playgroundLevel } from '@/lib/storage/local-store'
-import { useCloudReadyTick } from '@/lib/storage/use-cloud-ready'
+import { useCloudReadyTick, useProgressLoaded } from '@/lib/storage/use-cloud-ready'
 import ActMap from './map/ActMap'
 import ActEmblem from './map/ActEmblem'
 import type { AvatarId } from './map/avatars'
@@ -121,6 +121,8 @@ export default function BossMap({
   const [level, setLevel] = useState(1)
   const [diamonds, setDiamonds] = useState(0)
   const cloudReady = useCloudReadyTick()
+  // Hasta que llegue todo el progreso de la cuenta, "…" (nunca un número equivocado).
+  const progressLoaded = useProgressLoaded()
   useEffect(() => {
     setLevel(playgroundLevel(playerXp()).level)
     setDiamonds(diamondsAvailable(totalDefeated))
@@ -234,13 +236,13 @@ export default function BossMap({
           >
             <span style={{ fontFamily: jersey, fontSize: 18, letterSpacing: '0.08em', color: 'hsl(var(--tx))' }}>PYCRAFT OS</span>
             <span className="hidden sm:block" style={{ flex: 1 }} />
-            <div className="flex items-center gap-1" title={`Nivel ${level} — jugá el patio de juegos para subir`}>
+            <div className="flex items-center gap-1" title={progressLoaded ? `Nivel ${level} — jugá el patio de juegos para subir` : 'Cargando tu progreso…'}>
               <span className="label-mono" style={{ color: 'hsl(var(--tx3))' }}>NIVEL</span>
-              <span style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--accent))' }}>{level}</span>
+              <span style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--accent))' }}>{progressLoaded ? level : '…'}</span>
             </div>
             <div className="flex items-center gap-1.5" style={{ border: '2px solid hsl(var(--tx))', padding: '2px 8px', background: 'hsl(var(--bg))' }} title={`${totalDefeated} jefes × ${DIAMONDS_PER_BOSS} diamantes + los del patio de juegos — gastalos en la tienda del Mercader del Abismo`}>
               <DiamondIcon size={13} />
-              <span className="tabular" style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--tx))' }}>{diamonds}</span>
+              <span className="tabular" style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--tx))' }}>{progressLoaded ? diamonds : '…'}</span>
             </div>
           </div>
 
