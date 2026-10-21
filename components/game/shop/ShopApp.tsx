@@ -11,6 +11,7 @@ import {
   setStickerColorway, startCouponVisit, PLAYGROUND_MAX_LEVEL,
 } from '@/lib/storage/local-store'
 import { useCloudReadyTick, useProgressLoaded } from '@/lib/storage/use-cloud-ready'
+import { canSpendDiamonds } from '@/lib/storage/cloud-sync'
 import type { OwnedShopItem, ShopItem } from '@/types'
 import { ShopGlyph } from './ShopIcons'
 import MerchantBook from './MerchantBook'
@@ -111,7 +112,7 @@ export default function ShopApp({ totalDefeated, username, battleNear = false, u
       if (ok) sfx.confirm(); else sfx.denied()
       return { ok }
     }
-    if (!progressLoaded) { sfx.denied(); return { ok: false } }
+    if (!progressLoaded || !canSpendDiamonds()) { sfx.denied(); return { ok: false } }
     // Siempre con el ítem original del catálogo: buyShopItem ya aplica el cupón.
     const result = buyShopItem(getShopItem(item.id) ?? item, totalDefeated, level)
     if (result) {

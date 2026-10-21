@@ -57,6 +57,16 @@ const PROGRESS_TIMEOUT_MS = 20_000
 let progressLoaded = false
 let progressTimer: ReturnType<typeof setTimeout> | null = null
 
+/**
+ * ¿Se puede comprar? Solo con la lista de compras de la cuenta ya traída de la
+ * nube. A diferencia de isProgressLoaded, NO se habilita por tiempo: con lo que
+ * hay en la PC el saldo puede ser más alto que el real (no ve compras hechas
+ * en otra PC) y el alumno termina en negativo — pasó con ezetae15 el 21/10.
+ */
+export function canSpendDiamonds(): boolean {
+  return loadState === 'ready' || isLocalMode()
+}
+
 export function isProgressLoaded(): boolean {
   return progressLoaded || isLocalMode()
 }

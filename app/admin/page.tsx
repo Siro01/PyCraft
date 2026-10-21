@@ -4,7 +4,6 @@ import AdminViewBar from '@/components/game/AdminViewBar'
 import { ADMIN_VIEW_COOKIE, parseAdminView } from '@/lib/admin/view-mode'
 import { createClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
-import Win from '@/components/ui/Win'
 import { BOSSES } from '@/lib/game/bosses'
 import AdminPanel from './AdminPanel'
 import type { BattleRow, AttackRow } from '@/lib/admin/stats'
@@ -141,12 +140,8 @@ export default async function AdminPage() {
     <div className="min-h-screen desk-theme" style={{ background: 'hsl(var(--bg))' }}>
       <Header username={profile.username} role="admin" />
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <Win active title="PANEL_DOCENTE.EXE" style={{ marginBottom: 24, maxWidth: 420 }} bodyStyle={{ padding: '12px 16px' }}>
-          <h1 className="text-3xl tracking-wide" style={{ color: 'hsl(var(--tx))', lineHeight: 1 }}>Admin</h1>
-          <div className="label-mono mt-2">Aulas, alumnos, jefes, repasos y estadísticas</div>
-        </Win>
-
+      <main className="max-w-[1440px] mx-auto px-4 pt-4" style={{ '--admin-bar-space': '64px', paddingBottom: 72 } as React.CSSProperties}>
+        <h1 className="sr-only">Panel docente</h1>
         <AdminPanel
           bosses={BOSSES}
           bossEnabledMap={bossEnabledMap}
