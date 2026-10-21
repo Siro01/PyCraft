@@ -15,6 +15,7 @@ import PlaygroundChecklist from './PlaygroundChecklist'
 import DiamondCounter from './DiamondCounter'
 import { PLAYGROUND_DIAMONDS_COMPLETE, PLAYGROUND_DIAMONDS_PERFECT, playgroundDiamonds, playgroundMaxDiamonds, topicReward } from '@/lib/game/playground-rewards'
 import ZoomControl from '@/components/game/ZoomControl'
+import { useCloudReadyTick, useProgressLoaded } from '@/lib/storage/use-cloud-ready'
 
 const jersey = 'var(--font-jersey), monospace'
 const STREAK_MILESTONES = [3, 5, 8, 12]
@@ -39,7 +40,9 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
   // El nivel es del XP TOTAL (patio + arena + raids + compensaciones), igual que
   // en el mapa: con solo el XP del patio, quien sumó por otro lado "bajaba" de nivel acá.
   const [otherXp, setOtherXp] = useState(0)
-  useEffect(() => { setPlayground(getPlaygroundState()); setOtherXp(getArenaStats().xp) }, [])
+  const cloudReady = useCloudReadyTick()
+  const progressLoaded = useProgressLoaded()
+  useEffect(() => { setPlayground(getPlaygroundState()); setOtherXp(getArenaStats().xp) }, [cloudReady])
   const [view, setView] = useState<View>({ kind: 'home' })
   const [exerciseIdx, setExerciseIdx] = useState(0)
   const [score, setScore] = useState(0)
@@ -154,9 +157,9 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
           {view.kind !== 'results' && (
             <div className="mb-4 flex flex-wrap items-end gap-x-8 gap-y-3">
               <div style={{ width: 320, maxWidth: '100%' }}>
-                <LevelBar fromXp={playground.xp + otherXp} toXp={playground.xp + otherXp} />
+                <LevelBar fromXp={playground.xp + otherXp} toXp={playground.xp + otherXp} pending={!progressLoaded} />
               </div>
-              <DiamondCounter from={playgroundDiamonds(playground)} to={playgroundDiamonds(playground)} max={playgroundMaxDiamonds()} />
+              <DiamondCounter from={playgroundDiamonds(playground)} to={playgroundDiamonds(playground)} max={playgroundMaxDiamonds()} pending={!progressLoaded} />
             </div>
           )}
 

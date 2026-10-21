@@ -48,6 +48,25 @@ let retryMs = 2_000
 let retryTimer: ReturnType<typeof setTimeout> | null = null
 const readyWaiters: (() => void)[] = []
 
+// ─── ¿Ya llegó TODO el progreso de la cuenta? ──────────────────────────────
+// Recién entonces el nivel y los diamantes son los reales: mientras tanto las
+// pantallas muestran "…" en vez de un número equivocado. Se marca cuando llega
+// la arena (lo último que se trae), cuando no hay cuenta, o a los 20 s como
+// red de seguridad (wifi caído: se muestra lo que haya en la PC).
+const PROGRESS_TIMEOUT_MS = 20_000
+let progressLoaded = false
+let progressTimer: ReturnType<typeof setTimeout> | null = null
+
+export function isProgressLoaded(): boolean {
+  return progressLoaded || isLocalMode()
+}
+
+function markProgressLoaded(): void {
+  if (progressTimer) { clearTimeout(progressTimer); progressTimer = null }
+  progressLoaded = true
+  window.dispatchEvent(new Event(CLOUD_READY_EVENT))
+}
+
 /** Se resuelve cuando la carga inicial terminó bien (el progreso local ya es el de esta cuenta). */
 function whenReady(): Promise<void> {
   if (loadState === 'ready') return Promise.resolve()
@@ -89,9 +108,10 @@ export function queueCloudSync(field: Field, value: unknown): void {
 export function syncOnLoad(): void {
   if (typeof window === 'undefined' || loadState !== 'idle') return
   loadState = 'loading'
+  progressTimer ??= setTimeout(markProgressLoaded, PROGRESS_TIMEOUT_MS)
   void (async () => {
     const userId = await getUserId()
-    if (!userId) { loadState = 'idle'; return }
+    if (!userId) { loadState = 'idle'; markProgressLoaded(); return }
     try {
       const { createClient } = await import('@/lib/supabase/client')
       const supabase = createClient()
@@ -157,7 +177,7 @@ export async function syncArenaStats(): Promise<void> {
       supabase.from('arena_xp').select('xp').eq('user_id', userId),
       supabase.from('raid_ledger').select('delta, xp, reason, raids(boss_id)').eq('user_id', userId),
     ])
-    if (led.error || xp.error) return
+    if (led.error || xp.error) { markProgressLoaded(); return }
     const raidRows = raid.error ? [] : (raid.data as unknown as { delta: number; xp: number; reason: string; raids: { boss_id: string | null } | null }[])
     const pistolero = raidRows.filter((r) => r.reason === 'pistolero').length
     const { setArenaStats, claimChestSticker, recordSecretWin } = await import('@/lib/storage/local-store')
@@ -179,4 +199,8 @@ export async function syncArenaStats(): Promise<void> {
         + (led.data as { xp?: number }[]).reduce((s, l) => s + (l.xp ?? 0), 0),
     })
   } catch { /* sin red: queda la copia anterior */ }
+  // Llega DESPUÉS del aviso de la carga inicial: sin este segundo aviso, el
+  // mapa y la tienda se quedaban sin el XP y los diamantes de arena, raids y
+  // compensaciones (nivel 1 y solo los diamantes de los jefes) en una PC nueva.
+  markProgressLoaded()
 }

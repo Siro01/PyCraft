@@ -8,12 +8,14 @@ interface Props {
   fromXp: number
   /** XP total DESPUÉS — a donde llega la barra. Si es igual a fromXp, no anima. */
   toXp: number
+  /** Todavía no llegó el progreso de la cuenta: "…" en vez de un número equivocado. */
+  pending?: boolean
 }
 
 // Barra de nivel segmentada (mismo lenguaje que .hp-track de las batallas):
 // arranca en el valor viejo y sube animada al valor nuevo, cruzando de
 // segmento cuando el alumno sube de nivel.
-export default function LevelBar({ fromXp, toXp }: Props) {
+export default function LevelBar({ fromXp, toXp, pending = false }: Props) {
   const from = playgroundLevel(fromXp)
   const to = playgroundLevel(toXp)
   const leveledUp = to.level > from.level
@@ -24,7 +26,7 @@ export default function LevelBar({ fromXp, toXp }: Props) {
     return () => clearTimeout(t)
   }, [])
 
-  const pct = animated ? (to.xpIntoLevel / to.xpForNext) * 100 : (from.xpIntoLevel / from.xpForNext) * 100
+  const pct = pending ? 0 : animated ? (to.xpIntoLevel / to.xpForNext) * 100 : (from.xpIntoLevel / from.xpForNext) * 100
   const shownLevel = animated ? to.level : from.level
 
   return (
@@ -36,7 +38,7 @@ export default function LevelBar({ fromXp, toXp }: Props) {
           style={{ color: 'hsl(var(--accent))', transition: 'transform 0.2s', transform: leveledUp && animated ? 'scale(1.25)' : 'scale(1)' }}
           suppressHydrationWarning
         >
-          {shownLevel}
+          {pending ? '…' : shownLevel}
         </span>
       </div>
       <div className="hp-track h-3">
@@ -47,7 +49,7 @@ export default function LevelBar({ fromXp, toXp }: Props) {
       </div>
       <div className="flex items-center justify-between label-mono mt-1" style={{ color: 'hsl(var(--tx3))' }}>
         <span suppressHydrationWarning>
-          {shownLevel >= PLAYGROUND_MAX_LEVEL
+          {pending ? 'Cargando tu progreso…' : shownLevel >= PLAYGROUND_MAX_LEVEL
             ? '¡Nivel máximo!'
             : `${animated ? to.xpIntoLevel : from.xpIntoLevel} / ${animated ? to.xpForNext : from.xpForNext} XP`}
         </span>

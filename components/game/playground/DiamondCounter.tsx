@@ -12,12 +12,14 @@ interface Props {
   /** Total posible, para mostrar "8 / 25". */
   max?: number
   label?: string
+  /** Todavía no llegó el progreso de la cuenta: "…" en vez de un número equivocado. */
+  pending?: boolean
 }
 
 // Contador de diamantes del patio: sube de a uno, al mismo ritmo que la
 // barra de nivel (arranca a los 120ms y dura ~700ms), con un "+N" que salta
 // y un tintineo por diamante. Si from === to, se queda quieto.
-export default function DiamondCounter({ from, to, max, label = 'Diamantes del patio' }: Props) {
+export default function DiamondCounter({ from, to, max, label = 'Diamantes del patio', pending = false }: Props) {
   const [shown, setShown] = useState(from)
   const gained = to - from
 
@@ -50,7 +52,7 @@ export default function DiamondCounter({ from, to, max, label = 'Diamantes del p
       <span className="flex flex-col leading-none">
         <span className="label-mono" style={{ color: 'hsl(var(--tx3))' }}>{label}</span>
         <span className="tabular" style={{ fontFamily: jersey, fontSize: 22, color: 'hsl(var(--tx))' }}>
-          {shown}{max !== undefined && <span style={{ color: 'hsl(var(--tx3))', fontSize: 16 }}> / {max}</span>}
+          {pending ? '…' : shown}{max !== undefined && <span style={{ color: 'hsl(var(--tx3))', fontSize: 16 }}> / {max}</span>}
         </span>
       </span>
       {gained > 0 && (
