@@ -288,6 +288,7 @@ export const PLACES: PlacePage[] = [
   { section: 'lugares', title: 'Inventario y stickers', summary: 'Lo que el alumno junta y lo que pega.', traits: ['Grilla de ítems', 'Stickers por cofre', 'Uno secreto por acto'], shots: [{ name: 'inventario', file: 'INVENTARIO.EXE' }, { name: 'stickers', file: 'STICKERS.EXE' }] },
   { section: 'sitio', title: 'Landing', summary: 'La puerta de entrada al taller.', traits: ['Esquinas escalonadas', 'Silkscreen en botones', 'Sin escritorio'], shots: [{ name: 'landing', file: 'PYCRAFT.COM' }] },
   { section: 'sitio', title: 'Login', summary: 'Una sola ventana, centrada.', traits: ['Cofre pixel arriba', 'Ventana de 2px', 'Botón con sombra dura'], shots: [{ name: 'login', file: 'INICIAR_SESION.EXE' }] },
+  { section: 'sitio', title: 'Panel docente', summary: 'El escritorio del docente: cada tarea es un programa.', traits: ['Aula activa arriba', 'Matriz de aulas y jefes', 'Papelera para borrar'], shots: [{ name: 'panel-docente', file: 'JEFES.EXE' }] },
 ]
 
 // ─── 9 · Reglas ──────────────────────────────────────────────────────────────

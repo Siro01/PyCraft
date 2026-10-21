@@ -48,6 +48,8 @@ const SHOTS = {
   cofre: { path: '/finale/proyecto' },
   inventario: { path: '/demo/inventario', clip: [16, 68, 832, 532] },
   stickers: { path: '/demo/stickers' },
+  // Vista previa del panel docente con datos inventados (solo en desarrollo): se abre jefes.exe.
+  'panel-docente': { path: '/dev/admin-os', step: `[...document.querySelectorAll('.desk-icon')].find((b) => b.querySelector('.desk-lbl')?.textContent === 'jefes.exe')?.click()` },
 }
 
 const BROWSERS = [

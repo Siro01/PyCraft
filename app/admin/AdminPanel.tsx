@@ -1,21 +1,33 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { SquareDot, StatusMark } from '@/components/ui/StatusMark'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import BossSprite from '@/components/game/BossSprite'
-import ChallengesBrowser from './ChallengesBrowser'
-import StatsPanel from './StatsPanel'
-import TestStudentPanel from './TestStudentPanel'
-import RepasosPanel from './RepasosPanel'
-import ReinosPanel from './ReinosPanel'
-import ArenaPanel from './ArenaPanel'
-import CompensarPanel from './CompensarPanel'
-import RaidsPanel from './RaidsPanel'
-import { aulaHorario, aulaLabel, hhmm, type AdminAula } from './aula-label'
+import { PixelBitmap, ICON_FOLDER, ICON_TEAM_SHIELD, ICON_TERMINAL, ICON_SWORDS, ICON_RAID, ICON_KEYS, ICON_FILE, ICON_WANTED, ICON_BIN, ICON_BIN_OPEN } from '@/components/game/architect/desktop/PixelBitmap'
+import { PlaceNode } from '@/components/game/map/MapNodeIcon'
+import { IconSkull, IconSigma } from '@/components/ui/PixelIcons'
+import AdminDesktop, { type DeskProgram } from '@/components/admin/os/AdminDesktop'
+import { useAulaActiva, TODAS } from '@/components/admin/os/AulaPicker'
+import SysDialog, { DialogButton, useSysConfirm } from '@/components/admin/os/SysDialog'
+import { useStatus } from '@/components/admin/os/StatusLine'
+import { useDragToTrash } from '@/components/admin/os/useDragToTrash'
+import { useNarrowDesk } from '@/components/admin/os/useDesktopWindows'
+import AlumnosWindow, { needsAction, type NuevoAlumno } from './windows/AlumnosWindow'
+import type { StudentStanding } from '@/app/api/admin/compensar/route'
+import JefesWindow, { type JefesRow } from './windows/JefesWindow'
+import AulasWindow, { type NuevaAula } from './windows/AulasWindow'
+import RepasosWindow, { type RepasoRow } from './windows/RepasosWindow'
+import StatsWindow from './windows/StatsWindow'
+import EjerciciosWindow from './windows/EjerciciosWindow'
+import ReinosWindow from './windows/ReinosWindow'
+import ArenaWindow from './windows/ArenaWindow'
+import RaidWindow from './windows/RaidWindow'
+import TestWindow from './windows/TestWindow'
+import { aulaHorario, type AdminAula } from './aula-label'
 import { TEST_USERNAME } from '@/lib/test-student/constants'
-import { DEFAULT_TIER_ENABLED, TIER_META, TIER_ORDER } from '@/lib/game/tiers'
+import { REPASOS } from '@/lib/game/repasos'
+import { DEFAULT_TIER_ENABLED, TIER_META } from '@/lib/game/tiers'
 import type { AttackRow, BattleRow } from '@/lib/admin/stats'
 import type { Boss, ChallengeTier } from '@/types'
 
@@ -51,12 +63,22 @@ const TURNO_LABEL: Record<string, string> = {
   'otro': 'Otro',
 }
 
+type WinId = 'jefes' | 'aulas' | 'alumnos' | 'repasos' | 'ejercicios' | 'stats' | 'reinos' | 'arena' | 'raid' | 'test' | 'planificacion' | 'pistolero'
+
+/** Glifo de 8×8 de PixelIcons en la misma caja de 48px que `mapa.exe` del alumno. */
+function Boxed({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="flex items-center justify-center" style={{ width: 48, height: 48, border: '2px solid hsl(var(--tx))', background: 'hsl(var(--bg))' }}>
+      {children}
+    </span>
+  )
+}
+
 export default function AdminPanel({ bosses, bossEnabledMap, students: initialStudents, scoreMap, aulas: initialAulas, aulaBossMap, activeIds, aulaTierMap: initialTierMap, aulaRepasoMap, alumnoRepasoMap, repasoProgress, battles, attacks }: AdminPanelProps) {
   const router = useRouter()
   const [tierMap, setTierMap] = useState<Record<string, Record<string, boolean>>>(initialTierMap)
   const [enabledMap, setEnabledMap] = useState<Record<string, boolean>>(bossEnabledMap)
   const [aulaEnabledMap, setAulaEnabledMap] = useState<Record<string, Record<string, boolean>>>(aulaBossMap)
-  const [bossAulaId, setBossAulaId] = useState('')
 
   // Refresca los datos del servidor (activos, progreso) cada 30 s
   useEffect(() => {
@@ -66,151 +88,218 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
   const [students, setStudents] = useState<Student[]>(initialStudents)
   const [aulas, setAulas] = useState<Aula[]>(initialAulas)
 
-  const [newUsername, setNewUsername] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [newAulaId, setNewAulaId] = useState('')
-  const [createStatus, setCreateStatus] = useState('')
+  // Una sola aula activa para todo el escritorio (barra de menú).
+  const [aulaId, setAulaId] = useAulaActiva(aulas)
 
-  const [newAulaNombre, setNewAulaNombre] = useState('')
-  const [newAulaTurno, setNewAulaTurno] = useState<'mañana' | 'tarde' | 'otro'>('mañana')
-  const [newAulaDesde, setNewAulaDesde] = useState('')
-  const [newAulaHasta, setNewAulaHasta] = useState('')
-  const [aulaStatus, setAulaStatus] = useState('')
+  // Repasos: el estado vive acá porque lo comparten repasos.exe y la ficha del alumno.
+  const [aulaRepasos, setAulaRepasos] = useState(aulaRepasoMap)
+  const [alumnoRepasos, setAlumnoRepasos] = useState(alumnoRepasoMap)
 
-  const [aulaFilter, setAulaFilter] = useState('')
+  // Saldo, nivel y avisos de cada alumno (los mismos datos que usaba la pestaña Compensar).
+  const [standings, setStandings] = useState<Record<string, StudentStanding> | null>(null)
+  const [standingsError, setStandingsError] = useState<string | null>(null)
+  const loadStandings = useCallback(async () => {
+    const res = await fetch('/api/admin/compensar', { cache: 'no-store' })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) { setStandingsError(json.error ?? 'No se pudo cargar el saldo.'); return }
+    setStandingsError(null)
+    setStandings(Object.fromEntries((json.students as StudentStanding[]).map((st) => [st.id, st])))
+  }, [])
+  useEffect(() => { loadStandings() }, [loadStandings])
+  const narrow = useNarrowDesk()
+
   const [resetTarget, setResetTarget] = useState<Student | null>(null)
   const [resetPassword, setResetPassword] = useState('')
   const [resetStatus, setResetStatus] = useState('')
 
-  const [tab, setTab] = useState<'bosses' | 'repasos' | 'exercises' | 'aulas' | 'students' | 'reinos' | 'arena' | 'raids' | 'compensar' | 'stats' | 'test'>('bosses')
+  const [jefesStatus, sayJefes] = useStatus()
+  const [aulasStatus, sayAulas] = useStatus()
+  const [alumnosStatus, sayAlumnos] = useStatus()
+  const [repasosStatus, sayRepasos] = useStatus()
+  const [arenaStatus, sayArena] = useStatus()
+  const [raidStatus, sayRaid] = useStatus()
+  const [testStatus, sayTest] = useStatus()
+  const [ask, confirmNode] = useSysConfirm()
 
-  const isTierEnabled = (aulaId: string, tier: ChallengeTier) =>
-    tierMap[aulaId]?.[tier] ?? DEFAULT_TIER_ENABLED[tier]
+  const isTierEnabled = (id: string, tier: ChallengeTier) =>
+    tierMap[id]?.[tier] ?? DEFAULT_TIER_ENABLED[tier]
 
   // La Arena: abierta por defecto (desde el Jefe 3); el docente la cierra por aula.
-  const toggleArena = async (aulaId: string) => {
-    const next = !(aulas.find((a) => a.id === aulaId)?.arena_enabled ?? true)
-    const { error } = await createClient().from('aulas').update({ arena_enabled: next }).eq('id', aulaId)
-    if (error) { alert(`${error.message} — ¿ejecutaste la migración 013_arena.sql?`); return }
-    setAulas((prev) => prev.map((a) => (a.id === aulaId ? { ...a, arena_enabled: next } : a)))
+  const toggleArena = async (id: string) => {
+    const next = !(aulas.find((a) => a.id === id)?.arena_enabled ?? true)
+    const { error } = await createClient().from('aulas').update({ arena_enabled: next }).eq('id', id)
+    if (error) { sayAulas(`${error.message} — ¿ejecutaste la migración 013_arena.sql?`, false); return }
+    setAulas((prev) => prev.map((a) => (a.id === id ? { ...a, arena_enabled: next } : a)))
+    sayAulas(`Arena ${next ? 'abierta' : 'cerrada'} en ${aulaName(id)}`)
   }
 
-  const toggleTier = async (aulaId: string, tier: ChallengeTier) => {
-    const next = !isTierEnabled(aulaId, tier)
+  const toggleTier = async (id: string, tier: ChallengeTier) => {
+    const next = !isTierEnabled(id, tier)
     const supabase = createClient()
     const { error } = await supabase
       .from('aula_tiers')
-      .upsert({ aula_id: aulaId, tier, is_enabled: next }, { onConflict: 'aula_id,tier' })
-    if (error) return
-    setTierMap((prev) => ({ ...prev, [aulaId]: { ...prev[aulaId], [tier]: next } }))
+      .upsert({ aula_id: id, tier, is_enabled: next }, { onConflict: 'aula_id,tier' })
+    if (error) { sayJefes('Error: ' + error.message, false); return }
+    setTierMap((prev) => ({ ...prev, [id]: { ...prev[id], [tier]: next } }))
+    sayJefes(`${TIER_META[tier].label} ${next ? 'habilitada' : 'deshabilitada'}`)
   }
 
-  const isBossEnabled = (bossId: string) =>
-    bossAulaId ? aulaEnabledMap[bossAulaId]?.[bossId] ?? false : enabledMap[bossId] ?? false
+  // rowId '' = alumnos sin aula (tabla `bosses`); si no, el aula.
+  const isBossEnabled = (rowId: string, bossId: string) =>
+    rowId ? aulaEnabledMap[rowId]?.[bossId] ?? false : enabledMap[bossId] ?? false
 
-  const toggleBoss = async (bossId: string) => {
+  const toggleBoss = async (rowId: string, boss: Boss) => {
     const supabase = createClient()
-    const next = !isBossEnabled(bossId)
+    const next = !isBossEnabled(rowId, boss.id)
 
-    if (bossAulaId) {
+    if (rowId) {
       const { error } = await supabase
         .from('aula_bosses')
-        .upsert({ aula_id: bossAulaId, boss_id: bossId, is_enabled: next }, { onConflict: 'aula_id,boss_id' })
-      if (error) return
-      setAulaEnabledMap((prev) => ({ ...prev, [bossAulaId]: { ...prev[bossAulaId], [bossId]: next } }))
+        .upsert({ aula_id: rowId, boss_id: boss.id, is_enabled: next }, { onConflict: 'aula_id,boss_id' })
+      if (error) { sayJefes('Error: ' + error.message, false); return }
+      setAulaEnabledMap((prev) => ({ ...prev, [rowId]: { ...prev[rowId], [boss.id]: next } }))
     } else {
       const { error } = await supabase
         .from('bosses')
-        .upsert({ id: bossId, is_enabled: next }, { onConflict: 'id' })
-      if (error) return
-      setEnabledMap((prev) => ({ ...prev, [bossId]: next }))
+        .upsert({ id: boss.id, is_enabled: next }, { onConflict: 'id' })
+      if (error) { sayJefes('Error: ' + error.message, false); return }
+      setEnabledMap((prev) => ({ ...prev, [boss.id]: next }))
     }
+    sayJefes(`${boss.name} ${next ? 'habilitado' : 'bloqueado'} en ${aulaName(rowId || null)}`)
   }
 
   const activeSet = new Set(activeIds)
-  const activeIn = (aulaId: string | null) =>
-    students.filter((s) => s.role === 'student' && s.aula_id === aulaId && activeSet.has(s.id)).length
+  const activeIn = (id: string | null) =>
+    students.filter((s) => s.role === 'student' && s.aula_id === id && activeSet.has(s.id)).length
   const totalActive = students.filter((s) => s.role === 'student' && activeSet.has(s.id)).length
+  const todas = aulaId === TODAS
 
-  const createStudent = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setCreateStatus('Creando...')
-
+  const createAlumno = async (n: NuevoAlumno) => {
+    sayAlumnos('Creando...', null)
     const res = await fetch('/api/admin/create-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: newUsername, password: newPassword, aulaId: newAulaId || null }),
+      body: JSON.stringify({ username: n.username, password: n.password, aulaId: n.aulaId || null }),
     })
-
-    if (res.ok) {
-      setCreateStatus('✓ Alumno creado')
-      setNewUsername('')
-      setNewPassword('')
-      // Refresh list without a full reload
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, username, role, aula_id, created_at')
-        .order('username')
-      if (data) setStudents((data as Student[]).filter((s) => s.username !== TEST_USERNAME))
-    } else {
-      const { error } = await res.json()
-      setCreateStatus('Error: ' + error)
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: 'no se pudo crear' }))
+      sayAlumnos('Error: ' + error, false)
+      return false
     }
+    sayAlumnos(`Alumno ${n.username} creado`)
+    // Refresca la lista sin recargar la página
+    const { data } = await createClient()
+      .from('profiles')
+      .select('id, username, role, aula_id, created_at')
+      .order('username')
+    if (data) setStudents((data as Student[]).filter((s) => s.username !== TEST_USERNAME))
+    loadStandings()
+    return true
   }
 
-  const createAula = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setAulaStatus('Creando...')
+  const repasoError = (msg: string) =>
+    /relation .* does not exist|schema cache/i.test(msg) ? 'Falta correr la migración 011_repasos.sql' : 'Error: ' + msg
+  const repasoTitle = (bossId: string) => REPASOS.find((r) => r.bossId === bossId)?.title ?? 'Repaso'
+
+  // Desde la ficha del alumno o desde repasos.exe: cada ventana avisa en su propia línea de estado.
+  const toggleRepasoAlumno = async (a: { id: string; username: string }, bossId: string, say = sayAlumnos) => {
+    const next = !alumnoRepasos[a.id]?.[bossId]
+    const { error } = await createClient()
+      .from('alumno_repasos')
+      .upsert({ user_id: a.id, boss_id: bossId, is_enabled: next }, { onConflict: 'user_id,boss_id' })
+    if (error) { say(repasoError(error.message), false); return }
+    setAlumnoRepasos((prev) => ({ ...prev, [a.id]: { ...prev[a.id], [bossId]: next } }))
+    say(`${repasoTitle(bossId)} ${next ? 'habilitado' : 'quitado'} para ${a.username}`)
+  }
+
+  const toggleRepasoAula = async (id: string, bossId: string) => {
+    const next = !aulaRepasos[id]?.[bossId]
+    const { error } = await createClient()
+      .from('aula_repasos')
+      .upsert({ aula_id: id, boss_id: bossId, is_enabled: next }, { onConflict: 'aula_id,boss_id' })
+    if (error) { sayRepasos(repasoError(error.message), false); return }
+    setAulaRepasos((prev) => ({ ...prev, [id]: { ...prev[id], [bossId]: next } }))
+    sayRepasos(`${repasoTitle(bossId)} ${next ? 'habilitado' : 'quitado'} para ${aulaName(id)}`)
+  }
+
+  const compensar = async (method: 'POST' | 'DELETE', body: Record<string, unknown>) => {
+    const res = await fetch('/api/admin/compensar', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) return (json.error as string) ?? 'No se pudo.'
+    await loadStandings()
+    return null
+  }
+  const grant = async (a: Student, diamonds: number, xp: number, note: string) => {
+    const err = await compensar('POST', { userId: a.id, diamonds, xp, note })
+    if (!err) sayAlumnos(`${a.username} recibió${diamonds ? ` ${diamonds} diamantes` : ''}${diamonds && xp ? ' y' : ''}${xp ? ` ${xp} XP` : ''}`)
+    return err
+  }
+  const undoGrant = async (a: Student, compId: number) => {
+    const ok = await ask({ title: 'DESHACER.EXE', body: <>¿Deshacer esta compensación de <b>{a.username}</b>?</>, ok: 'Deshacer', danger: true })
+    if (!ok) return null
+    const err = await compensar('DELETE', { id: compId })
+    if (!err) sayAlumnos(`Compensación de ${a.username} deshecha`)
+    return err
+  }
+
+  const createAula = async (n: NuevaAula) => {
+    sayAulas('Creando...', null)
     const supabase = createClient()
     const { data, error } = await supabase
       .from('aulas')
       .insert({
-        nombre: newAulaNombre, turno: newAulaTurno,
+        nombre: n.nombre, turno: n.turno,
         // El horario es opcional: sin la migración 011 no se manda, así crear aula sigue andando.
-        ...(newAulaDesde ? { hora_inicio: newAulaDesde } : {}),
-        ...(newAulaHasta ? { hora_fin: newAulaHasta } : {}),
+        ...(n.desde ? { hora_inicio: n.desde } : {}),
+        ...(n.hasta ? { hora_fin: n.hasta } : {}),
       })
       .select()
       .single()
 
     if (error) {
-      setAulaStatus('Error: ' + error.message)
-    } else {
-      setAulas((prev) => [...prev, data as Aula].sort((a, b) => a.nombre.localeCompare(b.nombre)))
-      setAulaStatus('✓ Aula creada')
-      setNewAulaNombre('')
-      setNewAulaDesde('')
-      setNewAulaHasta('')
+      sayAulas('Error: ' + error.message, false)
+      return false
     }
+    setAulas((prev) => [...prev, data as Aula].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+    sayAulas(`Aula ${n.nombre} creada`)
+    return true
   }
 
-  const deleteAula = async (aulaId: string) => {
-    if (!confirm('¿Borrar esta aula? Los alumnos asignados quedarán sin aula.')) return
+  const deleteAula = async (aula: Aula) => {
+    const n = students.filter((s) => s.aula_id === aula.id).length
+    const ok = await ask({
+      title: 'BORRAR_AULA.EXE',
+      body: <>¿Borrar <b>{aula.nombre} · {TURNO_LABEL[aula.turno] ?? aula.turno}</b>? {n > 0 ? `Sus ${n} alumno${n === 1 ? '' : 's'} quedan sin aula.` : 'No tiene alumnos.'} El progreso no se toca.</>,
+      ok: 'Borrar',
+      danger: true,
+    })
+    if (!ok) return
     const supabase = createClient()
-    const { error } = await supabase.from('aulas').delete().eq('id', aulaId)
+    const { error } = await supabase.from('aulas').delete().eq('id', aula.id)
+    if (error) { sayAulas('Error: ' + error.message, false); return }
+    setAulas((prev) => prev.filter((a) => a.id !== aula.id))
+    setStudents((prev) => prev.map((s) => (s.aula_id === aula.id ? { ...s, aula_id: null } : s)))
+    sayAulas(`Aula ${aula.nombre} borrada`)
+  }
+
+  const saveHorario = async (id: string, field: 'hora_inicio' | 'hora_fin', value: string) => {
+    const supabase = createClient()
+    const { error } = await supabase.from('aulas').update({ [field]: value || null }).eq('id', id)
     if (!error) {
-      setAulas((prev) => prev.filter((a) => a.id !== aulaId))
-      setStudents((prev) => prev.map((s) => (s.aula_id === aulaId ? { ...s, aula_id: null } : s)))
-    }
+      setAulas((prev) => prev.map((a) => (a.id === id ? { ...a, [field]: value || null } : a)))
+      sayAulas(`Horario de ${aulaName(id)} guardado`)
+    } else sayAulas('Error: ' + (/column/i.test(error.message) ? 'falta correr la migración 011_repasos.sql' : error.message), false)
   }
 
-  const saveHorario = async (aulaId: string, field: 'hora_inicio' | 'hora_fin', value: string) => {
-    const supabase = createClient()
-    const { error } = await supabase.from('aulas').update({ [field]: value || null }).eq('id', aulaId)
-    if (!error) setAulas((prev) => prev.map((a) => (a.id === aulaId ? { ...a, [field]: value || null } : a)))
-    else setAulaStatus('Error: ' + (/column/i.test(error.message) ? 'falta correr la migración 011_repasos.sql' : error.message))
-  }
-
-  const reassignAula = async (studentId: string, aulaId: string) => {
+  const reassignAula = async (student: Student, id: string) => {
     const supabase = createClient()
     const { error } = await supabase
       .from('profiles')
-      .update({ aula_id: aulaId || null })
-      .eq('id', studentId)
-    if (!error) {
-      setStudents((prev) => prev.map((s) => (s.id === studentId ? { ...s, aula_id: aulaId || null } : s)))
-    }
+      .update({ aula_id: id || null })
+      .eq('id', student.id)
+    if (error) { sayAlumnos('Error: ' + error.message, false); return }
+    setStudents((prev) => prev.map((s) => (s.id === student.id ? { ...s, aula_id: id || null } : s)))
+    sayAlumnos(`${student.username} pasó a ${aulaName(id || null)}`)
   }
 
   const submitResetPassword = async (e: React.FormEvent) => {
@@ -223,480 +312,182 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
       body: JSON.stringify({ userId: resetTarget.id, newPassword: resetPassword }),
     })
     if (res.ok) {
-      setResetStatus('✓ Contraseña actualizada')
-      setTimeout(() => {
-        setResetTarget(null)
-        setResetPassword('')
-        setResetStatus('')
-      }, 1200)
+      sayAlumnos(`Contraseña de ${resetTarget.username} actualizada`)
+      setResetTarget(null)
+      setResetPassword('')
+      setResetStatus('')
     } else {
       const { error } = await res.json()
       setResetStatus('Error: ' + error)
     }
   }
 
-  const aulaName = (aulaId: string | null) => aulas.find((a) => a.id === aulaId)?.nombre ?? 'Sin aula'
+  const aulaName = (id: string | null) => aulas.find((a) => a.id === id)?.nombre ?? 'Sin aula'
 
-  const visibleStudents = aulaFilter ? students.filter((s) => s.aula_id === aulaFilter) : students
+  const visibleStudents = todas ? students : students.filter((s) => s.aula_id === (aulaId || null))
 
-  const tabs = [
-    { key: 'bosses', label: 'Jefes' },
-    { key: 'repasos', label: 'Repasos' },
-    { key: 'exercises', label: 'Ejercicios' },
-    { key: 'aulas', label: 'Aulas' },
-    { key: 'students', label: 'Alumnos' },
-    { key: 'reinos', label: 'Reinos SQL' },
-    { key: 'arena', label: 'Arena' },
-    { key: 'raids', label: 'Raids' },
-    { key: 'compensar', label: 'Compensar' },
-    { key: 'stats', label: 'Estadísticas' },
-    { key: 'test', label: 'Alumno TEST' },
-  ] as const
+  // Papelera: soltar un aula ahí la borra (después de preguntar).
+  const trashRef = useRef<HTMLDivElement>(null)
+  const draggedId = useRef<string | null>(null)
+  const trash = useDragToTrash<Aula>(trashRef, (a) => { draggedId.current = null; deleteAula(a) })
+
+  // Arena y raids ya entienden '' como "todas las aulas".
+  const anyAula = todas ? '' : aulaId
+
+  // ── Contenido de cada ventana ──
+
+  const jefesRows: JefesRow[] = todas
+    ? [...aulas.map((a) => ({ id: a.id, label: `${a.nombre} · ${TURNO_LABEL[a.turno] ?? a.turno}`, sub: aulaHorario(a) || undefined })), { id: '', label: 'Sin aula', sub: 'alumnos sin asignar' }]
+    : [{ id: aulaId, label: aulaId ? `${aulaName(aulaId)} · ${TURNO_LABEL[aulas.find((a) => a.id === aulaId)?.turno ?? ''] ?? ''}` : 'Sin aula', sub: aulaId ? aulaHorario(aulas.find((a) => a.id === aulaId)!) || undefined : 'alumnos sin asignar' }]
+
+  const jefesBody = (
+    <JefesWindow
+      rows={jefesRows}
+      isEnabled={isBossEnabled}
+      onToggle={toggleBoss}
+      tierOn={isTierEnabled}
+      onToggleTier={toggleTier}
+    />
+  )
+
+  const aulasBody = (
+    <AulasWindow
+      aulas={aulas}
+      countIn={(id) => ({ alumnos: students.filter((s) => s.aula_id === id).length, activos: activeIn(id) })}
+      onCreate={createAula}
+      onSaveHorario={saveHorario}
+      onToggleArena={toggleArena}
+      onGrip={(a, e) => { draggedId.current = a.id; trash.start(a, `${a.nombre} · ${TURNO_LABEL[a.turno] ?? a.turno}`, e) }}
+      onDelete={deleteAula}
+      dragging={trash.ghost ? draggedId.current : null}
+    />
+  )
+
+  const alumnos = visibleStudents.filter((s) => s.role !== 'admin')
+  const repasoRows: RepasoRow[] = (todas ? aulas : aulas.filter((a) => a.id === aulaId))
+    .map((a) => ({ id: a.id, label: `${a.nombre} · ${TURNO_LABEL[a.turno] ?? a.turno}`, sub: aulaHorario(a) || undefined }))
+  const flagged = students.filter((s) => s.role !== 'admin' && needsAction(standings?.[s.id])).length
+
+  const alumnosBody = (
+    <AlumnosWindow
+      alumnos={alumnos}
+      aulas={aulas}
+      todas={todas}
+      totalBosses={bosses.length}
+      score={(id) => scoreMap[id] ?? { defeated: 0, attacks: 0 }}
+      isActive={(id) => activeSet.has(id)}
+      standings={standings}
+      standingsError={standingsError}
+      aulaRepasos={aulaRepasos}
+      alumnoRepasos={alumnoRepasos}
+      repasoProgress={repasoProgress}
+      narrow={narrow}
+      onCreate={createAlumno}
+      onReassign={reassignAula}
+      onResetClave={(a) => { setResetTarget(a); setResetPassword(''); setResetStatus('') }}
+      onToggleRepaso={toggleRepasoAlumno}
+      onGrant={grant}
+      onUndo={undoGrant}
+    />
+  )
+
+  const programs: DeskProgram<WinId>[] = [
+    { id: 'jefes', file: 'jefes.exe', title: 'JEFES.EXE', w: 1080, status: jefesStatus, body: jefesBody,
+      icon: <Boxed><IconSkull size={32} color="hsl(var(--tx))" /></Boxed> },
+    { id: 'aulas', file: 'aulas.exe', title: 'AULAS.EXE', w: 820, status: aulasStatus, body: aulasBody,
+      icon: <PixelBitmap rows={ICON_FOLDER} scale={3} /> },
+    { id: 'alumnos', file: 'alumnos.exe', title: 'ALUMNOS.EXE', w: 980, status: alumnosStatus, body: alumnosBody,
+      badge: flagged, badgeLabel: `${flagged} alumno${flagged === 1 ? '' : 's'} para revisar (15/10)`,
+      icon: <PixelBitmap rows={ICON_TEAM_SHIELD} scale={4} /> },
+    { id: 'repasos', file: 'repasos.exe', title: 'REPASOS.EXE', w: 900, status: repasosStatus,
+      icon: <PlaceNode kind="school" open focused={false} size={48} />,
+      body: (
+        <RepasosWindow
+          rows={repasoRows}
+          alumnos={students.filter((s) => s.role !== 'admin')}
+          aulaRepasos={aulaRepasos}
+          alumnoRepasos={alumnoRepasos}
+          progress={repasoProgress}
+          onToggleAula={toggleRepasoAula}
+          onToggleAlumno={(a, bossId) => toggleRepasoAlumno(a, bossId, sayRepasos)}
+        />
+      ) },
+    { id: 'ejercicios', file: 'ejercicios.exe', title: 'EJERCICIOS.EXE', w: 900,
+      icon: <PixelBitmap rows={ICON_TERMINAL} scale={3} />,
+      body: <EjerciciosWindow bosses={bosses} alumnos={alumnos} aulaId={todas || !aulaId ? null : aulaId} aulaTierMap={tierMap} battles={battles} attacks={attacks} narrow={narrow} /> },
+    { id: 'stats', file: 'stats.log', title: 'STATS.LOG', w: 900,
+      icon: <Boxed><IconSigma size={32} color="hsl(var(--tx))" /></Boxed>,
+      body: <StatsWindow bosses={bosses} aulas={aulas} alumnos={alumnos} todas={todas} battles={battles} attacks={attacks} /> },
+    { id: 'reinos', file: 'reinos.db', title: 'REINOS.DB', w: 900,
+      icon: <PlaceNode kind="reino" open focused={false} size={48} />,
+      body: <ReinosWindow alumnos={alumnos} aulas={aulas} todas={todas} narrow={narrow} /> },
+    { id: 'arena', file: 'arena.exe', title: 'ARENA.EXE', w: 900, status: arenaStatus,
+      icon: <PixelBitmap rows={ICON_SWORDS} scale={4} />,
+      body: <ArenaWindow aulaId={anyAula} aulas={aulas} students={students} ask={ask} say={sayArena} /> },
+    { id: 'raid', file: 'raid.exe', title: 'RAID.EXE', w: 900, status: raidStatus,
+      icon: <PixelBitmap rows={ICON_RAID} scale={4} />,
+      body: <RaidWindow aulaId={anyAula} aulas={aulas} students={students} ask={ask} say={sayRaid} /> },
+    { id: 'test', file: 'test.exe', title: 'ALUMNO_TEST.EXE', w: 720, status: testStatus,
+      icon: <PixelBitmap rows={ICON_KEYS} scale={3} />,
+      body: <TestWindow ask={ask} say={sayTest} /> },
+    { id: 'planificacion', file: 'plan.txt', title: 'PLANIFICACION', href: '/planificacion',
+      icon: <PixelBitmap rows={ICON_FILE} scale={4} /> },
+    { id: 'pistolero', file: 'pistolero.exe', title: 'PISTOLERO', href: '/admin/pistolero', place: 'corner',
+      icon: <PixelBitmap rows={ICON_WANTED} scale={3} /> },
+  ]
 
   return (
-    <div className="flex flex-col gap-6">
-
-      {/* Activos */}
-      <div className="flex items-center gap-2 font-mono text-xs text-tx2">
-        <span className="inline-block w-2 h-2" style={{ background: totalActive > 0 ? 'hsl(var(--python))' : 'hsl(var(--tx3))' }} />
-        {totalActive} alumno{totalActive === 1 ? '' : 's'} activo{totalActive === 1 ? '' : 's'} (últimos 10 min)
-        <span className="ml-auto flex gap-2">
-          <a href="/planificacion" className="btn-ghost font-mono text-xs">Planificación →</a>
-          <a href="/admin/pistolero" className="btn-ghost font-mono text-xs">Mesa del Pistolero →</a>
-          <a href="/admin/pistolero?ensayo=1" className="btn-ghost font-mono text-xs">ensayar</a>
-        </span>
-      </div>
-
-      {/* Tab bar */}
-      <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" style={{ borderBottom: '2px solid hsl(var(--tx))' }}>
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            role="tab"
-            aria-selected={tab === t.key}
-            onClick={() => setTab(t.key)}
-            className="whitespace-nowrap"
-            style={{
-              fontFamily: 'var(--font-pixel), monospace', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
-              padding: '8px 14px', marginBottom: -3,
-              border: '2px solid hsl(var(--tx))', borderBottom: tab === t.key ? '2px solid hsl(var(--accent))' : '2px solid hsl(var(--tx))',
-              background: tab === t.key ? 'hsl(var(--accent))' : 'hsl(var(--surface))',
-              color: tab === t.key ? 'var(--on-accent, hsl(var(--bg)))' : 'hsl(var(--tx2))',
-            }}
+    <>
+      <AdminDesktop
+        programs={programs}
+        openAtStart={[]}
+        aulas={aulas}
+        aulaId={aulaId}
+        onAula={setAulaId}
+        activeCount={todas ? totalActive : activeIn(aulaId || null)}
+        cornerExtra={
+          <div
+            ref={trashRef}
+            role="img"
+            aria-label="Papelera: arrastrá un aula hasta acá para borrarla"
+            title="Arrastrá un aula hasta acá para borrarla"
+            className={`desk-icon desk-trash${trash.dragging ? ' desk-trash--armed' : ''}${trash.over ? ' desk-trash--over' : ''}`}
           >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── BOSSES TAB ── */}
-      {tab === 'bosses' && (
-        <div>
-          <p className="text-sm text-tx2 mb-4">
-            Habilitá cada jefe cuando el grupo llegue a esa clase. La habilitación es por aula.
-          </p>
-          <div className="flex items-center gap-2 mb-4">
-            <span className="label-mono">Aula</span>
-            <select
-              className="input max-w-[280px]"
-              value={bossAulaId}
-              onChange={(e) => setBossAulaId(e.target.value)}
-            >
-              <option value="">Sin aula (alumnos sin asignar)</option>
-              {aulas.map((a) => (
-                <option key={a.id} value={a.id}>{aulaLabel(a)}</option>
-              ))}
-            </select>
+            <span className="flex items-center justify-center" style={{ width: 48, height: 48 }}>
+              <PixelBitmap rows={trash.over ? ICON_BIN_OPEN : ICON_BIN} scale={4} />
+            </span>
+            <span className="desk-lbl">papelera</span>
           </div>
-          <div className="flex flex-col gap-2">
-            {bosses.map((boss) => {
-              const isEnabled = isBossEnabled(boss.id)
-              return (
-                <div key={boss.id} className="card p-3 flex items-center gap-4">
-                  <BossSprite boss={boss} size="sm" defeated={false} />
-
-                  <div className="flex-1 min-w-0">
-                    <div className="font-mono text-xs text-tx3">{boss.title}</div>
-                    <div className="font-mono text-sm font-bold text-tx truncate">{boss.name}</div>
-                    <div className="text-xs text-tx3 truncate">{boss.topic}</div>
-                  </div>
-
-                  <button
-                    onClick={() => toggleBoss(boss.id)}
-                    className={`font-mono text-xs px-3 py-1.5 pixel-corners-sm border transition-all shrink-0 ${
-                      isEnabled
-                        ? 'border-python/50 text-python bg-python/10 hover:bg-python/20'
-                        : 'border-border text-tx3 hover:border-border2 hover:text-tx'
-                    }`}
-                  >
-                    <SquareDot on={isEnabled} />{isEnabled ? 'Habilitado' : 'Bloqueado'}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        </div>
+        }
+      />
+      {trash.ghost && createPortal(
+        // Cerca del borde derecho (donde vive la papelera) el cartelito va a la izquierda del puntero.
+        <div className="drag-ghost" style={{ left: trash.ghost.x, top: trash.ghost.y, transform: trash.ghost.x > window.innerWidth - 260 ? 'translate(calc(-100% - 12px), 10px)' : undefined }}>{trash.ghost.label}</div>,
+        document.body,
       )}
 
-      {/* ── REPASOS TAB ── */}
-      {tab === 'repasos' && (
-        <RepasosPanel
-          aulas={aulas}
-          students={students}
-          aulaRepasoMap={aulaRepasoMap}
-          alumnoRepasoMap={alumnoRepasoMap}
-          repasoProgress={repasoProgress}
-        />
-      )}
-
-      {/* ── EXERCISES TAB ── */}
-      {tab === 'exercises' && (
-        <ChallengesBrowser
-          bosses={bosses}
-          aulas={aulas}
-          students={students}
-          aulaTierMap={tierMap}
-          battles={battles}
-          attacks={attacks}
-        />
-      )}
-
-      {/* ── STATS TAB ── */}
-      {tab === 'stats' && (
-        <StatsPanel bosses={bosses} aulas={aulas} students={students} battles={battles} attacks={attacks} />
-      )}
-
-      {/* ── TEST TAB ── */}
-      {tab === 'test' && <TestStudentPanel />}
-
-      {tab === 'reinos' && <ReinosPanel aulas={aulas} students={students} />}
-
-      {tab === 'arena' && <ArenaPanel aulas={aulas} students={students} />}
-
-      {tab === 'compensar' && <CompensarPanel aulas={aulas} />}
-
-      {tab === 'raids' && <RaidsPanel aulas={aulas} students={students} />}
-
-      {/* ── AULAS TAB ── */}
-      {tab === 'aulas' && (
-        <div className="flex flex-col gap-6">
-
-          {/* Create aula form */}
-          <div className="card p-5">
-            <div className="label-mono mb-3">Crear nueva aula</div>
-            <form onSubmit={createAula} className="flex flex-col gap-3">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="label-mono mb-1 block">Nombre</label>
-                  <input
-                    className="input"
-                    type="text"
-                    value={newAulaNombre}
-                    onChange={(e) => setNewAulaNombre(e.target.value)}
-                    placeholder="Comisión A"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label-mono mb-1 block">Turno</label>
-                  <select
-                    className="input"
-                    value={newAulaTurno}
-                    onChange={(e) => setNewAulaTurno(e.target.value as 'mañana' | 'tarde' | 'otro')}
-                  >
-                    <option value="mañana">Mañana</option>
-                    <option value="tarde">Tarde</option>
-                    <option value="otro">Otro</option>
-                  </select>
-                </div>
-                <div>
-                  <span className="label-mono mb-1 block">Horario (opcional)</span>
-                  <div className="flex items-center gap-2">
-                    <input className="input" type="time" aria-label="Desde" value={newAulaDesde} onChange={(e) => setNewAulaDesde(e.target.value)} />
-                    <span className="font-mono text-xs text-tx3">a</span>
-                    <input className="input" type="time" aria-label="Hasta" value={newAulaHasta} onChange={(e) => setNewAulaHasta(e.target.value)} />
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <button type="submit" className="btn-primary font-mono">
-                  Crear aula
-                </button>
-                {aulaStatus && (
-                  <span className={`font-mono text-xs ${aulaStatus.startsWith('✓') ? 'text-python' : 'text-danger'}`}>
-                    <StatusMark ok={aulaStatus.startsWith('✓')} />{aulaStatus.replace(/^✓\s*/, '')}
-                  </span>
-                )}
-              </div>
-            </form>
-          </div>
-
-          {/* Aula list */}
-          <div className="flex flex-col gap-2">
-            {aulas.map((a) => {
-              const count = students.filter((s) => s.aula_id === a.id).length
-              return (
-                <div key={a.id} className="card p-3 flex flex-wrap items-center gap-4">
-                  <div className="flex-1 min-w-[180px]">
-                    <div className="font-mono text-sm font-bold text-tx truncate">{a.nombre}</div>
-                    <div className="text-xs text-tx3">
-                      {TURNO_LABEL[a.turno] ?? a.turno}{aulaHorario(a) ? ` · ${aulaHorario(a)}` : ''} · {count} alumno{count === 1 ? '' : 's'} · {activeIn(a.id)} activo{activeIn(a.id) === 1 ? '' : 's'}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5" role="group" aria-label={`Horario de ${a.nombre}`}>
-                    <span className="label-mono mr-1">Horario</span>
-                    <input
-                      className="input text-xs py-1" type="time" aria-label="Desde"
-                      defaultValue={hhmm(a.hora_inicio)}
-                      onBlur={(e) => { if (e.target.value !== hhmm(a.hora_inicio)) saveHorario(a.id, 'hora_inicio', e.target.value) }}
-                      style={{ width: 104 }}
-                    />
-                    <span className="font-mono text-xs text-tx3">a</span>
-                    <input
-                      className="input text-xs py-1" type="time" aria-label="Hasta"
-                      defaultValue={hhmm(a.hora_fin)}
-                      onBlur={(e) => { if (e.target.value !== hhmm(a.hora_fin)) saveHorario(a.id, 'hora_fin', e.target.value) }}
-                      style={{ width: 104 }}
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5" role="group" aria-label={`Dificultades habilitadas en ${a.nombre}`}>
-                    <span className="label-mono mr-1">Dificultades</span>
-                    {TIER_ORDER.map((t) => {
-                      const on = isTierEnabled(a.id, t)
-                      const color = `hsl(var(${TIER_META[t].colorVar}))`
-                      return (
-                        <button
-                          key={t}
-                          onClick={() => toggleTier(a.id, t)}
-                          aria-pressed={on}
-                          title={`${TIER_META[t].desc} — clic para ${on ? 'deshabilitar' : 'habilitar'}`}
-                          className="font-mono text-[10px] px-2 py-1 pixel-corners-sm border transition-all"
-                          style={{
-                            borderColor: on ? color : 'hsl(var(--border2))',
-                            color: on ? color : 'hsl(var(--tx3))',
-                            background: on ? 'hsl(var(--surface2))' : 'transparent',
-                          }}
-                        >
-                          <SquareDot on={on} />{TIER_META[t].label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <button
-                    onClick={() => toggleArena(a.id)}
-                    aria-pressed={a.arena_enabled !== false}
-                    title={a.arena_enabled !== false ? 'Arena abierta (para quien venció al Jefe 3) — clic para cerrarla' : 'Arena cerrada — clic para abrirla'}
-                    className="font-mono text-[10px] px-2 py-1 pixel-corners-sm border transition-all shrink-0"
-                    style={{
-                      borderColor: a.arena_enabled !== false ? 'hsl(var(--tx))' : 'hsl(var(--border2))',
-                      color: a.arena_enabled !== false ? 'hsl(var(--tx))' : 'hsl(var(--tx3))',
-                      background: a.arena_enabled !== false ? 'hsl(var(--surface2))' : 'transparent',
-                    }}
-                  >
-                    <SquareDot on={a.arena_enabled !== false} />Arena {a.arena_enabled !== false ? 'abierta' : 'cerrada'}
-                  </button>
-                  <button
-                    onClick={() => deleteAula(a.id)}
-                    className="font-mono text-xs px-3 py-1.5 pixel-corners-sm border border-danger/40 text-danger hover:bg-danger/10 transition-all shrink-0"
-                  >
-                    Borrar
-                  </button>
-                </div>
-              )
-            })}
-            {aulas.length === 0 && (
-              <div className="card p-6 text-center font-mono text-xs text-tx3">
-                No hay aulas creadas todavía.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── STUDENTS TAB ── */}
-      {tab === 'students' && (
-        <div className="flex flex-col gap-6">
-
-          {/* Create user form */}
-          <div className="card p-5">
-            <div className="label-mono mb-3">Crear nuevo alumno</div>
-            <form onSubmit={createStudent} className="flex flex-col gap-3">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="label-mono mb-1 block">Usuario</label>
-                  <input
-                    className="input"
-                    type="text"
-                    value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
-                    placeholder="nombre_alumno"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label-mono mb-1 block">Contraseña</label>
-                  <input
-                    className="input"
-                    type="text"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="clase123"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label-mono mb-1 block">Aula</label>
-                  <select
-                    className="input"
-                    value={newAulaId}
-                    onChange={(e) => setNewAulaId(e.target.value)}
-                  >
-                    <option value="">Sin aula</option>
-                    {aulas.map((a) => (
-                      <option key={a.id} value={a.id}>{a.nombre} ({TURNO_LABEL[a.turno] ?? a.turno})</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <button type="submit" className="btn-primary font-mono">
-                  Crear alumno
-                </button>
-                {createStatus && (
-                  <span className={`font-mono text-xs ${createStatus.startsWith('✓') ? 'text-python' : 'text-danger'}`}>
-                    <StatusMark ok={createStatus.startsWith('✓')} />{createStatus.replace(/^✓\s*/, '')}
-                  </span>
-                )}
-              </div>
-            </form>
-          </div>
-
-          {/* Aula filter */}
-          <div className="flex items-center gap-2">
-            <span className="label-mono">Filtrar por aula</span>
-            <select
-              className="input max-w-[240px]"
-              value={aulaFilter}
-              onChange={(e) => setAulaFilter(e.target.value)}
-            >
-              <option value="">Todas</option>
-              {aulas.map((a) => (
-                <option key={a.id} value={a.id}>{a.nombre}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Student table */}
-          <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border bg-surface2">
-                    {['Usuario', 'Rol', 'Aula', 'Jefes derrotados', 'Ataques totales', 'Creado', ''].map((h) => (
-                      <th key={h} className="px-4 py-2.5 text-left label-mono">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleStudents.map((s, i) => {
-                    const score = scoreMap[s.id] ?? { defeated: 0, attacks: 0 }
-                    return (
-                      <tr
-                        key={s.id}
-                        className={`border-b border-border text-sm ${i % 2 === 0 ? '' : 'bg-surface2/40'}`}
-                      >
-                        <td className="px-4 py-2.5 font-mono text-tx">{s.username}</td>
-                        <td className="px-4 py-2.5">
-                          <span className={`badge ${s.role === 'admin' ? 'badge-mixed' : 'badge-python'}`}>
-                            {s.role}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          {s.role === 'admin' ? (
-                            <span className="text-xs text-tx3">—</span>
-                          ) : (
-                            <select
-                              className="input text-xs py-1"
-                              value={s.aula_id ?? ''}
-                              onChange={(e) => reassignAula(s.id, e.target.value)}
-                            >
-                              <option value="">Sin aula</option>
-                              {aulas.map((a) => (
-                                <option key={a.id} value={a.id}>{a.nombre}</option>
-                              ))}
-                            </select>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 font-mono text-tx2 tabular">{score.defeated}</td>
-                        <td className="px-4 py-2.5 font-mono text-tx2 tabular">{score.attacks}</td>
-                        <td className="px-4 py-2.5 font-mono text-xs text-tx3">
-                          {new Date(s.created_at).toLocaleDateString('es-AR')}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <button
-                            onClick={() => { setResetTarget(s); setResetPassword(''); setResetStatus('') }}
-                            className="font-mono text-xs px-2 py-1 pixel-corners-sm border border-border text-tx3 hover:border-border2 hover:text-tx transition-all"
-                          >
-                            Resetear clave
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  {visibleStudents.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-6 text-center font-mono text-xs text-tx3">
-                        No hay alumnos para mostrar.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── RESET PASSWORD MODAL ── */}
       {resetTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.5)' }}
-          onClick={() => setResetTarget(null)}
-        >
-          <div className="card p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <div className="label-mono mb-3">Resetear contraseña de {resetTarget.username}</div>
-            <form onSubmit={submitResetPassword} className="flex flex-col gap-3">
-              <input
-                className="input"
-                type="text"
-                value={resetPassword}
-                onChange={(e) => setResetPassword(e.target.value)}
-                placeholder="Nueva contraseña"
-                required
-                autoFocus
-              />
-              <div className="flex items-center gap-3">
-                <button type="submit" className="btn-primary font-mono">
-                  Guardar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setResetTarget(null)}
-                  className="font-mono text-xs text-tx3 hover:text-tx"
-                >
-                  Cancelar
-                </button>
-                {resetStatus && (
-                  <span className={`font-mono text-xs ${resetStatus.startsWith('✓') ? 'text-python' : 'text-danger'}`}>
-                    <StatusMark ok={resetStatus.startsWith('✓')} />{resetStatus.replace(/^✓\s*/, '')}
-                  </span>
-                )}
-              </div>
-            </form>
-          </div>
-        </div>
+        <SysDialog title="CAMBIAR_CLAVE.EXE" onClose={() => setResetTarget(null)}>
+          <form onSubmit={submitResetPassword} className="flex flex-col gap-3">
+            <label htmlFor="reset-pass">Nueva contraseña para <b>{resetTarget.username}</b></label>
+            <input
+              id="reset-pass"
+              className="input"
+              type="text"
+              value={resetPassword}
+              onChange={(e) => setResetPassword(e.target.value)}
+              placeholder="clase123"
+              required
+            />
+            {resetStatus && <div style={{ color: resetStatus.startsWith('Error') ? 'hsl(var(--danger))' : 'hsl(var(--tx2))' }}>&gt; {resetStatus}</div>}
+            <div className="flex flex-wrap justify-end gap-2">
+              <DialogButton label="Cancelar" quiet onClick={() => setResetTarget(null)} />
+              <DialogButton label="Guardar" type="submit" />
+            </div>
+          </form>
+        </SysDialog>
       )}
-    </div>
+      {confirmNode}
+    </>
   )
 }
