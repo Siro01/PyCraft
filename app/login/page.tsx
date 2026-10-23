@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { setLocalUser, clearAmulets, clearAllProgress } from '@/lib/storage/local-store'
 import { PixelDust } from '@/components/ui/PixelFX'
@@ -36,8 +35,6 @@ const CELL_PX = 22
 const CELL_GAP = 2
 
 export default function LoginPage() {
-  const router = useRouter()
-
   // Local mode fields
   const [name, setName]       = useState('')
   const [role, setRole]       = useState<'student' | 'admin'>('student')
@@ -79,8 +76,12 @@ export default function LoginPage() {
     if (authError) {
       setError('Usuario o contraseña incorrectos.')
     } else {
-      router.push('/dashboard')
-      router.refresh()
+      // Carga COMPLETA, no router.push: el sync con la nube (cloud-sync) vive en
+      // memoria desde /login, donde no había nadie. Con navegación del cliente el
+      // alumno nuevo jugaba sobre el progreso local del anterior (sus diamantes,
+      // nivel y stickers) y lo que hacía se mezclaba en la cuenta del otro.
+      window.location.href = '/dashboard'
+      return
     }
     setLoading(false)
   }
