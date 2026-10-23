@@ -88,7 +88,7 @@ export function AmuletCard({ type, onClick, disabled, compact = false, footer, s
       )}
       <span
         style={{
-          fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase',
+          fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase',
           borderTop: '2px solid hsl(var(--tx))', padding: '3px 8px', color: 'hsl(var(--tx3))',
           display: 'flex', justifyContent: 'space-between', gap: 6,
         }}

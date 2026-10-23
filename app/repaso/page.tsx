@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import Header from '@/components/layout/Header'
+import ProgramShell from '@/components/ui/ProgramShell'
 import RepasoHub from '@/components/game/repaso/RepasoHub'
 import { isLocalMode } from '@/lib/local-mode'
 import { REPASO_BOSS_IDS } from '@/lib/game/repasos'
@@ -28,8 +29,10 @@ export default async function RepasoHubPage({ searchParams }: PageProps) {
   return (
     <div className="min-h-screen desk-theme">
       <Header />
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        <RepasoHub ids={ids} actKey={acto} />
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        <ProgramShell>
+          <RepasoHub ids={ids} actKey={acto} />
+        </ProgramShell>
       </main>
     </div>
   )

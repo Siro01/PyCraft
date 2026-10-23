@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { PixelBitmap, ICON_ARROW_RIGHT } from '@/components/game/architect/desktop/PixelBitmap'
 import { sfx } from '@/lib/game/architect/sound'
+import RodolfoImg from '@/components/game/RodolfoImg'
 
 const vt = 'var(--font-vt323), monospace'
 const jersey = 'var(--font-jersey), monospace'
@@ -88,9 +89,8 @@ export default function RodolfoTalk({ lines, mood = 'talk', onReadAll }: Props) 
           </span>
         )}
       </button>
-      <img
+      <RodolfoImg
         key={gifKey}
-        src="/rodolfo/rodolfo.gif"
         width={112}
         height={112}
         alt=""

@@ -114,6 +114,29 @@ describe('una PC, varias cuentas', () => {
   })
 })
 
+describe('entrar desde /login', () => {
+  it('el "nadie" de /login no queda guardado: el alumno que entra carga lo suyo', async () => {
+    // A jugó en esta PC; se fue y la página /login arranca sin sesión.
+    store.set('pysql:owner', 'A')
+    store.set('pysql:shop-owned', JSON.stringify([buy('item-daga', '2026-10-08T10:00:00Z')]))
+    cloud.user = null
+    cloud.rows.B = { shop: [buy('item-pato', '2026-10-09T10:00:00Z')] }
+
+    const { sync, local } = await freshModules()
+    sync.syncOnLoad()
+    await wait(100)
+
+    // Entra B en la misma página (mismo módulo en memoria).
+    cloud.user = 'B'
+    sync.syncOnLoad()
+    await wait(800)
+
+    expect(local.getShopOwned().map((o) => o.id)).toEqual(['item-pato'])
+    expect(store.get('pysql:owner')).toBe('B')
+    expect(shopOf('A')).toBeUndefined() // nada de B terminó en la cuenta de A
+  })
+})
+
 describe('red inestable', () => {
   it('si la carga falla, NO sube una lista vacía: reintenta y conserva lo de la nube', async () => {
     cloud.rows.A = { shop: [buy('item-daga', '2026-10-08T10:00:00Z')] }

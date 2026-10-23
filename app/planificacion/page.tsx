@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import Header from '@/components/layout/Header'
+import ProgramShell from '@/components/ui/ProgramShell'
 import PlanBook, { type AtaqueInfo } from '@/components/game/planificacion/PlanBook'
 import { CHALLENGES } from '@/lib/game/challenges'
 import { PLAN_CLASES } from '@/lib/game/planificacion'
@@ -45,7 +46,9 @@ export default async function PlanificacionPage({ searchParams }: PageProps) {
       <div hidden dangerouslySetInnerHTML={{ __html: CONTRACT }} />
       <Header />
       <main className="max-w-6xl mx-auto px-4 py-8">
-        <PlanBook initialPage={initialPage} ataques={ataques} />
+        <ProgramShell backHref="/admin" backLabel="Volver al panel">
+          <PlanBook initialPage={initialPage} ataques={ataques} />
+        </ProgramShell>
       </main>
     </div>
   )

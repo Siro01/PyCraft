@@ -72,7 +72,7 @@ export default function TestWindow({ ask, say }: Props) {
   }
 
   const copy = async (code: string) => {
-    try { await navigator.clipboard.writeText(code) } catch { window.prompt('Copiá:', code) }
+    try { await navigator.clipboard.writeText(code) } catch { say(`No se pudo copiar: dictá el código ${code}`, false); return }
     sfx.click()
     setCopied(code)
     setTimeout(() => setCopied(''), 1500)

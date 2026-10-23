@@ -41,6 +41,14 @@ const GROUPS: { title: string; items: Item[] }[] = [
     { name: 'meow', when: 'El gato del escritorio', play: () => sfx.meow() },
     { name: 'type', when: 'Tecleo (al escribir)', play: () => sfx.type() },
   ] },
+  { title: 'HALLOWEEN', items: [
+    { name: 'thunder', when: 'Trueno cercano (rayo de la semana de Halloween)', play: () => sfx.thunder(0.1) },
+    { name: 'thunder lejos', when: 'Trueno lejano', play: () => sfx.thunder(0.9) },
+    { name: 'bat', when: 'Cruza un murciélago', play: () => sfx.bat() },
+    { name: 'bruja', when: 'Clic en Rodolfo disfrazado de bruja', play: () => sfx.costume('bruja') },
+    { name: 'fantasma', when: 'Clic en Rodolfo disfrazado de fantasma', play: () => sfx.costume('fantasma') },
+    { name: 'vampiro', when: 'Clic en Rodolfo disfrazado de vampiro', play: () => sfx.costume('vampiro') },
+  ] },
 ]
 
 export default function SonidosPage() {

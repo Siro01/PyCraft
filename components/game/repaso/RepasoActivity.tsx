@@ -15,6 +15,7 @@ import FillEditor from './FillEditor'
 import PixelBurst from './PixelBurst'
 import { friendlyError } from '@/lib/game/friendly-error'
 import RodolfoTalk from './RodolfoTalk'
+import RodolfoImg from '@/components/game/RodolfoImg'
 
 const vt = 'var(--font-vt323), monospace'
 const jersey = 'var(--font-jersey), monospace'
@@ -271,7 +272,7 @@ export default function RepasoActivity({ repaso, boss, canFight }: Props) {
         <div className="repaso-done">
           <span className="repaso-confetti-anchor"><PixelBurst kind="confetti" /></span>
           <div className="repaso-done-stage">
-            <img src="/rodolfo/rodolfo.gif" width={104} height={104} alt="Rodolfo festejando" className="repaso-pig repaso-pig--happy repaso-done-pig" />
+            <RodolfoImg width={104} height={104} alt="Rodolfo festejando" className="repaso-pig repaso-pig--happy repaso-done-pig" />
             <PixelTitle text="LISTO!" scale={6} playKey="repaso-done" />
             <p style={{ fontFamily: vt, fontSize: 24, lineHeight: 1.2, color: 'hsl(var(--tx))', maxWidth: '44ch', textAlign: 'center', margin: 0 }}>
               {repaso.outro}
@@ -283,11 +284,11 @@ export default function RepasoActivity({ repaso, boss, canFight }: Props) {
             </ul>
             <div className="flex flex-wrap items-center justify-center gap-3" style={{ marginTop: 6, pointerEvents: doneReady ? 'auto' : 'none' }}>
               {canFight ? (
-                <Link href={`/battle/${boss.id}`} className="cta-btn cta-btn--primary" onClick={() => sfx.confirm()} style={{ fontSize: 14, padding: '11px 20px' }}>
+                <Link href={`/battle/${boss.id}`} className="cta-btn cta-btn--primary" onClick={() => sfx.confirm()} >
                   Pelear contra {boss.name}
                 </Link>
               ) : (
-                <Link href="/dashboard" className="cta-btn cta-btn--primary" onClick={() => sfx.confirm()} style={{ fontSize: 14, padding: '11px 20px' }}>
+                <Link href="/dashboard" className="cta-btn cta-btn--primary" onClick={() => sfx.confirm()} >
                   Volver al mapa
                 </Link>
               )}
@@ -356,7 +357,7 @@ export default function RepasoActivity({ repaso, boss, canFight }: Props) {
                   onClick={runFill}
                   disabled={running || solved}
                   className="cta-btn cta-btn--primary"
-                  style={{ fontSize: 13, padding: '9px 18px', cursor: running ? 'wait' : solved ? 'default' : 'pointer', opacity: solved ? 0.5 : 1 }}
+                  style={{ cursor: running ? 'wait' : solved ? 'default' : 'pointer', opacity: solved ? 0.5 : 1 }}
                 >
                   {running ? 'Ejecutando…' : 'Ejecutar'}
                 </button>
@@ -422,7 +423,7 @@ function TalkWork({ beat, running, shownOut, ran, onRun }: { beat: TalkBeat; run
               onClick={onRun}
               disabled={running}
               className={`cta-btn cta-btn--primary${!ran && !running ? ' repaso-run-hint' : ''}`}
-              style={{ fontSize: 13, padding: '9px 18px', cursor: running ? 'wait' : 'pointer' }}
+              style={{ cursor: running ? 'wait' : 'pointer' }}
             >
               {running ? 'Ejecutando…' : ran ? 'Ejecutar de nuevo' : 'Ejecutar'}
             </button>

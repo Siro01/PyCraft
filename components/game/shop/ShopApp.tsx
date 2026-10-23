@@ -1,5 +1,6 @@
 'use client'
 
+import ProgramShell from '@/components/ui/ProgramShell'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import AppWindow from '@/components/ui/AppWindow'
@@ -133,19 +134,12 @@ export default function ShopApp({ totalDefeated, username, battleNear = false, u
   if (!loaded) return null
 
   return (
-    <div
-      className="desk relative"
-      style={{
-        ...(ABYSS_PALETTE as React.CSSProperties),
-        border: '2px solid hsl(var(--tx))', background: 'hsl(var(--bg))',
-        backgroundImage: 'radial-gradient(hsl(var(--tx) / 0.14) 1px, transparent 1px)', backgroundSize: '14px 14px',
-        boxShadow: '6px 6px 0 hsl(var(--tx) / 0.18)',
-      }}
-    >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2.5 py-1" style={{ minHeight: 28, background: 'hsl(var(--surface))', borderBottom: '2px solid hsl(var(--tx))' }}>
-        <span style={{ fontFamily: jersey, fontSize: 18, letterSpacing: '0.08em', color: 'hsl(var(--tx))' }}>PYCRAFT OS</span>
+    <ProgramShell
+      style={ABYSS_PALETTE as React.CSSProperties}
+      bodyClassName=""
+      barStart={<>
         {adminView && (
-          <span className="label-mono" title="Los alumnos la ven recién después de derrotar al jefe 2" style={{ padding: '1px 6px', border: '2px solid hsl(var(--accent))', color: 'hsl(var(--accent))' }}>
+          <span className="desk-note" title="Los alumnos la ven recién después de derrotar al jefe 2">
             Vista docente
           </span>
         )}
@@ -160,7 +154,8 @@ export default function ShopApp({ totalDefeated, username, battleNear = false, u
             <span className="flex items-center gap-1">+150 <ShopGlyph glyph="crystal" size={10} color="hsl(var(--bg))" /></span>
           </button>
         )}
-        <span className="hidden sm:block" style={{ flex: 1 }} />
+      </>}
+      bar={<>
         <div className="flex items-center gap-1" title={`Nivel ${level} de ${PLAYGROUND_MAX_LEVEL} — jugá el patio de juegos para subir`}>
           <span className="label-mono" style={{ color: 'hsl(var(--tx3))' }}>NIVEL</span>
           <span style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--accent))' }}>{progressLoaded ? level : '…'}</span>
@@ -169,9 +164,8 @@ export default function ShopApp({ totalDefeated, username, battleNear = false, u
           <ShopGlyph glyph="crystal" size={13} color="hsl(var(--accent))" />
           <span className="tabular" style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--tx))' }}>{progressLoaded ? diamonds : '…'}</span>
         </div>
-        <Link href="/dashboard" className="label-mono" style={{ color: 'hsl(var(--tx2))' }}>← Volver al mapa</Link>
-      </div>
-
+      </>}
+    >
       {!unlocked ? (
         <div className="p-3">
           <AppWindow
@@ -237,6 +231,6 @@ export default function ShopApp({ totalDefeated, username, battleNear = false, u
         </AppWindow>
       </div>
       )}
-    </div>
+    </ProgramShell>
   )
 }

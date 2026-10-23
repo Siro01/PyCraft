@@ -1,5 +1,6 @@
 'use client'
 
+import Win from '@/components/ui/Win'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/layout/Header'
@@ -18,6 +19,7 @@ import {
   type BossProgress,
 } from '@/lib/storage/local-store'
 import type { ChallengeTier } from '@/types'
+import { useSysConfirm } from '@/components/ui/SysDialog'
 
 const TIERS: { value: ChallengeTier; label: string; desc: string }[] = [
   { value: 'junior',  label: 'JUNIOR',  desc: 'Ejercicios guiados, completá los huecos' },
@@ -62,8 +64,10 @@ export default function LocalDashboard() {
     setReady(true)
   }, [router])
 
-  const handleResetAll = () => {
-    if (!confirm('¿Resetear el progreso de TODOS los jefes?')) return
+  const [ask, confirmNode] = useSysConfirm()
+  const handleResetAll = async () => {
+    const ok = await ask({ title: 'RESETEAR.EXE', body: <>¿Borrar el progreso de <b>todos</b> los jefes en este navegador?</>, ok: 'Resetear', danger: true })
+    if (!ok) return
     clearAllProgress()
     setProgress({})
     setResetCount((c) => c + 1)
@@ -82,6 +86,7 @@ export default function LocalDashboard() {
 
   return (
     <div className="min-h-screen desk-theme">
+      {confirmNode}
       <Header username={user?.name} role={user?.role} />
 
       <BossMap
@@ -96,29 +101,18 @@ export default function LocalDashboard() {
         headerExtra={
           <div className="flex flex-col items-end gap-2 self-end">
             {/* Tier selector */}
-            <div className="flex gap-1">
+            <div className="flex" role="radiogroup" aria-label="Dificultad">
               {TIERS.map((t) => (
                 <button
                   key={t.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={tier === t.value}
                   onClick={() => handleTierChange(t.value)}
                   title={t.desc}
                   disabled={t.value === 'senior'}
-                  className="font-mono text-[10px] px-2 py-1 pixel-corners-sm border transition-all"
-                  style={{
-                    borderColor: tier === t.value
-                      ? t.value === 'junior'  ? 'hsl(var(--python))'
-                      : t.value === 'trainee' ? 'hsl(var(--accent))'
-                      : 'hsl(var(--danger))'
-                      : 'hsl(var(--border2))',
-                    color: tier === t.value
-                      ? t.value === 'junior'  ? 'hsl(var(--python))'
-                      : t.value === 'trainee' ? 'hsl(var(--accent))'
-                      : 'hsl(var(--danger))'
-                      : 'hsl(var(--tx3))',
-                    background: tier === t.value ? 'hsl(var(--surface2))' : 'transparent',
-                    opacity: t.value === 'senior' ? 0.4 : 1,
-                    cursor: t.value === 'senior' ? 'not-allowed' : 'pointer',
-                  }}
+                  className="aula-seg"
+                  style={t.value === 'senior' ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
                 >
                   {t.label}
                 </button>
@@ -126,48 +120,21 @@ export default function LocalDashboard() {
             </div>
 
             {user?.role === 'admin' && (
-              <button
-                onClick={handleResetAll}
-                className="font-mono text-[10px] px-2 py-1 pixel-corners-sm border transition-all"
-                style={{
-                  borderColor: 'hsl(var(--border2))',
-                  color: 'hsl(var(--tx3))',
-                  background: 'transparent',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'hsl(var(--danger) / 0.5)'
-                  e.currentTarget.style.color = 'hsl(var(--danger))'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'hsl(var(--border2))'
-                  e.currentTarget.style.color = 'hsl(var(--tx3))'
-                }}
-              >
+              <button type="button" onClick={handleResetAll} className="sys-danger-btn">
                 ↺ Resetear todo el progreso
               </button>
             )}
           </div>
         }
-        notice={
-          <div
-            className="mb-8 px-3 py-2 pixel-corners-sm border font-mono text-xs"
-            style={{
-              background: 'hsl(var(--surface2))',
-              borderColor: 'hsl(var(--border))',
-              color: 'hsl(var(--tx3))',
-            }}
-          >
-            <span style={{ color: 'hsl(var(--accent))' }}>◉ LOCAL</span>
-            {' '}— El progreso se guarda en este navegador. Si limpiás el storage se reinicia.
-          </div>
+        // Modo local: una etiqueta en la barra del escritorio, no una tira encima.
+        barNote={
+          <span className="desk-note" title="El progreso se guarda en este navegador. Si se borran los datos del navegador, se reinicia.">LOCAL</span>
         }
         emptyState={
-          <div className="mb-12 card p-6 text-center">
-            <div className="font-mono text-sm text-tx2">Ningún jefe habilitado.</div>
-            <div className="font-mono text-xs text-tx3 mt-1">
-              Iniciá sesión como Admin para habilitarlos.
-            </div>
-          </div>
+          <Win title="MAPA_DE_JEFES.EXE" active bodyStyle={{ padding: '18px 20px' }}>
+            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, lineHeight: 1.2, color: 'hsl(var(--tx))', margin: 0 }}>Ningún jefe habilitado.</p>
+            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: '6px 0 0' }}>Entrá como Admin para habilitarlos.</p>
+          </Win>
         }
       />
     </div>

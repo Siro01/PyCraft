@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import Win from '@/components/ui/Win'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/layout/Header'
@@ -17,6 +18,7 @@ import { AMULET_META } from '@/lib/game/amulets'
 import { IconCrystal, IconLock } from '@/components/ui/PixelIcons'
 import { LoadingScreen } from '@/components/ui/LoadingBar'
 import type { Boss, ChallengeTier, Amulet } from '@/types'
+import { useSysConfirm } from '@/components/ui/SysDialog'
 
 interface Props {
   boss: Boss
@@ -75,14 +77,16 @@ export default function LocalBattleView({ boss, victoryHref, practiceRequested =
     setArenaKey((k) => k + 1)
   }, [boss.id, boss.hpMax])
 
-  const handleSkipBoss = useCallback(() => {
+  const [ask, confirmNode] = useSysConfirm()
+  const handleSkipBoss = useCallback(async () => {
     const skipAmulet = amulets.find((a) => a.type === 'skip-boss')
     if (!skipAmulet) return
-    if (!confirm(`¿Usar Teletransportador para saltarte a ${boss.name}?`)) return
+    const ok = await ask({ title: 'TELETRANSPORTADOR', body: <>¿Usar el Teletransportador para saltarte a <b>{boss.name}</b>? El amuleto se gasta.</>, ok: 'Saltar' })
+    if (!ok) return
     saveBossProgress(boss.id, 0, true)
     removeAmulet(skipAmulet.id)
     router.push('/dashboard')
-  }, [amulets, boss.id, boss.name, router])
+  }, [amulets, boss.id, boss.name, router, ask])
 
   if (username === null) return <LoadingScreen label="Cargando batalla..." estimatedMs={1500} />
 
@@ -91,6 +95,7 @@ export default function LocalBattleView({ boss, victoryHref, practiceRequested =
 
   return (
     <div className="min-h-screen flex flex-col desk-theme">
+      {confirmNode}
       <Header username={username} role={role} />
 
       <main className="flex-1 mx-auto w-full px-4 py-5" style={{ maxWidth: 1180 }}>
@@ -99,18 +104,16 @@ export default function LocalBattleView({ boss, victoryHref, practiceRequested =
         {amuletNotice && <p className="arena-note" role="status" style={{ marginBottom: 12 }}>{amuletNotice}</p>}
 
         {challenges.length === 0 ? (
-          <div className="card p-10 text-center">
-            <div className="flex justify-center mb-3">
-              <IconLock size={32} color="hsl(var(--tx3))" />
+          <Win title="PROXIMAMENTE.EXE" active style={{ maxWidth: 520, margin: '0 auto' }} bodyStyle={{ padding: '18px 20px' }}>
+            <div className="flex items-start gap-4">
+              <IconLock size={32} color="hsl(var(--tx2))" />
+              <div>
+                <p style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 22, lineHeight: 1.1, color: 'hsl(var(--tx))', margin: 0 }}>Nivel {TIER_LABELS[tier]} — próximamente</p>
+                <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: '6px 0 0' }}>Los desafíos de este nivel están en construcción. Probá con JUNIOR o TRAINEE.</p>
+              </div>
             </div>
-            <div className="font-mono text-sm font-bold text-tx mb-2">
-              Nivel {TIER_LABELS[tier]} — Próximamente
-            </div>
-            <p className="font-mono text-xs max-w-xs mx-auto" style={{ color: 'hsl(var(--tx3))' }}>
-              Los desafíos para este nivel están en construcción. Probá con JUNIOR o TRAINEE.
-            </p>
-            <a href="/dashboard" className="btn-primary mt-6 inline-block">← Volver al mapa</a>
-          </div>
+            <a href="/dashboard" className="cta-btn cta-btn--primary" style={{ marginTop: 16 }}>← Volver al mapa</a>
+          </Win>
         ) : (
           <CombatArena
             key={`${arenaKey}-${practice ? 'p' : 'n'}`}

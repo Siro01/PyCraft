@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { setLocalUser, clearAmulets, clearAllProgress } from '@/lib/storage/local-store'
 import { PixelDust } from '@/components/ui/PixelFX'
@@ -36,8 +35,6 @@ const CELL_PX = 22
 const CELL_GAP = 2
 
 export default function LoginPage() {
-  const router = useRouter()
-
   // Local mode fields
   const [name, setName]       = useState('')
   const [role, setRole]       = useState<'student' | 'admin'>('student')
@@ -79,8 +76,12 @@ export default function LoginPage() {
     if (authError) {
       setError('Usuario o contraseña incorrectos.')
     } else {
-      router.push('/dashboard')
-      router.refresh()
+      // Carga COMPLETA, no router.push: el sync con la nube (cloud-sync) vive en
+      // memoria desde /login, donde no había nadie. Con navegación del cliente el
+      // alumno nuevo jugaba sobre el progreso local del anterior (sus diamantes,
+      // nivel y stickers) y lo que hacía se mezclaba en la cuenta del otro.
+      window.location.href = '/dashboard'
+      return
     }
     setLoading(false)
   }
@@ -126,8 +127,8 @@ export default function LoginPage() {
       {/* Grilla de píxeles — mismo patrón que el hero de la landing */}
       <div aria-hidden="true" style={{
         position: 'absolute', inset: 0,
-        backgroundImage: 'linear-gradient(hsl(var(--border) / 0.6) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border) / 0.6) 1px, transparent 1px)',
-        backgroundSize: '28px 28px',
+        backgroundImage: 'radial-gradient(hsl(var(--tx) / 0.15) 1px, transparent 1px)',
+        backgroundSize: '14px 14px',
         pointerEvents: 'none',
       }} />
 
@@ -185,7 +186,7 @@ export default function LoginPage() {
             <span style={{ color: 'hsl(var(--tx3))' }}>= </span>
             <span style={{ color: 'hsl(var(--accent))' }}>BOSSRUSH</span>
           </div>
-          <div className="prompt" style={{ fontFamily: "'Courier New', monospace", fontSize: '11px', letterSpacing: '0.1em' }}>
+          <div className="prompt" style={{ fontFamily: "'Courier New', monospace", fontSize: '12px', letterSpacing: '0.1em' }}>
             <span style={{ color: 'hsl(var(--tx3))' }}>
               {LOCAL_MODE ? 'local_mode' : 'awaiting_player'}
             </span>{' '}
@@ -248,7 +249,7 @@ export default function LoginPage() {
                     onClick={() => setRole(r)}
                     style={{
                       flex: 1, padding: '8px 0',
-                      fontFamily: "'Courier New', monospace", fontSize: '11px',
+                      fontFamily: "'Courier New', monospace", fontSize: '12px',
                       letterSpacing: '0.06em',
                       border: `2px solid ${role === r ? 'hsl(var(--accent))' : 'hsl(var(--border2))'}`,
                       background: role === r ? 'hsl(var(--accent) / 0.12)' : 'hsl(var(--surface))',
@@ -383,7 +384,7 @@ export default function LoginPage() {
             className="font-mono"
             style={{
               display: 'block', margin: '20px auto 0', background: 'none', border: 'none',
-              cursor: 'pointer', fontSize: '11px', color: 'hsl(var(--tx3))', textDecoration: 'underline',
+              cursor: 'pointer', fontSize: '12px', color: 'hsl(var(--tx3))', textDecoration: 'underline',
             }}
           >
             {testMode ? '← Volver al inicio de sesión' : 'Tengo un código de prueba'}
@@ -400,16 +401,16 @@ export default function LoginPage() {
           {[
             { label: 'Python',   color: 'hsl(var(--python))' },
             { label: 'SQL',      color: 'hsl(var(--sql))' },
-            { label: 'BOSS-14',  color: 'hsl(38 92% 60%)' },
+            { label: 'BOSS-14',  color: 'hsl(var(--accent))' },
           ].map(({ label, color }) => (
             <span key={label} className="font-mono" style={{
-              fontSize: '10px', color, letterSpacing: '0.08em', opacity: 0.7,
+              fontSize: '12px', color, letterSpacing: '0.08em', opacity: 0.7,
             }}>
               {label}
             </span>
           ))}
         </div>
-        <p className="font-mono" style={{ marginTop: 14, textAlign: 'center', fontSize: 11, color: 'hsl(var(--tx3))' }}>
+        <p className="font-mono" style={{ marginTop: 14, textAlign: 'center', fontSize: 12, color: 'hsl(var(--tx3))' }}>
           <Link href="/privacidad" style={{ textDecoration: 'underline', padding: '6px 4px' }}>Privacidad</Link>
           {' · '}
           <Link href="/cookies" style={{ textDecoration: 'underline', padding: '6px 4px' }}>Cookies</Link>

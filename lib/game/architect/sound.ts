@@ -48,7 +48,7 @@ function tone(freq: number, dur: number, type: OscillatorType, vol: number, opts
   osc.stop(t0 + dur + 0.02)
 }
 
-function noise(dur: number, vol: number, opts: { at?: number; highpass?: number } = {}) {
+function noise(dur: number, vol: number, opts: { at?: number; highpass?: number; lowpass?: number } = {}) {
   const c = audio()
   if (!c) return
   if (!noiseBuf) {
@@ -59,6 +59,7 @@ function noise(dur: number, vol: number, opts: { at?: number; highpass?: number 
   const t0 = c.currentTime + (opts.at ?? 0)
   const src = c.createBufferSource()
   src.buffer = noiseBuf
+  src.loop = dur > 1 // el buffer dura 1 s: los ruidos largos (truenos) lo repiten
   const gain = c.createGain()
   gain.gain.setValueAtTime(vol, t0)
   gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
@@ -69,6 +70,13 @@ function noise(dur: number, vol: number, opts: { at?: number; highpass?: number 
     hp.frequency.value = opts.highpass
     src.connect(hp)
     node = hp
+  }
+  if (opts.lowpass) {
+    const lp = c.createBiquadFilter()
+    lp.type = 'lowpass'
+    lp.frequency.value = opts.lowpass
+    node.connect(lp)
+    node = lp
   }
   node.connect(gain).connect(c.destination)
   src.start(t0)
@@ -432,5 +440,35 @@ export const sfx = {
         break
     }
     if (secret) [1319, 1661, 1976, 2637].forEach((f, i) => tone(f, 0.1, 'triangle', 0.035, { at: 0.18 + i * 0.07 }))
+  },
+
+  // ── Halloween ──
+  /** Trueno: chasquido + retumbe grave que rueda. `far` (0–1) lo hace más lejano y suave. */
+  thunder(far = 0.5) {
+    const v = 0.11 - far * 0.05
+    if (far < 0.6) noise(0.22, v * 0.7, { highpass: 1400 })
+    noise(1.6, v, { lowpass: 240, at: 0.04 })
+    noise(1.2, v * 0.8, { lowpass: 140, at: 0.35 + Math.random() * 0.2 })
+    noise(2.2, v * 0.6, { lowpass: 90, at: 0.7 + Math.random() * 0.3 })
+    tone(jitter(48, 6), 1.4, 'sine', v * 0.5, { at: 0.06, to: 32 })
+  },
+  /** Murciélago que cruza: dos chillidos agudos y bajitos. */
+  bat() {
+    tone(jitter(3100, 300), 0.04, 'sine', 0.012, { to: 3900 })
+    tone(jitter(3300, 300), 0.04, 'sine', 0.01, { at: 0.09, to: 4100 })
+  },
+  /** Clic en Rodolfo disfrazado: cada disfraz con su sonido. */
+  costume(kind: 'bruja' | 'fantasma' | 'vampiro') {
+    if (kind === 'bruja') {
+      ;[1319, 1568, 2093, 2637].forEach((f, i) => tone(f, 0.08, 'triangle', 0.035, { at: i * 0.05 }))
+      tone(392, 0.25, 'square', 0.02, { at: 0.22, to: 330 })
+    } else if (kind === 'fantasma') {
+      tone(330, 0.45, 'sine', 0.05, { to: 523 })
+      tone(523, 0.6, 'sine', 0.045, { at: 0.4, to: 262 })
+    } else {
+      tone(196, 0.12, 'square', 0.035, { to: 147 })
+      tone(jitter(2900, 200), 0.05, 'sine', 0.015, { at: 0.16, to: 3700 })
+      tone(jitter(3100, 200), 0.05, 'sine', 0.013, { at: 0.25, to: 3900 })
+    }
   },
 }

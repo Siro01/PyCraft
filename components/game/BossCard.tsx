@@ -39,7 +39,7 @@ export default function BossCard({ boss, hpCurrent, isEnabled = false, isDefeate
       right={
         <span
           style={{
-            fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', marginRight: 2,
+            fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', marginRight: 2,
             color: playable ? 'hsl(var(--bg))' : 'hsl(var(--tx2))',
             background: playable ? 'transparent' : 'hsl(var(--surface))', padding: playable ? 0 : '1px 5px',
           }}

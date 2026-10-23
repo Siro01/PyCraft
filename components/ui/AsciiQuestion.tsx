@@ -15,7 +15,7 @@ interface Props {
 }
 
 /** Signo de pregunta hecho de caracteres ASCII — el "rostro" del jefe final antes de revelarse. */
-export default function AsciiQuestion({ size = 10, color = '#F59E0B', className = '' }: Props) {
+export default function AsciiQuestion({ size = 10, color = 'currentColor', className = '' }: Props) {
   return (
     <pre
       role="img"

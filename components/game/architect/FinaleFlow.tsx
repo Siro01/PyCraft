@@ -61,7 +61,7 @@ const QUESTIONS: Question[] = [
 
 const jersey = 'var(--font-jersey), "Courier New", monospace'
 const vt = 'var(--font-vt323), monospace'
-const monoLabel: React.CSSProperties = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--tx3))' }
+const monoLabel: React.CSSProperties = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--tx3))' }
 
 function PixelButton({ children, onClick, filled = false, disabled = false }: {
   children: React.ReactNode; onClick: () => void; filled?: boolean; disabled?: boolean

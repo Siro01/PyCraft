@@ -64,6 +64,7 @@ PLAN-SQL.md
 PLAN-ARENA.md
 PLAN-ARENA-2V2.md
 PLAN-MANUAL-MARCA.md
+PROMPT-PYCRAFT-GAMIFICACION.md
 
 # Manual de marca: el PDF y las capturas se regeneran con
 # scripts/export-manual.mjs y scripts/capture-manual-shots.mjs

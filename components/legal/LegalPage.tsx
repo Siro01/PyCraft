@@ -24,7 +24,7 @@ export default function LegalPage({ file, title, intro, children }: { file: stri
             <PixelBitmap rows={CHEST_CLOSED} scale={2} />
             <span><span style={{ color: 'hsl(var(--python))' }}>PY</span>CRAFT BOSSRUSH</span>
           </Link>
-          <Link href="/" style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'hsl(var(--tx2))', padding: '8px 0' }}>Volver</Link>
+          <Link href="/" style={{ fontFamily: "'Courier New', monospace", fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--tx2))', padding: '8px 0' }}>Volver</Link>
         </div>
       </header>
 
@@ -32,7 +32,7 @@ export default function LegalPage({ file, title, intro, children }: { file: stri
         <Win active title={file} bodyStyle={{ padding: '24px 22px 32px' }} style={{ boxShadow: '6px 6px 0 hsl(var(--tx) / 0.2)' }}>
           <h1 style={{ fontSize: 'clamp(2rem, 5vw, 2.9rem)', lineHeight: 1, color: 'hsl(var(--tx))', margin: 0 }}>{title}</h1>
           <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 22, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: '12px 0 0' }}>{intro}</p>
-          <p className="font-mono" style={{ fontSize: 11, color: 'hsl(var(--tx3))', letterSpacing: '0.08em', margin: '10px 0 0' }}>Última actualización: {SITE.legalUpdated}</p>
+          <p className="font-mono" style={{ fontSize: 12, color: 'hsl(var(--tx3))', letterSpacing: '0.08em', margin: '10px 0 0' }}>Última actualización: {SITE.legalUpdated}</p>
           {children}
         </Win>
       </main>

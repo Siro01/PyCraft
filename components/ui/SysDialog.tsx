@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import Win from '@/components/ui/Win'
 import { sfx } from '@/lib/game/architect/sound'
 
-// Diálogo del sistema del escritorio docente: reemplaza confirm(), alert() y
+// Diálogo del sistema de PyCraft OS (docente y alumno): reemplaza confirm(), alert() y
 // el modal gris. Misma ventana `Win` que los errores del cofre — barra
 // sólida (en peligro para lo que borra), VT323 adentro y botones Jersey.
 
@@ -78,7 +78,7 @@ export default function SysDialog({ title, tone = 'normal', onClose, width = 380
 
 interface AskOptions { title: string; body: ReactNode; ok: string; cancel?: string; danger?: boolean }
 
-/** `await ask({...})` en lugar de confirm(): devuelve true si el docente aceptó. */
+/** `await ask({...})` en lugar de confirm(): devuelve true si se aceptó. */
 export function useSysConfirm() {
   const [pending, setPending] = useState<(AskOptions & { resolve: (v: boolean) => void }) | null>(null)
   const ask = (o: AskOptions) => new Promise<boolean>((resolve) => setPending({ ...o, resolve }))

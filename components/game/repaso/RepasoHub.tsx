@@ -66,9 +66,6 @@ export default function RepasoHub({ ids, actKey }: Props) {
             <p style={{ fontFamily: vt, fontSize: 21, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: '8px 0 0', maxWidth: '46ch' }}>
               Repasos cortitos para ponerte al día antes de cada jefe. Rodolfo explica, vos completás el código y lo ejecutás de verdad.
             </p>
-            <Link href="/dashboard" className="repaso-ghost-btn" style={{ marginTop: 14, alignSelf: 'flex-start' }} onClick={() => sfx.close()}>
-              Volver al mapa
-            </Link>
           </div>
         </div>
       </Win>

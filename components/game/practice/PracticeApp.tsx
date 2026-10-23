@@ -1,7 +1,7 @@
 'use client'
 
+import ProgramShell from '@/components/ui/ProgramShell'
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import Link from 'next/link'
 import AppWindow from '@/components/ui/AppWindow'
 import { LoadingBar } from '@/components/ui/LoadingBar'
 import CodeMirrorEditor from '@/components/game/CodeMirrorEditor'
@@ -15,8 +15,8 @@ import {
 import ZoomControl from '@/components/game/ZoomControl'
 import StickerLayer from '@/components/game/stickers/StickerLayer'
 import { ConsoleAsk, ConsoleOutput, usePythonInput } from '@/components/game/PyConsoleInput'
+import { useSysConfirm } from '@/components/ui/SysDialog'
 
-const jersey = 'var(--font-jersey), monospace'
 const ACCENT = '#DC143C'
 
 const STARTER_CODE = `# ¡Este es tu patio de prácticas! Escribí lo que quieras y apretá ▶ Ejecutar.
@@ -122,7 +122,7 @@ export default function PracticeApp() {
   }
 
   // Motor de Python (Pyodide): se precarga apenas se abre la página y se
-  // sondea igual que en CodeEditor.tsx — es una descarga de varios MB la
+  // sondea igual que en la batalla (CombatArena) — es una descarga de varios MB la
   // primera vez, así que el botón de ejecutar queda deshabilitado hasta que
   // esté listo.
   useEffect(() => {
@@ -165,8 +165,10 @@ export default function PracticeApp() {
     }
   }
 
-  const handleReset = () => {
-    if (!confirm('¿Volver el código al ejemplo inicial? Se pierde lo que escribiste.')) return
+  const [askConfirm, confirmNode] = useSysConfirm()
+  const handleReset = async () => {
+    const ok = await askConfirm({ title: 'REINICIAR.EXE', body: <>¿Volver el código al ejemplo inicial? Se borra lo que escribiste.</>, ok: 'Reiniciar', danger: true })
+    if (!ok) return
     sfx.trash()
     setCode(STARTER_CODE)
     savePracticeCode(STARTER_CODE)
@@ -176,16 +178,8 @@ export default function PracticeApp() {
   if (!loaded) return null
 
   return (
-    <div className="desk relative" style={{ border: '2px solid hsl(var(--tx))', background: 'hsl(var(--bg))', backgroundImage: 'radial-gradient(hsl(var(--tx) / 0.18) 1px, transparent 1px)', backgroundSize: '14px 14px', boxShadow: '6px 6px 0 hsl(var(--tx) / 0.18)' }}>
-      <StickerLayer surface="practice" />
-      <div className="flex items-center gap-3 px-2.5" style={{ height: 28, background: 'hsl(var(--surface))', borderBottom: '2px solid hsl(var(--tx))' }}>
-        <span style={{ fontFamily: jersey, fontSize: 18, letterSpacing: '0.08em', color: 'hsl(var(--tx))' }}>PYCRAFT OS</span>
-        <span style={{ flex: 1 }} />
-        <ZoomControl zoom={zoom} onChange={handleZoom} />
-        <Link href="/dashboard" className="label-mono" style={{ color: 'hsl(var(--tx2))' }}>← Volver al mapa</Link>
-      </div>
-
-      <div className="p-3">
+    <ProgramShell layers={<StickerLayer surface="practice" />} bar={<ZoomControl zoom={zoom} onChange={handleZoom} />}>
+      {confirmNode}
         <AppWindow
           title="PATIO_DE_PRACTICAS.EXE"
           icon={<PixelBitmap rows={ICON_TERMINAL} scale={2} ink="hsl(var(--bg))" />}
@@ -298,7 +292,6 @@ export default function PracticeApp() {
             </div>
           </div>
         </AppWindow>
-      </div>
-    </div>
+    </ProgramShell>
   )
 }

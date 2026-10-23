@@ -30,12 +30,15 @@ async function getUserId(): Promise<string | null> {
   try {
     const { createClient } = await import('@/lib/supabase/client')
     const { data } = await createClient().auth.getUser()
-    cachedUserId = data.user?.id ?? null
+    // Solo se recuerda una cuenta, nunca el "nadie": en /login todavía no hay
+    // sesión, y si quedaba guardado el null, el alumno que entraba después
+    // jugaba sin cargar lo suyo (veía y tocaba el progreso local del anterior).
+    if (data.user) cachedUserId = data.user.id
+    return data.user?.id ?? null
   } catch {
-    // Sin red no sabemos quién es: no se guarda el "nadie", se vuelve a preguntar.
+    // Sin red no sabemos quién es: se vuelve a preguntar.
     return null
   }
-  return cachedUserId
 }
 
 type Field = 'amulets' | 'playground' | 'finale' | 'finale_deco' | 'shop' | 'equipped_perks' | 'repasos'

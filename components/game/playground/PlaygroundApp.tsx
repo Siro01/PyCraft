@@ -1,7 +1,7 @@
 'use client'
 
+import ProgramShell from '@/components/ui/ProgramShell'
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import AppWindow from '@/components/ui/AppWindow'
 import { PixelBitmap, ICON_TERMINAL } from '@/components/game/architect/desktop/PixelBitmap'
 import { sfx } from '@/lib/game/architect/sound'
@@ -131,15 +131,7 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
   }
 
   return (
-    <div className="desk relative" style={{ border: '2px solid hsl(var(--tx))', background: 'hsl(var(--bg))', backgroundImage: 'radial-gradient(hsl(var(--tx) / 0.18) 1px, transparent 1px)', backgroundSize: '14px 14px', boxShadow: '6px 6px 0 hsl(var(--tx) / 0.18)' }}>
-      <div className="flex items-center gap-3 px-2.5" style={{ height: 28, background: 'hsl(var(--surface))', borderBottom: '2px solid hsl(var(--tx))' }}>
-        <span style={{ fontFamily: jersey, fontSize: 18, letterSpacing: '0.08em', color: 'hsl(var(--tx))' }}>PYCRAFT OS</span>
-        <span style={{ flex: 1 }} />
-        <ZoomControl zoom={zoom} onChange={handleZoom} />
-        <Link href="/dashboard" className="label-mono" style={{ color: 'hsl(var(--tx2))' }}>← Volver al mapa</Link>
-      </div>
-
-      <div className="p-3">
+    <ProgramShell bar={<ZoomControl zoom={zoom} onChange={handleZoom} />}>
         <AppWindow
           title="PATIO_DE_JUEGOS.EXE"
           icon={<PixelBitmap rows={ICON_TERMINAL} scale={2} ink="hsl(var(--bg))" />}
@@ -241,10 +233,9 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
           )}
           </div>
         </AppWindow>
-      </div>
 
       {cheerStreak !== null && <RodolfoCheer streak={cheerStreak} onDone={() => setCheerStreak(null)} />}
-    </div>
+    </ProgramShell>
   )
 }
 

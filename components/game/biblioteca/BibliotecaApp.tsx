@@ -15,8 +15,8 @@
  *   verdict, DESIGN.md, and every shipping raster carrying its provenance.
  */
 
+import ProgramShell from '@/components/ui/ProgramShell'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
 import AppWindow from '@/components/ui/AppWindow'
 import ZoomControl from '@/components/game/ZoomControl'
 import PixelTitle from '@/components/game/map/PixelTitle'
@@ -27,7 +27,8 @@ import { getActBooks } from '@/lib/game/biblioteca'
 import { getBibliotecaProgress, getTextZoom, setTextZoom, TEXT_ZOOM_DEFAULT, type BibliotecaProgress } from '@/lib/storage/local-store'
 import Bookshelf, { bookStats } from './Bookshelf'
 import BookSpread from './BookSpread'
-import { BookGlyph, Ico, ICO_LEFT } from './LibrarySprites'
+import { BookGlyph } from './LibrarySprites'
+import RodolfoImg from '@/components/game/RodolfoImg'
 
 const jersey = 'var(--font-jersey), monospace'
 const vt = 'var(--font-vt323), monospace'
@@ -196,26 +197,7 @@ export default function BibliotecaApp({ actKey: initialAct, initialBook, initial
   const flyingBook = flight ? books[flight.idx] : null
 
   return (
-    <div
-      className="desk relative lib-desk"
-      style={{
-        ...palette,
-        border: '2px solid hsl(var(--tx))',
-        background: 'hsl(var(--bg))',
-        backgroundImage: 'radial-gradient(hsl(var(--tx) / 0.16) 1px, transparent 1px)',
-        backgroundSize: '14px 14px',
-        boxShadow: '6px 6px 0 hsl(var(--tx) / 0.18)',
-        color: 'hsl(var(--tx))',
-      }}
-    >
-      <div className="flex items-center gap-3 px-2.5" style={{ height: 28, background: 'hsl(var(--surface))', borderBottom: '2px solid hsl(var(--tx))' }}>
-        <span className="hidden sm:inline" style={{ fontFamily: jersey, fontSize: 18, letterSpacing: '0.08em', color: 'hsl(var(--tx))' }}>PYCRAFT OS</span>
-        <span style={{ flex: 1 }} />
-        <ZoomControl zoom={zoom} onChange={handleZoom} />
-        <Link href="/dashboard" className="label-mono" style={{ color: 'hsl(var(--tx2))', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ico rows={ICO_LEFT} scale={1} /> Volver al mapa</Link>
-      </div>
-
-      <div className="p-3">
+    <ProgramShell className="lib-desk" style={palette} bar={<ZoomControl zoom={zoom} onChange={handleZoom} />}>
         <AppWindow
           title={openedBook ? `${openedBook.spine.toUpperCase().replace(/[^A-Z0-9ÁÉÍÓÚÑ]+/g, '_').replace(/^_+|_+$/g, '')}.LIBRO` : 'BIBLIOTECA.EXE'}
           icon={<PixelBitmap rows={ICON_BOOK} scale={2} ink="hsl(var(--bg))" />}
@@ -242,7 +224,7 @@ export default function BibliotecaApp({ actKey: initialAct, initialBook, initial
                       <span className="lib-note-name">Rodolfo, bibliotecario</span>
                       {librarianLine}
                     </p>
-                    <img src="/rodolfo/rodolfo.gif" width={124} height={124} alt="" className="lib-librarian-pig" />
+                    <RodolfoImg width={124} height={124} alt="" className="lib-librarian-pig" />
                   </div>
                 </header>
                 <nav className="lib-acts" aria-label="Estantes de cada acto">
@@ -296,7 +278,6 @@ export default function BibliotecaApp({ actKey: initialAct, initialBook, initial
             )}
           </div>
         </AppWindow>
-      </div>
-    </div>
+    </ProgramShell>
   )
 }
