@@ -1,5 +1,6 @@
 'use client'
 
+import { useSysConfirm } from '@/components/ui/SysDialog'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import type { Database } from 'sql.js'
@@ -66,7 +67,7 @@ export default function ReinoApp() {
   const [result, setResult] = useState<{ run: ReinoRun; code: string; notice?: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [blocksOpen, setBlocksOpen] = useState(false)
-  const [confirmReset, setConfirmReset] = useState(false)
+  const [ask, confirmNode] = useSysConfirm()
 
   // Armar el reino: registro → (trofeos que falten) → sql.js.
   useEffect(() => {
@@ -122,7 +123,6 @@ export default function ReinoApp() {
 
   const reset = useCallback(async () => {
     if (!entries) return
-    setConfirmReset(false)
     // El reinicio es una marca: lo anterior queda guardado (lo ve el docente).
     // Los trofeos se ganaron peleando: vuelven solos.
     const trophies = (await defeatedBosses()).sort((a, b) => a.classNumber - b.classNumber)
@@ -168,7 +168,7 @@ export default function ReinoApp() {
       <Win
         title="MI_REINO.DB"
         active
-        right={<span className="hidden sm:inline" style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.1em', color: 'hsl(var(--bg))' }}>{SYNC_LABEL[sync]}</span>}
+        right={<span className="hidden sm:inline" style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.1em', color: 'hsl(var(--bg))' }}>{SYNC_LABEL[sync]}</span>}
         bodyStyle={{ padding: 16 }}
       >
         <h1 style={{ fontFamily: jersey, fontSize: 28, lineHeight: 1, margin: 0, color: 'hsl(var(--tx))' }}>Tu reino</h1>
@@ -224,22 +224,24 @@ export default function ReinoApp() {
                 <IconGrid size={12} color="currentColor" /> Armar con bloques
               </button>
             )}
-            <span className="hidden sm:inline" style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.1em', color: 'hsl(var(--bg))' }}>Ctrl+Enter para ejecutar</span>
+            <span className="hidden sm:inline" style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.1em', color: 'hsl(var(--bg))' }}>Ctrl+Enter para ejecutar</span>
           </>
         }
       >
         <CodeMirrorEditor value={code} onChange={setCode} language="sql" onCtrlEnter={run} accentColor="#38BDF8" />
       </Win>
 
-      <button
-        type="button"
-        className="btn-primary w-full justify-center active:scale-95 transition-transform duration-75"
-        style={{ fontSize: 20, padding: '10px 16px' }}
-        onClick={run}
-        disabled={busy || !code.trim()}
-      >
-        Ejecutar
-      </button>
+      <div>
+        <button
+          type="button"
+          className="cta-btn cta-btn--primary"
+          onClick={run}
+          disabled={busy || !code.trim()}
+          title={code.trim() ? 'Ejecutar (Ctrl+Enter)' : 'Escribí una orden SQL para ejecutar'}
+        >
+          ▶ Ejecutar
+        </button>
+      </div>
 
       {r && result && (
         <Win
@@ -272,21 +274,20 @@ export default function ReinoApp() {
 
       {/* Lo de menos uso, abajo y en voz baja */}
       <div className="flex flex-wrap items-center gap-3 mt-2">
-        <button type="button" className="btn-ghost" onClick={download} disabled={tables.length === 0}>
+        <button type="button" className="sys-tool" onClick={download} disabled={tables.length === 0}>
           Descargar mi reino (.db)
         </button>
-        {!confirmReset ? (
-          <button type="button" className="btn-ghost" onClick={() => setConfirmReset(true)}>
-            Reiniciar mi reino
-          </button>
-        ) : (
-          <div className="flex flex-wrap items-center gap-2 reino-confirm" role="alertdialog" aria-label="Confirmar reinicio">
-            <span style={{ fontFamily: vt, fontSize: 20, color: 'hsl(var(--tx))' }}>Tus tablas se borran (los trofeos vuelven). ¿Seguro?</span>
-            <button type="button" className="btn-primary" onClick={reset}>Sí, reiniciar</button>
-            <button type="button" className="btn-ghost" onClick={() => setConfirmReset(false)}>Cancelar</button>
-          </div>
-        )}
+        <button
+          type="button"
+          className="sys-danger-btn"
+          onClick={async () => {
+            if (await ask({ title: 'REINICIAR_REINO.EXE', body: <>Tus tablas se borran y los trofeos vuelven solos. Lo que escribiste antes queda guardado para tu docente.</>, ok: 'Reiniciar', danger: true })) reset()
+          }}
+        >
+          Reiniciar mi reino
+        </button>
       </div>
+      {confirmNode}
     </div>
   )
 }

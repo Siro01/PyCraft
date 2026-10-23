@@ -1,4 +1,5 @@
 'use client'
+import RodolfoImg from '@/components/game/RodolfoImg'
 
 interface Props {
   message: string
@@ -33,8 +34,7 @@ export default function RodolfoMapWarning({ message, onClose }: Props) {
         </div>
       </div>
 
-      <img
-        src="/rodolfo/rodolfo.gif"
+      <RodolfoImg
         width={88}
         height={88}
         alt="Rodolfo, el cerdito guía"

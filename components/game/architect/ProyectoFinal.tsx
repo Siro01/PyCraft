@@ -303,7 +303,7 @@ function ResultTable({ cols, rows }: { cols: string[]; rows: (string | number | 
 
 const jersey = 'var(--font-jersey), monospace'
 const vt = 'var(--font-vt323), monospace'
-const monoLabel: CSSProperties = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--tx3))' }
+const monoLabel: CSSProperties = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--tx3))' }
 
 // ── Main component ───────────────────────────────────────────────────────────
 
@@ -1015,7 +1015,7 @@ export default function ProyectoFinal() {
               onClick={() => void execute()}
               disabled={running || !ready}
               className="cta-btn cta-btn--primary"
-              style={{ fontSize: 13, padding: '9px 16px', 
+              style={{ padding: '9px 16px', 
                 
                 cursor: running ? 'wait' : 'pointer',
                 opacity: running || !ready ? 0.55 : 1,
@@ -1067,7 +1067,7 @@ export default function ProyectoFinal() {
           type="button"
           onClick={() => { if (downloaded) setCrash(true); else setConfirmFight(true) }}
           className="cta-btn cta-btn--primary"
-          style={{ fontSize: 13, padding: '9px 16px',  cursor: 'pointer', color: 'hsl(var(--bg))' }}
+          style={{ padding: '9px 16px',  cursor: 'pointer', color: 'hsl(var(--bg))' }}
         >
           Enfrentar al Arquitecto
         </button>
@@ -1202,7 +1202,7 @@ export default function ProyectoFinal() {
                   type="button"
                   onClick={runTakeover}
                   className="cta-btn cta-btn--primary"
-                  style={{ fontSize: 13, padding: '9px 16px',  alignSelf: 'flex-start', cursor: 'pointer', color: 'hsl(var(--bg))' }}
+                  style={{ padding: '9px 16px',  alignSelf: 'flex-start', cursor: 'pointer', color: 'hsl(var(--bg))' }}
                 >
                   Seguir
                 </button>

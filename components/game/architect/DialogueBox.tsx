@@ -51,7 +51,7 @@ export default function DialogueBox({
       }}
     >
       <div
-        className="absolute font-mono text-[11px] font-bold tracking-widest px-2 py-0.5"
+        className="absolute font-mono text-xs font-bold tracking-widest px-2 py-0.5"
         style={{ top: -14, left: 14, background: accent, color: '#000', zIndex: 1 }}
       >
         {speaker}

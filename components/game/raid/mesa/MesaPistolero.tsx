@@ -14,6 +14,7 @@ import type { RaidEvent } from '@/lib/game/raid/live'
 import type { BoardState, BoardTask, CatalogEntry } from '@/lib/game/raid/types'
 import type { ChallengeTier } from '@/types'
 import { demoBackend, liveBackend, type MesaBackend } from './backend'
+import { useSysConfirm } from '@/components/ui/SysDialog'
 
 // La Mesa del Pistolero: la pantalla del docente durante el evento, pensada
 // para decidir rápido aunque lleguen varios envíos juntos.
@@ -50,6 +51,7 @@ export default function MesaPistolero({ aulas, initialAulaId, mode }: Props) {
   const [, setNow] = useState(0)
   const [notice, setNotice] = useState<string | null>(null)
   const [soundOn, setSoundOn] = useState(false)
+  const [ask, confirmNode] = useSysConfirm()
 
   // Silencio de la Mesa: solo en esta pantalla y en esta PC (no toca a los alumnos)
   useEffect(() => {
@@ -226,7 +228,7 @@ export default function MesaPistolero({ aulas, initialAulaId, mode }: Props) {
   const matching = queue.filter((t) => t.autoOk)
   const approveMatching = async () => {
     if (busy || !matching.length) return
-    if (!confirm(`¿Aprobar los ${matching.length} envíos cuya salida coincide con la esperada?`)) return
+    if (!await ask({ title: 'APROBAR.EXE', body: <>¿Aprobar los {matching.length} envíos cuya salida coincide con la esperada?</>, ok: 'Aprobar' })) return
     for (const t of matching) {
       const res = await act({ action: 'judge', taskId: t.id, ok: true })
       if (!res) break
@@ -244,6 +246,7 @@ export default function MesaPistolero({ aulas, initialAulaId, mode }: Props) {
 
   return (
     <div className="mesa">
+      {confirmNode}
       <header className="mesa-top">
         <div className="mesa-title"><WesternText text="Mesa del Pistolero" px={2} />{mode === 'demo' && <span className="mesa-tag">ENSAYO</span>}</div>
         <select className="mesa-select" value={aulaId} onChange={(e) => { setBoard(null); setAulaId(e.target.value) }} aria-label="Aula">
@@ -283,11 +286,11 @@ export default function MesaPistolero({ aulas, initialAulaId, mode }: Props) {
           {status === 'active' && (
             <>
               <button type="button" className="mesa-btn mesa-btn-warn" disabled={busy}
-                onClick={() => { if (confirm('¿Se acabó el tiempo? Gana el Pistolero y nadie pierde nada.')) void act({ action: 'end', raidId: raid!.id }) }}>
+                onClick={async () => { if (await ask({ title: 'SE_ACABO.EXE', body: <>¿Se acabó el tiempo? Gana el Pistolero y nadie pierde nada.</>, ok: 'Se acabó' })) void act({ action: 'end', raidId: raid!.id }) }}>
                 SE ACABÓ EL TIEMPO
               </button>
               <button type="button" className="mesa-btn mesa-btn-quiet" disabled={busy}
-                onClick={() => { if (confirm('¿Cancelar el duelo? No se reparte nada.')) void act({ action: 'cancel', raidId: raid!.id }) }}>cancelar</button>
+                onClick={async () => { if (await ask({ title: 'CANCELAR_DUELO.EXE', body: <>¿Cancelar el duelo? No se reparte nada.</>, ok: 'Cancelar duelo', cancel: 'Seguir', danger: true })) void act({ action: 'cancel', raidId: raid!.id }) }}>cancelar</button>
             </>
           )}
         </div>

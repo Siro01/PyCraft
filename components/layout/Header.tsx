@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { sfx, isMuted, setMuted } from '@/lib/game/architect/sound'
 import { isLocalMode } from '@/lib/local-mode'
-import { clearLocalUser } from '@/lib/storage/local-store'
+import { clearLocalUser, getLocalUser } from '@/lib/storage/local-store'
 
 interface HeaderProps {
   username?: string
@@ -16,8 +16,32 @@ const jersey = 'var(--font-jersey), monospace'
 
 // Barra de menú del escritorio del alumno. "RUSH" sigue siendo el interruptor
 // escondido de tema (BN → rojo → blanco), igual que el botón BN/RD/WH.
-export default function Header({ username, role }: HeaderProps) {
+export default function Header({ username: usernameProp, role: roleProp }: HeaderProps) {
   const pathname = usePathname()
+
+  // Las páginas que no le pasan el usuario (patios, Biblioteca, Escuelita,
+  // reino…) igual muestran quién está jugando y "Salir": se busca acá.
+  const [who, setWho] = useState<{ username?: string; role?: string }>({})
+  useEffect(() => {
+    if (usernameProp) return
+    let alive = true
+    if (isLocalMode()) {
+      const u = getLocalUser()
+      if (u) setWho({ username: u.name, role: u.role })
+      return
+    }
+    ;(async () => {
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || !alive) return
+      const { data } = await supabase.from('profiles').select('username, role').eq('id', user.id).single()
+      if (alive && data) setWho({ username: data.username as string, role: data.role as string })
+    })().catch(() => {})
+    return () => { alive = false }
+  }, [usernameProp])
+  const username = usernameProp ?? who.username
+  const role = roleProp ?? who.role
   const THEMES = ['dark', 'red', 'light'] as const
   type Theme = typeof THEMES[number]
   const [theme, setTheme] = useState<Theme>('dark')
@@ -115,7 +139,7 @@ export default function Header({ username, role }: HeaderProps) {
             aria-pressed={!muted}
             title={muted ? 'Sonido apagado — clic para activar' : 'Sonido activado — clic para silenciar'}
             style={{
-              fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.16em', padding: '7px 10px', cursor: 'pointer',
+              fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.12em', padding: '7px 10px', cursor: 'pointer',
               background: 'transparent', color: muted ? 'hsl(var(--tx3))' : 'hsl(var(--tx2))', border: '2px solid hsl(var(--border2))',
               textDecoration: muted ? 'line-through' : 'none',
             }}
@@ -128,7 +152,7 @@ export default function Header({ username, role }: HeaderProps) {
             title={`Tema actual: ${theme} — clic para cambiar`}
             data-sfx="none"
             style={{
-              fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.16em', padding: '7px 10px', cursor: 'pointer',
+              fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.12em', padding: '7px 10px', cursor: 'pointer',
               background: 'transparent', color: 'hsl(var(--tx2))', border: '2px solid hsl(var(--border2))',
             }}
           >

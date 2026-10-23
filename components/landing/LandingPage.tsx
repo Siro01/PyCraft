@@ -18,7 +18,7 @@ import PycraftOS from '@/components/landing/PycraftOS'
 import { sfx } from '@/lib/game/architect/sound'
 import SiteFooter from '@/components/layout/SiteFooter'
 import HeroSparks from '@/components/landing/HeroSparks'
-import { PixelBitmap, CHEST_CLOSED, ICON_ARROW_DOWN, ICON_PIG, STICKER_BITMAPS } from '@/components/game/architect/desktop/PixelBitmap'
+import { PixelBitmap, CHEST_CLOSED, ICON_ARROW_DOWN, ICON_PIG, ICON_CLOSE, ICON_MAXIMIZE, ICON_MINIMIZE, STICKER_BITMAPS } from '@/components/game/architect/desktop/PixelBitmap'
 import Win from '@/components/ui/Win'
 import type { Boss } from '@/types'
 
@@ -44,10 +44,10 @@ function Typewriter({ text, delay = 0, onDone }: { text: string; delay?: number;
 // Las 4 mecánicas del juego — mismos datos que antes, ahora tipados para
 // alimentar tanto el ImageAccordion (desktop) como el grid táctil (mobile).
 const MECHANICS: AccordionPanel[] = [
-  { id: 'mercader', Icon: IconWizard, title: 'Mercader Ambulante', color: '#FFB800', desc: 'Cada 2 jefes derrotados aparece el Mercader Ambulante y te ofrece un amuleto especial para las próximas batallas.' },
+  { id: 'mercader', Icon: IconWizard, title: 'Mercader Ambulante', color: 'hsl(var(--accent))', desc: 'Cada 2 jefes derrotados aparece el Mercader Ambulante y te ofrece un amuleto especial para las próximas batallas.' },
   { id: 'debilidad', Icon: IconSkull, title: 'Amuleto de Debilidad', color: 'hsl(var(--danger))', desc: 'El próximo jefe empieza con el 60% de vida. Estrategia pura.' },
   { id: 'pocion', Icon: IconPotion, title: 'Poción de Vida', color: 'hsl(var(--python))', desc: 'Restaurá tu barra de vida cuando las cosas se pongan difíciles. (TRAINEE)' },
-  { id: 'teletransportador', Icon: IconCrystal, title: 'Teletransportador', color: '#FFB800', desc: 'Saltate un jefe a elección. ¿Problema con los bucles? Saltá y volvé después.' },
+  { id: 'teletransportador', Icon: IconCrystal, title: 'Teletransportador', color: 'hsl(var(--accent))', desc: 'Saltate un jefe a elección. ¿Problema con los bucles? Saltá y volvé después.' },
 ]
 
 const CODE_LINES = [
@@ -160,16 +160,11 @@ function CodeTerminal({ visible }: { visible: boolean }) {
         minHeight: 160,
       }}
     >
-      {/* Barra de la ventana: luces cuadradas con brillo pixel */}
+      {/* Barra de la ventana: título a la izquierda y los botones del sistema a la derecha, como toda AppWindow */}
       <div
         className="hatch flex items-center gap-3 px-3"
         style={{ height: 30, borderBottom: '2px solid hsl(var(--tx))' }}
       >
-        <div className="flex gap-1.5" aria-hidden="true">
-          <span className="pixel-light" style={{ ['--c' as string]: '#FF5F57', ['--d' as string]: '0s' } as React.CSSProperties} />
-          <span className="pixel-light" style={{ ['--c' as string]: '#FEBC2E', ['--d' as string]: '1.4s' } as React.CSSProperties} />
-          <span className="pixel-light" style={{ ['--c' as string]: '#28C840', ['--d' as string]: '2.8s' } as React.CSSProperties} />
-        </div>
         <span
           style={{
             fontFamily: 'var(--font-jersey), monospace', fontSize: 15, letterSpacing: '0.06em', lineHeight: 1,
@@ -177,6 +172,14 @@ function CodeTerminal({ visible }: { visible: boolean }) {
           }}
         >
           PYTHON_SQL.EXE
+        </span>
+        <span style={{ flex: 1 }} />
+        <span className="flex gap-1" aria-hidden="true">
+          {[ICON_MINIMIZE, ICON_MAXIMIZE, ICON_CLOSE].map((rows, i) => (
+            <span key={i} className="flex items-center justify-center" style={{ width: 20, height: 20, background: 'hsl(var(--surface))', border: '1px solid hsl(var(--tx))' }}>
+              <PixelBitmap rows={rows} scale={2} ink="hsl(var(--tx))" />
+            </span>
+          ))}
         </span>
       </div>
 
@@ -283,7 +286,7 @@ function BossCard({ boss }: { boss: Boss }) {
         <span style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, lineHeight: 1, textAlign: 'center', color: 'hsl(var(--tx))' }}>
           {isMystery ? '???' : boss.name}
         </span>
-        <span style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 8, letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1.3, textAlign: 'center', color: `hsl(var(${tone}))` }}>
+        <span style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1.3, textAlign: 'center', color: `hsl(var(${tone}))` }}>
           {isMystery ? 'Solo lo verás al llegar' : boss.topic.split('·')[0].trim()}
         </span>
       </div>
@@ -454,7 +457,7 @@ export default function LandingPage() {
             className="hidden sm:inline-block"
             data-sfx="none"
             style={{
-              fontFamily: 'var(--font-pixel), monospace', fontSize: 11, letterSpacing: '0.12em', padding: '6px 9px', cursor: 'pointer',
+              fontFamily: 'var(--font-pixel), monospace', fontSize: 12, letterSpacing: '0.12em', padding: '6px 9px', cursor: 'pointer',
               background: 'transparent', color: 'hsl(var(--tx2))', border: '2px solid hsl(var(--border2))',
             }}
           >
@@ -477,13 +480,13 @@ export default function LandingPage() {
         className="relative flex flex-col items-center justify-center text-center px-6 py-28 overflow-hidden"
         style={{ minHeight: '92vh' }}
       >
-        {/* Grilla de píxeles (mismo lenguaje que .nav-grid, no puntos circulares) */}
+        {/* Fondo de puntos: el mismo del escritorio de PyCraft OS */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             backgroundImage:
-              'linear-gradient(hsl(var(--border) / 0.6) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border) / 0.6) 1px, transparent 1px)',
-            backgroundSize: '28px 28px',
+              'radial-gradient(hsl(var(--tx) / 0.15) 1px, transparent 1px)',
+            backgroundSize: '14px 14px',
           }}
         />
         {/* Polvo de píxeles disperso */}
@@ -505,7 +508,7 @@ export default function LandingPage() {
         <div ref={heroReveal.ref} className="relative z-10 flex flex-col items-center">
           {/* Badge */}
           <div
-            className="pixel-corners-sm inline-flex items-center gap-2 px-3 py-1 border font-mono text-[11px] mb-8 uppercase tracking-widest"
+            className="pixel-corners-sm inline-flex items-center gap-2 px-3 py-1 border font-mono text-xs mb-8 uppercase tracking-widest"
             style={{
               borderColor: 'hsl(var(--accent) / 0.4)',
               color: 'hsl(var(--accent))',
@@ -615,7 +618,7 @@ export default function LandingPage() {
         {/* Scroll indicator */}
         <div
           className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
-          style={{ color: 'hsl(var(--tx3))', fontFamily: 'var(--font-pixel), monospace', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase' }}
+          style={{ color: 'hsl(var(--tx3))', fontFamily: 'var(--font-pixel), monospace', fontSize: 12, letterSpacing: '0.16em', textTransform: 'uppercase' }}
         >
           <span>scroll</span>
           <span className="animate-boss-idle"><PixelBitmap rows={ICON_ARROW_DOWN} scale={3} ink="currentColor" /></span>
@@ -760,7 +763,7 @@ export default function LandingPage() {
                   tone={label === 'SENIOR' ? 'danger' : 'normal'}
                   className="h-full"
                   right={badge ? (
-                    <span style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 8, letterSpacing: '0.1em', color: label === 'JUNIOR' ? 'hsl(var(--bg))' : 'hsl(var(--tx2))', background: label === 'JUNIOR' ? 'transparent' : 'hsl(var(--surface))', padding: '1px 5px' }}>
+                    <span style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 12, letterSpacing: '0.1em', color: label === 'JUNIOR' ? 'hsl(var(--bg))' : 'hsl(var(--tx2))', background: label === 'JUNIOR' ? 'transparent' : 'hsl(var(--surface))', padding: '1px 5px' }}>
                       {badge}
                     </span>
                   ) : undefined}
@@ -774,7 +777,7 @@ export default function LandingPage() {
                   </div>
                   <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: 0, flex: 1 }}>{desc}</p>
                   <div className="flex items-center gap-2" aria-label={`Desafío ${level} de 3`}>
-                    <span style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 9, letterSpacing: '0.12em', color: 'hsl(var(--tx3))' }}>RETO</span>
+                    <span style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 12, letterSpacing: '0.12em', color: 'hsl(var(--tx3))' }}>RETO</span>
                     <span className="flex gap-1" aria-hidden="true">
                       {[1, 2, 3].map(n => (
                         <span key={n} style={{ width: 22, height: 10, border: `2px solid hsl(var(${n <= level ? colorVar : '--border2'}))`, background: n <= level ? `hsl(var(${colorVar}))` : 'transparent' }} />
@@ -826,7 +829,7 @@ export default function LandingPage() {
               <div className="flex justify-center mb-5">
                 <AsciiQuestion size={18} color="hsl(var(--accent))" />
               </div>
-              <div style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 11, letterSpacing: '0.16em', color: 'hsl(var(--accent))', marginBottom: 14 }}>
+              <div style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 12, letterSpacing: '0.16em', color: 'hsl(var(--accent))', marginBottom: 14 }}>
                 ¿LISTO PARA EL DESAFÍO?
               </div>
               <h2 className="section-h2" style={{ marginBottom: 14 }}>

@@ -45,12 +45,12 @@ export default function ResetBossButton({ bossId, onDone, label = '↺ Reiniciar
         type="button"
         onClick={reset}
         disabled={busy}
-        className="font-mono text-[11px] px-2 py-1 pixel-corners-sm border"
-        style={{ borderColor: 'hsl(var(--accent) / 0.6)', color: 'hsl(var(--accent))', background: 'transparent', cursor: busy ? 'wait' : 'pointer' }}
+        className="sys-tool"
+        style={{ cursor: busy ? 'wait' : 'pointer' }}
       >
         {busy ? 'Reiniciando…' : label}
       </button>
-      {error && <span className="font-mono text-[11px]" style={{ color: 'hsl(var(--danger))' }}>{error}</span>}
+      {error && <span className="sys-sub" style={{ color: 'hsl(var(--danger))' }}>{error}</span>}
     </span>
   )
 }

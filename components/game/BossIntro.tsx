@@ -237,7 +237,7 @@ export default function BossIntro({ boss, lines, onDone, onOpenLesson, arena = f
             ))}
           </div>
           <span
-            className="font-mono text-[10px] tracking-widest"
+            className="font-mono text-xs tracking-widest"
             style={{ color: 'hsl(var(--tx3))' }}
           >
             {done ? (isLast ? 'Enter para combatir' : 'Enter para continuar') : 'Enter para saltar'}
@@ -251,15 +251,14 @@ export default function BossIntro({ boss, lines, onDone, onOpenLesson, arena = f
           <>
             <button
               onClick={onDone}
-              className="btn-primary text-sm px-6 py-2"
+              className="cta-btn cta-btn--primary"
             >
               ¡A combatir!
             </button>
             {onOpenLesson && (
               <button
                 onClick={onOpenLesson}
-                className="text-sm px-5 py-2"
-                style={{ fontFamily: 'var(--font-jersey), monospace', letterSpacing: '0.04em', border: '2px solid hsl(var(--tx))', background: 'transparent', color: 'hsl(var(--tx))', cursor: 'pointer' }}
+                className="sys-tool"
               >
                 Ver ejemplos paso a paso
               </button>
@@ -268,7 +267,7 @@ export default function BossIntro({ boss, lines, onDone, onOpenLesson, arena = f
         ) : (
           <button
             onClick={skipOrAdvance}
-            style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 16, letterSpacing: '0.04em', padding: '6px 16px', border: '2px solid hsl(var(--tx))', background: 'transparent', color: 'hsl(var(--tx))', cursor: 'pointer' }}
+            className="sys-tool"
           >
             {done ? 'Siguiente' : 'Saltar intro'}
           </button>
@@ -276,7 +275,7 @@ export default function BossIntro({ boss, lines, onDone, onOpenLesson, arena = f
         {!(isLast && done) && (
           <button
             onClick={onDone}
-            className="font-mono text-[11px] text-tx3 hover:text-tx2 transition-colors"
+            className="label-mono program-back"
           >
             Ir al combate →
           </button>

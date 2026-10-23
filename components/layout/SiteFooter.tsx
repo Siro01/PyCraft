@@ -8,7 +8,7 @@ const linkStyle = { fontFamily: 'var(--font-vt323), monospace', fontSize: 18, co
 function Col({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1 min-w-[150px]">
-      <h2 style={{ fontFamily: pixel, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'hsl(var(--tx))', margin: '0 0 6px', fontWeight: 700 }}>{title}</h2>
+      <h2 style={{ fontFamily: pixel, fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'hsl(var(--tx))', margin: '0 0 6px', fontWeight: 700 }}>{title}</h2>
       {children}
     </div>
   )

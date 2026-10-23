@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { IconBulb } from '@/components/ui/PixelIcons'
 import { sfx } from '@/lib/game/architect/sound'
+import RodolfoImg from '@/components/game/RodolfoImg'
+import { useRodolfoCostume } from '@/lib/game/season'
 
 interface Props {
   tip?: string
@@ -21,6 +23,7 @@ export default function MascotGuide({ tip, variant = 'gif', onOpenLesson, alert 
   const [state, setState] = useState<MascotState>('peeking')
   const [wiggling, setWiggling] = useState(false)
   const [reactKey, setReactKey] = useState(0)
+  const costume = useRodolfoCostume()
 
   // Reset to peeking whenever the tip changes (new challenge)
   useEffect(() => {
@@ -44,6 +47,7 @@ export default function MascotGuide({ tip, variant = 'gif', onOpenLesson, alert 
 
   const handleClick = () => {
     if (state === 'peeking') {
+      if (costume && variant === 'gif') sfx.costume(costume)
       setState('open')
       setWiggling(true)
       setReactKey((k) => k + 1) // reinicia el GIF para que Rodolfo "reaccione" al clic
@@ -91,7 +95,7 @@ export default function MascotGuide({ tip, variant = 'gif', onOpenLesson, alert 
                   type="button"
                   onClick={openLesson}
                   className="cta-btn cta-btn--primary"
-                  style={{ fontSize: 12, padding: '6px 12px', 
+                  style={{ padding: '6px 12px', 
                     
                     cursor: 'pointer', 
                   }}
@@ -134,7 +138,8 @@ export default function MascotGuide({ tip, variant = 'gif', onOpenLesson, alert 
           border: 'none',
           padding: 0,
           cursor: 'pointer',
-          transform: state === 'peeking' ? 'translateX(65%)' : 'translateX(0)',
+          // el GIF de siempre asoma desde la derecha; los disfraces están centrados
+          transform: state === 'peeking' ? (costume && variant === 'gif' ? 'translateX(42%)' : 'translateX(65%)') : 'translateX(0)',
           transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
@@ -147,18 +152,16 @@ export default function MascotGuide({ tip, variant = 'gif', onOpenLesson, alert 
 
 function RodolfoGif({ reactKey }: { reactKey: number }) {
   return (
-    <img
+    <RodolfoImg
       key={reactKey}
-      src="/rodolfo/rodolfo.gif"
       width={104}
       height={104}
       alt="Rodolfo, el cerdito guía"
-      className="pixel-corners-sm"
       style={{
         imageRendering: 'pixelated',
         display: 'block',
-        border: '2px solid hsl(var(--accent) / 0.5)',
-        boxShadow: '0 4px 16px hsl(0 0% 0% / 0.35)',
+        border: '2px solid hsl(var(--tx))',
+        boxShadow: '4px 4px 0 hsl(var(--tx) / 0.22)',
       }}
     />
   )

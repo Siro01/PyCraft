@@ -30,14 +30,14 @@ export default function NotFound() {
             </div>
 
             <div className="flex flex-wrap gap-3" style={{ marginTop: 22 }}>
-              <Link href="/" className="cta-btn cta-btn--primary" style={{ fontSize: 12, padding: '10px 16px' }}>Volver al inicio</Link>
-              <Link href="/dashboard" className="cta-btn" style={{ fontSize: 12, padding: '10px 16px' }}>
+              <Link href="/" className="cta-btn cta-btn--primary">Volver al inicio</Link>
+              <Link href="/dashboard" className="cta-btn">
                 <PixelBitmap rows={ICON_FOLDER} scale={2} ink="currentColor" /> Mapa de jefes
               </Link>
             </div>
           </Win>
 
-          <p style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--tx3))', textAlign: 'center', marginTop: 20 }}>
+          <p style={{ fontFamily: "'Courier New', monospace", fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--tx3))', textAlign: 'center', marginTop: 20 }}>
             Código de error: 404_NOT_FOUND
           </p>
         </div>

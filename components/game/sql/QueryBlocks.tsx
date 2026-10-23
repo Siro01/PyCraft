@@ -431,7 +431,7 @@ export default function QueryBlocks({ initialCode = '', tables, onTry, onClose, 
       </div>
 
       <div className="flex items-center gap-3 flex-wrap mt-3">
-        <button type="button" className="btn-ghost" onClick={probar} disabled={!complete} title={complete ? undefined : 'Completá las fichas primero'}>
+        <button type="button" className="sys-tool" onClick={probar} disabled={!complete} title={complete ? undefined : 'Completá las fichas primero'}>
           Probar en la pizarra
         </button>
         <span style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 20, lineHeight: 1.1, color: 'hsl(var(--tx2))' }}>

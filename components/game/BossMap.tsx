@@ -1,5 +1,6 @@
 'use client'
 
+import ProgramShell from '@/components/ui/ProgramShell'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import AppWindow, { type WindowMode } from '@/components/ui/AppWindow'
 import { ICON_BRUSH, ICON_FILE, ICON_FOLDER, ICON_KEYS, ICON_RAID, ICON_SWORDS, ICON_TERMINAL, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
@@ -36,6 +37,8 @@ interface BossMapProps {
   totalDefeated: number
   headerExtra?: React.ReactNode
   notice?: React.ReactNode
+  /** Etiqueta chica pegada a "PYCRAFT OS" (el modo local). */
+  barNote?: React.ReactNode
   emptyState?: React.ReactNode
   testMode?: boolean
   /** El docente: tienda, patios y jefes (también los ya derrotados) le quedan abiertos para probarlos. */
@@ -50,13 +53,12 @@ interface BossMapProps {
 
 const PALETTE_LABEL: Record<MapTheme, string> = { light: 'BLANCO', dark: 'NEGRO', red: 'COLOR' }
 const jersey = 'var(--font-jersey), monospace'
-const DESK_MENU_H = 28
 
 type WinId = 'stats' | 'log' | 'controls' | 'inventory'
 interface WinState { mode: WindowMode; x: number; y: number; z: number }
 
 export default function BossMap({
-  bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, emptyState, testMode, isAdmin = false, avatar, repasoIds, arena,
+  bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, barNote, emptyState, testMode, isAdmin = false, avatar, repasoIds, arena,
 }: BossMapProps) {
   const firstAvailableId = useMemo(
     () => bosses.find((b) => enabledIds.has(b.id) && !progress[b.id]?.defeated)?.id,
@@ -211,31 +213,17 @@ export default function BossMap({
   return (
     <main className="max-w-6xl mx-auto px-4 py-8" style={styleVars}>
       {notice}
-
-      {enabledIds.size === 0 ? emptyState : (
-        // El mismo escritorio "PyCraft OS" del cofre y la landing: marco de
+      {enabledIds.size === 0 ? (
+        <ProgramShell back={false} barStart={barNote}>{emptyState}</ProgramShell>
+      ) : (
+        // El mismo escritorio "PyCraft OS" que todos los programas: marco de
         // 2px + sombra dura + fondo punteado, para que se note como una
-        // pantalla propia incluso en el tema blanco, donde antes se perdía
-        // contra el fondo de la página.
-        <div
-          className="desk relative"
-          style={{
-            border: '2px solid hsl(var(--tx))',
-            background: 'hsl(var(--bg))',
-            backgroundImage: 'radial-gradient(hsl(var(--tx) / 0.18) 1px, transparent 1px)',
-            backgroundSize: '14px 14px',
-            boxShadow: '6px 6px 0 hsl(var(--tx) / 0.18)',
-          }}
-        >
-          <StickerLayer surface="dashboard" decorate={decorating} />
-
-          {/* Menú superior — igual al de PycraftOS en la landing */}
-          <div
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2.5 py-1"
-            style={{ minHeight: DESK_MENU_H, background: 'hsl(var(--surface))', borderBottom: '2px solid hsl(var(--tx))' }}
-          >
-            <span style={{ fontFamily: jersey, fontSize: 18, letterSpacing: '0.08em', color: 'hsl(var(--tx))' }}>PYCRAFT OS</span>
-            <span className="hidden sm:block" style={{ flex: 1 }} />
+        // pantalla propia incluso en el tema blanco.
+        <ProgramShell
+          back={false}
+          layers={<StickerLayer surface="dashboard" decorate={decorating} />}
+          barStart={barNote}
+          bar={<>
             <div className="flex items-center gap-1" title={progressLoaded ? `Nivel ${level} — jugá el patio de juegos para subir` : 'Cargando tu progreso…'}>
               <span className="label-mono" style={{ color: 'hsl(var(--tx3))' }}>NIVEL</span>
               <span style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--accent))' }}>{progressLoaded ? level : '…'}</span>
@@ -244,9 +232,10 @@ export default function BossMap({
               <DiamondIcon size={13} />
               <span className="tabular" style={{ fontFamily: jersey, fontSize: 16, color: 'hsl(var(--tx))' }}>{progressLoaded ? diamonds : '…'}</span>
             </div>
-          </div>
-
-          <div className="p-3 flex flex-col" style={mapMode === 'minimized' ? { minHeight: 600 } : undefined}>
+          </>}
+          bodyClassName="p-3 flex flex-col"
+          bodyStyle={mapMode === 'minimized' ? { minHeight: 600 } : undefined}
+        >
             {/* Íconos para abrir cada ventana — reemplazan a los paneles que
                 antes estaban todos visibles a la vez. */}
             <div className="flex items-center gap-2 mb-1 flex-wrap" role="group" aria-label="Programas del escritorio">
@@ -535,9 +524,7 @@ export default function BossMap({
             <InventoryApp />
           </AppWindow>
 
-          </div>
-
-        </div>
+        </ProgramShell>
       )}
     </main>
   )

@@ -15,6 +15,7 @@ import { sfx } from '@/lib/game/architect/sound'
 import { BATTLE_ITEMS } from '@/lib/game/shop'
 import type { ItemUseResult } from '@/lib/game/perk-effects'
 import type { ShopItem } from '@/types'
+import RodolfoImg from '@/components/game/RodolfoImg'
 
 const vt = 'var(--font-vt323), monospace'
 const jersey = 'var(--font-jersey), monospace'
@@ -242,8 +243,7 @@ export default function InventoryConsole({ items, equipped, onUse, inBattle = tr
       >
         {rodolfo && (
           <div className="flex items-center gap-2.5 inv-note" style={{ margin: 0, border: 'none', borderBottom: '2px solid hsl(var(--border2))', padding: '6px 10px' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/rodolfo/rodolfo.gif" alt="" width={28} height={28} style={{ imageRendering: 'pixelated', flexShrink: 0 }} />
+            <RodolfoImg alt="" width={28} height={28} style={{ imageRendering: 'pixelated', flexShrink: 0 }} />
             <span className="flex-1" style={{ color: 'hsl(var(--tx))' }}>
               Tocá un ítem y apretá <b>Enter</b>: se usa con <code style={{ fontFamily: mono, fontSize: 14 }}>print(nombre)</code>, sin comillas. Mal escrito no se gasta.
             </span>
@@ -353,8 +353,7 @@ export default function InventoryConsole({ items, equipped, onUse, inBattle = tr
     >
       {rodolfo && !readOnly && (
         <div className="flex items-start gap-2.5 item-status-in" style={{ padding: '10px 10px 8px', borderBottom: '2px solid hsl(var(--border2))', background: 'hsl(var(--surface2))' }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/rodolfo/rodolfo.gif" alt="Rodolfo" width={44} height={44} style={{ imageRendering: 'pixelated', border: '2px solid hsl(var(--tx))', flexShrink: 0 }} />
+          <RodolfoImg alt="Rodolfo" width={44} height={44} style={{ imageRendering: 'pixelated', border: '2px solid hsl(var(--tx))', flexShrink: 0 }} />
           <div className="min-w-0 flex-1">
             <div style={{ fontFamily: jersey, fontSize: 15, letterSpacing: '0.06em', color: 'hsl(var(--tx))' }}>RODOLFO</div>
             <p style={{ fontFamily: vt, fontSize: 18, lineHeight: 1.15, color: 'hsl(var(--tx))' }}>
@@ -395,7 +394,7 @@ export default function InventoryConsole({ items, equipped, onUse, inBattle = tr
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline gap-2 flex-wrap">
                       <span style={{ fontFamily: jersey, fontSize: 15, color: 'hsl(var(--tx))', lineHeight: 1.1 }}>{item.name}</span>
-                      <span className="label-mono" style={{ fontSize: 10, color: isEq ? 'hsl(var(--accent))' : 'hsl(var(--tx3))' }}>
+                      <span className="label-mono" style={{ color: isEq ? 'hsl(var(--accent))' : 'hsl(var(--tx3))' }}>
                         {isEq ? '✓ Equipado' : KIND_LABEL[item.perkKind ?? 'consumable']}
                       </span>
                     </span>

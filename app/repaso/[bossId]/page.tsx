@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import Header from '@/components/layout/Header'
+import ProgramShell from '@/components/ui/ProgramShell'
 import Win from '@/components/ui/Win'
 import RepasoActivity from '@/components/game/repaso/RepasoActivity'
 import { isLocalMode } from '@/lib/local-mode'
@@ -46,17 +47,19 @@ export default async function RepasoPage({ params }: PageProps) {
   return (
     <div className="min-h-screen desk-theme">
       <Header />
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        {allowed ? (
-          <RepasoActivity repaso={repaso} boss={boss} canFight={canFight} />
-        ) : (
-          <Win title="ESCUELITA.EXE" active bodyStyle={{ padding: 24 }}>
-            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 22, color: 'hsl(var(--tx2))', margin: 0 }}>
-              Este repaso todavía no está habilitado. Si faltaste a esa clase, pedile a tu docente que te lo active.
-            </p>
-            <Link href="/repaso" className="repaso-ghost-btn" style={{ marginTop: 16, display: 'inline-flex' }}>Ver mis repasos</Link>
-          </Win>
-        )}
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        <ProgramShell backHref="/repaso" backLabel="Volver a la Escuelita">
+          {allowed ? (
+            <RepasoActivity repaso={repaso} boss={boss} canFight={canFight} />
+          ) : (
+            <Win title="ESCUELITA.EXE" active bodyStyle={{ padding: 24 }}>
+              <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 22, color: 'hsl(var(--tx2))', margin: 0 }}>
+                Este repaso todavía no está habilitado. Si faltaste a esa clase, pedile a tu docente que te lo active.
+              </p>
+              <Link href="/repaso" className="repaso-ghost-btn" style={{ marginTop: 16, display: 'inline-flex' }}>Ver mis repasos</Link>
+            </Win>
+          )}
+        </ProgramShell>
       </main>
     </div>
   )

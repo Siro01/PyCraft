@@ -151,7 +151,7 @@ export function ErrorBody({ win, onClose, onCloseAll, onDownload }: { win: ErrWi
             <div style={{ fontFamily: mono, fontSize: 20, lineHeight: 1.2, color: 'hsl(var(--tx))' }}>{win.text}</div>
           </div>
           {win.raw && (
-            <div style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 11, color: 'hsl(var(--danger))', wordBreak: 'break-word' }}>
+            <div style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, color: 'hsl(var(--danger))', wordBreak: 'break-word' }}>
               {win.raw}
             </div>
           )}
@@ -232,7 +232,7 @@ export function ErrorBody({ win, onClose, onCloseAll, onDownload }: { win: ErrWi
             <div className="take-fill" style={{ height: 14, background: 'hsl(var(--danger))' }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="animate-caret-line" style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 11, letterSpacing: '0.1em', color: 'hsl(var(--danger))' }}>ACCESO NO AUTORIZADO</span>
+            <span className="animate-caret-line" style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.1em', color: 'hsl(var(--danger))' }}>ACCESO NO AUTORIZADO</span>
             <OkButton label="Cancelar" onClick={onClose} quiet />
           </div>
         </div>
@@ -248,7 +248,7 @@ export function ErrorBody({ win, onClose, onCloseAll, onDownload }: { win: ErrWi
             type="button"
             onClick={onDownload}
             className="cta-btn cta-btn--primary animate-caret-line"
-            style={{ fontSize: 13, padding: '9px 16px',  cursor: 'pointer', color: 'hsl(var(--bg))' }}
+            style={{ padding: '9px 16px',  cursor: 'pointer', color: 'hsl(var(--bg))' }}
           >
             Descargar mi_inventario.sql
           </button>

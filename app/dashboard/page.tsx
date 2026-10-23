@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Win from '@/components/ui/Win'
 import { cookies } from 'next/headers'
 import { isLocalMode } from '@/lib/local-mode'
 import LocalDashboard from '@/components/game/LocalDashboard'
@@ -95,12 +96,12 @@ async function SupabaseDashboard() {
         arena={arena}
         headerExtra={tier && enabledTiers.length > 1 ? <TierSelector enabled={enabledTiers} current={tier} /> : undefined}
         emptyState={
-          <div className="mb-12 card p-6 text-center">
-            <div className="font-mono text-sm text-tx2">
+          <Win title="MAPA_DE_JEFES.EXE" active bodyStyle={{ padding: '18px 20px' }}>
+            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, lineHeight: 1.2, color: 'hsl(var(--tx))', margin: 0 }}>
               {tier ? 'Tu docente todavía no habilitó ningún jefe.' : 'Tu docente todavía no habilitó ninguna dificultad.'}
-            </div>
-            <div className="font-mono text-xs text-tx3 mt-1">Los jefes se habilitan clase a clase desde el panel admin.</div>
-          </div>
+            </p>
+            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: '6px 0 0' }}>Se habilitan clase a clase. ¡Ya falta poco!</p>
+          </Win>
         }
       />
       {isTest && <TestHud />}

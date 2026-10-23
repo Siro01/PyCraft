@@ -5,6 +5,8 @@ import { VT323, Silkscreen } from 'next/font/google'
 import PixelFXProvider from '@/components/ui/PixelFXProvider'
 import PistoleroWatcher from '@/components/game/raid/PistoleroWatcher'
 import CloudSyncBoot from '@/components/layout/CloudSyncBoot'
+import HalloweenLayer from '@/components/ui/HalloweenLayer'
+import { SEASON_BOOT_SCRIPT } from '@/lib/game/season-boot'
 import './globals.css'
 
 // Jersey 25 (OFL) servida desde el proyecto: no depende de Google Fonts en desarrollo
@@ -51,8 +53,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             `,
           }}
         />
+        {/* Temporada (Halloween): paleta fija antes de pintar */}
+        <script dangerouslySetInnerHTML={{ __html: SEASON_BOOT_SCRIPT }} />
       </head>
-      <body><PixelFXProvider>{children}</PixelFXProvider><UISounds /><PistoleroWatcher /><CloudSyncBoot /></body>
+      <body><PixelFXProvider>{children}</PixelFXProvider><UISounds /><PistoleroWatcher /><CloudSyncBoot /><HalloweenLayer /></body>
     </html>
   )
 }

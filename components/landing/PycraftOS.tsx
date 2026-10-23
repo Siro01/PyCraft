@@ -48,7 +48,7 @@ const PHASES: Phase[] = [
 
 const jersey = 'var(--font-jersey), monospace'
 const vt = 'var(--font-vt323), monospace'
-const monoLabel = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'hsl(var(--tx3))' }
+const monoLabel = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'hsl(var(--tx3))' }
 
 const BIN_MESSAGE =
   'Pedagógicamente cada parte está pensada para gamificar, acompañar y aprender con nuevas metodologías. Próximamente se suman más herramientas a la aventura que te acompaña en el aprendizaje.'

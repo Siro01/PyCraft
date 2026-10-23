@@ -12,7 +12,7 @@ import type { Lesson, LessonLang, LessonTable } from '@/lib/game/lessons'
 
 const vt = 'var(--font-vt323), monospace'
 const jersey = 'var(--font-jersey), monospace'
-const monoLabel = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'hsl(var(--tx3))' }
+const monoLabel = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'hsl(var(--tx3))' }
 
 // ── Colores de sintaxis mínimos, por tokens ──────────────────────────────────
 
@@ -245,7 +245,7 @@ export default function LessonWindow({ lesson, bossName, onClose }: Props) {
                     onClick={run}
                     disabled={running}
                     className="cta-btn cta-btn--primary"
-                    style={{ fontSize: 13, padding: '9px 16px', 
+                    style={{ padding: '9px 16px', 
                       
                       cursor: running ? 'wait' : 'pointer', opacity: running ? 0.6 : 1,
                     }}
@@ -295,7 +295,7 @@ export default function LessonWindow({ lesson, bossName, onClose }: Props) {
                   Anterior
                 </button>
                 {last ? (
-                  <button ref={nextRef} type="button" onClick={close} className="cta-btn cta-btn--primary" style={{ fontSize: 13, padding: '9px 16px',  cursor: 'pointer', color: 'hsl(var(--bg))' }}>
+                  <button ref={nextRef} type="button" onClick={close} className="cta-btn cta-btn--primary" style={{  cursor: 'pointer', color: 'hsl(var(--bg))' }}>
                     Volver al combate
                   </button>
                 ) : (

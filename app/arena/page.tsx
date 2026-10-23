@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
 import Header from '@/components/layout/Header'
+import ProgramShell from '@/components/ui/ProgramShell'
+import Win from '@/components/ui/Win'
 import ArenaApp from '@/components/game/arena/pvp/ArenaApp'
 import { isLocalMode } from '@/lib/local-mode'
 import { adminClient } from '@/lib/test-student/server'
@@ -13,16 +15,19 @@ export const dynamic = 'force-dynamic'
 // Jefe 3; el docente la puede cerrar por aula desde el panel. El docente entra
 // a cualquier aula (?aula=…) para mirar o para retar al alumno TEST.
 
+// Arena cerrada o sin cuenta del aula: una ventana del sistema dentro del
+// mismo marco que los demás programas, no una página suelta.
 function Closed({ title, body }: { title: string; body: string }) {
   return (
-    <div className="min-h-screen flex flex-col desk-theme">
+    <div className="min-h-screen desk-theme">
       <Header />
-      <main className="flex-1 mx-auto w-full px-4 py-10" style={{ maxWidth: 720 }}>
-        <header className="arena-top"><a href="/dashboard" className="arena-link">← mapa</a></header>
-        <div className="arena-end">
-          <div className="arena-end-title">{title}</div>
-          <p>{body}</p>
-        </div>
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        <ProgramShell bodyClassName="p-3 sm:p-10 flex justify-center">
+          <Win title="ARENA.EXE" active tone="danger" style={{ width: '100%', maxWidth: 520 }} bodyStyle={{ padding: '18px 20px' }}>
+            <div style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 34, lineHeight: 1, letterSpacing: '0.04em', color: 'hsl(var(--tx))' }}>{title}</div>
+            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: '10px 0 0' }}>{body}</p>
+          </Win>
+        </ProgramShell>
       </main>
     </div>
   )
@@ -69,7 +74,7 @@ export default async function ArenaPage({ searchParams }: { searchParams: Promis
       <Header username={me.username} role={me.isAdmin ? 'admin' : 'student'} />
       <main className="flex-1 mx-auto w-full px-4 py-5" style={{ maxWidth: 1180 }}>
         {me.isAdmin && aula?.arena_enabled === false && (
-          <p className="arena-note" style={{ marginBottom: 12 }}>Esta aula tiene la arena cerrada: los alumnos no pueden entrar. La podés abrir desde el panel admin → Aulas.</p>
+          <p className="arena-note" style={{ marginBottom: 12 }}>Esta aula tiene la arena cerrada: los alumnos no pueden entrar. La podés abrir desde el panel docente, en aulas.exe.</p>
         )}
         <ArenaApp
           me={{ id: me.id, username: me.username, isAdmin: me.isAdmin, isTest: me.isTest }}

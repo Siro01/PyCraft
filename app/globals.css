@@ -115,6 +115,32 @@ h1, h2, h3,
   --danger:   348 100% 55%;  /* #FF1744  vivid alert */
 }
 
+/* ── HALLOWEEN — paleta fija de temporada (lib/game/season.ts) ──
+   Tokens con !important: ganan a cualquier tema (incluido el oscuro del sistema,
+   que usa :not() y pesa más) y, al sacar el atributo, cada alumno vuelve al suyo.
+   Colores sacados de los disfraces de Rodolfo: calabaza, capa violeta, hueso. */
+html:root[data-season="halloween"] {
+  --bg:       262 33% 6% !important;    /* #0e0a14  noche */
+  --surface:  264 26% 10% !important;   /* #18121f */
+  --surface2: 265 24% 14% !important;
+  --border:   266 22% 19% !important;
+  --border2:  268 22% 32% !important;
+  --tx:       38 52% 90% !important;    /* #f3e9d6  hueso */
+  --tx2:      268 18% 72% !important;
+  --tx3:      268 14% 62% !important;
+  --accent:   24 100% 55% !important;   /* #ff7a1a  calabaza */
+  --on-accent: hsl(262 40% 6%) !important;
+  --accent2:  33 100% 67% !important;
+  --python:   92 68% 62% !important;    /* #9be15d  baba verde */
+  --sql:      266 100% 74% !important;  /* #b07cff  violeta bruja */
+  --danger:   354 100% 61% !important;  /* #ff3b4e  sangre de vampiro */
+  color-scheme: dark;
+}
+html:root[data-season="halloween"] .boss-color-el { filter: none; }
+html:root[data-season="halloween"] .btn-primary,
+html:root[data-season="halloween"] .login-btn,
+html:root[data-season="halloween"] .cta-btn--primary { color: var(--on-accent); }
+
 /* ─────────────────────────────────────────────
    BASE
    ───────────────────────────────────────────── */
@@ -726,7 +752,7 @@ input[type="number"], input[type="search"], textarea {
    mostrar sin cortarse. */
 .acc-title {
   font-family: var(--font-mono, monospace);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   white-space: nowrap;
@@ -751,7 +777,7 @@ input[type="number"], input[type="search"], textarea {
 }
 .acc-desc {
   font-family: var(--font-mono, monospace);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
   text-align: center;
   min-height: 0;
@@ -990,8 +1016,8 @@ input[type="number"], input[type="search"], textarea {
 .alu-rep-done { position: absolute; right: -5px; top: -5px; width: 10px; height: 10px; background: hsl(var(--accent)); border: 2px solid hsl(var(--bg)); }
 .alu-aviso { padding: 6px 10px; font-family: var(--font-vt323), monospace; font-size: 18px; line-height: 1.15; color: hsl(var(--danger)); border: 2px solid hsl(var(--danger)); background: hsl(var(--danger) / 0.08); }
 .alu-comp { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-top: 1px dashed hsl(var(--border2)); }
-.alu-undo { font-family: var(--font-vt323), monospace; font-size: 17px; line-height: 1; padding: 3px 8px; cursor: pointer; background: transparent; color: hsl(var(--tx2)); border: 2px solid hsl(var(--border2)); }
-.alu-undo:hover { color: hsl(var(--danger)); border-color: hsl(var(--danger)); }
+.alu-undo, .sys-danger-btn { font-family: var(--font-vt323), monospace; font-size: 17px; line-height: 1; padding: 3px 8px; cursor: pointer; background: transparent; color: hsl(var(--tx2)); border: 2px solid hsl(var(--border2)); }
+.alu-undo:hover, .sys-danger-btn:hover { color: hsl(var(--danger)); border-color: hsl(var(--danger)); }
 .desk-badge {
   position: absolute; top: -6px; right: -10px; min-width: 20px; height: 20px; padding: 0 3px;
   display: flex; align-items: center; justify-content: center;
@@ -1167,17 +1193,6 @@ button.sys-row:hover, .sys-row--hover:hover { background: hsl(var(--surface2)); 
 .cta-btn:active::after { animation: cta-flash 0.16s steps(2); }
 @keyframes cta-flash { 0% { opacity: 0.55; } 100% { opacity: 0; } }
 
-/* Luces de ventana cuadradas, con un brillo pixel muy leve */
-.pixel-light {
-  position: relative; display: inline-block; width: 12px; height: 12px; background: var(--c);
-  box-shadow: inset 2px 2px 0 rgb(255 255 255 / 0.36), inset -2px -2px 0 rgb(0 0 0 / 0.26);
-}
-.pixel-light::after {
-  content: ''; position: absolute; left: 2px; top: 2px; width: 2px; height: 2px; background: #fff; opacity: 0.85;
-  animation: light-glint 4.2s steps(1) infinite; animation-delay: var(--d, 0s);
-}
-@keyframes light-glint { 0%, 86% { opacity: 0.85; } 90% { opacity: 0.2; } 94% { opacity: 1; } 100% { opacity: 0.85; } }
-
 /* Título: se arma de arriba hacia abajo por bandas y parpadea al terminar */
 @keyframes title-build {
   0%   { clip-path: inset(0 0 100% 0); }
@@ -1204,7 +1219,7 @@ button.sys-row:hover, .sys-row--hover:hover { background: hsl(var(--surface2)); 
 /* Encabezados de sección de la landing */
 .section-tab {
   display: inline-block; margin-bottom: 14px; padding: 4px 10px;
-  font-family: var(--font-pixel), monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1;
+  font-family: var(--font-pixel), monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1;
   background: hsl(var(--tx)); color: hsl(var(--bg));
 }
 .section-h2 {
@@ -1221,7 +1236,7 @@ button.sys-row:hover, .sys-row--hover:hover { background: hsl(var(--surface2)); 
 .boss-mini:hover { transform: translate(-2px, -4px); border-color: hsl(var(--tx)); box-shadow: 5px 7px 0 hsl(var(--tx) / 0.2); }
 
 /* Acordeón de mecánicas: tipografías del escritorio */
-.acc-title { font-family: var(--font-pixel), monospace !important; font-size: 10px; }
+.acc-title { font-family: var(--font-pixel), monospace !important; font-size: 12px; }
 .acc-cell[data-open] .acc-title { font-size: 12px; }
 .acc-desc { font-family: var(--font-vt323), monospace !important; font-size: 18px !important; line-height: 1.15 !important; }
 
@@ -1243,7 +1258,7 @@ button.sys-row:hover, .sys-row--hover:hover { background: hsl(var(--surface2)); 
 .legal-note { border: 2px solid hsl(var(--accent)); padding: 12px 14px; background: hsl(var(--accent) / 0.08); color: hsl(var(--tx)); }
 .legal-table { width: 100%; border-collapse: collapse; font-size: 19px; }
 .legal-table th, .legal-table td { border: 2px solid hsl(var(--border2)); padding: 8px 10px; text-align: left; vertical-align: top; }
-.legal-table th { font-family: var(--font-pixel), monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: hsl(var(--tx)); background: hsl(var(--surface2)); }
+.legal-table th { font-family: 'Courier New', monospace; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: hsl(var(--tx)); background: hsl(var(--surface2)); }
 .legal-table td:first-child { color: hsl(var(--tx)); white-space: nowrap; }
 
 /* ─────────────────────────────────────────────
@@ -2874,7 +2889,6 @@ button.sys-row:hover, .sys-row--hover:hover { background: hsl(var(--surface2)); 
   margin: 6px 0; white-space: pre-wrap; word-break: break-word;
   font-family: var(--font-vt323), monospace; font-size: 22px; line-height: 1.15; color: hsl(var(--tx));
 }
-.reino-confirm { padding: 6px 10px; border: 2px solid hsl(var(--danger)); background: hsl(var(--surface)); }
 
 /* Primer desafío de una orden nueva: el botón de bloques invita con su texto y parpadea 3 veces al aparecer. */
 @keyframes blk-invite { 0%, 50% { opacity: 0.35; } 51%, 100% { opacity: 1; } }
@@ -3074,7 +3088,7 @@ button.sys-row:hover, .sys-row--hover:hover { background: hsl(var(--surface2)); 
 .arena-ok { color: hsl(var(--accent)); font-size: 20px; }
 .arena-bad { color: hsl(var(--danger)); font-size: 20px; }
 .arena-result { border-top: 1px dashed hsl(var(--border)); padding: 8px 10px 10px; }
-.arena-result h4 { margin: 8px 0 2px; font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: hsl(var(--tx3)); font-weight: 400; }
+.arena-result h4 { margin: 8px 0 2px; font-family: 'Courier New', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: hsl(var(--tx3)); font-weight: 400; }
 .arena-result h4:first-child { margin-top: 0; }
 .arena-out {
   margin: 0; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto;
@@ -3379,7 +3393,7 @@ button.lobby-row:disabled { cursor: not-allowed; opacity: 0.55; }
 .pist-pill {
   position: fixed; right: 16px; bottom: 16px; z-index: 70; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
   background: #0d0907; color: #EBC79E; border: 1px solid #FF5A36; padding: 8px 12px; cursor: pointer; text-align: left;
-  font-family: "Courier New", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.12em;
+  font-family: "Courier New", ui-monospace, monospace; font-size: 12px; letter-spacing: 0.12em;
   animation: pist-pill 1.6s ease-in-out infinite;
 }
 .pist-pill b { color: #FF5A36; font-size: 14px; letter-spacing: 0.04em; }
@@ -3392,12 +3406,12 @@ button.lobby-row:disabled { cursor: not-allowed; opacity: 0.55; }
 .pist-end-title { font-family: var(--font-jersey), monospace; font-size: clamp(30px, 4vw, 44px); line-height: 1; letter-spacing: 0.04em; color: #FF5A36; }
 .pist-end p { margin: 0; font-size: 22px; line-height: 1.2; color: hsl(var(--tx2)); max-width: 60ch; }
 .pist-loot { display: flex; align-items: center; gap: 14px; border: 1px solid #FFF1D0; padding: 10px 14px; font-family: "Courier New", monospace; font-size: 14px; color: #FFF1D0; }
-.pist-loot span { letter-spacing: 0.16em; text-transform: uppercase; font-size: 11px; color: #9C6A48; }
+.pist-loot span { letter-spacing: 0.16em; text-transform: uppercase; font-size: 12px; color: #9C6A48; }
 .pist-loot b { font-size: 18px; }
 .pist-wait { border: 1px dashed #9C6A48; padding: 14px 16px; }
 .pist-wait-title { font-family: var(--font-jersey), monospace; font-size: 28px; letter-spacing: 0.06em; color: #FFF1D0; }
 .pist-wait p { margin: 4px 0 8px; font-size: 22px; color: hsl(var(--tx2)); }
-.pist-wait h4 { margin: 8px 0 0; font-family: "Courier New", monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #9C6A48; font-weight: normal; }
+.pist-wait h4 { margin: 8px 0 0; font-family: "Courier New", monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #9C6A48; font-weight: normal; }
 .pist-wait .secret-out { border: 1px solid #3a2a20; }
 .pist-banner-msg { border: 1px solid #FF5A36; color: #FF5A36; padding: 6px 10px; font-family: "Courier New", monospace; font-size: 13px; letter-spacing: 0.06em; }
 .pist-freeze strong { color: #FF5A36; }
@@ -3418,7 +3432,7 @@ button.lobby-row:disabled { cursor: not-allowed; opacity: 0.55; }
 .pist-preview-bar button[aria-pressed="true"] { border-color: #FF5A36; color: #FF5A36; }
 .pist-preview-bar label { display: flex; align-items: center; gap: 4px; }
 .pist-hint { border: 1px solid #FF5A36; background: rgba(255, 90, 54, 0.08); color: #FFF1D0; padding: 8px 12px; font-size: 20px; line-height: 1.2; }
-.pist-hint span { font-family: "Courier New", monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #FF5A36; margin-right: 6px; }
+.pist-hint span { font-family: "Courier New", monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #FF5A36; margin-right: 6px; }
 
 /* ── Raids contra jefes secretos (components/game/raid/secret/*) ─────────────
    Misma arena oscura de los secretos (.secret-*); acá solo lo propio del equipo. */
@@ -3712,7 +3726,7 @@ button.lobby-row:disabled { cursor: not-allowed; opacity: 0.55; }
 .wanted-facts dt { font-family: 'Courier New', monospace; font-weight: bold; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; padding-top: 3px; color: #6B2A12; }
 .wanted-facts dd { margin: 0; }
 .wanted-reward { display: flex; align-items: center; gap: 10px; margin-top: 4px; padding-top: 8px; border-top: 2px solid #2A0E05; width: 100%; justify-content: center; }
-.wanted-reward small { display: block; font-family: 'Courier New', monospace; font-size: 11px; margin-top: 3px; }
+.wanted-reward small { display: block; font-family: 'Courier New', monospace; font-size: 12px; margin-top: 3px; }
 .wanted-reward-gem { display: flex; }
 .wanted-foot { margin: 2px 0 0; font-family: 'Courier New', monospace; font-weight: bold; font-size: 10.5px; letter-spacing: 0.08em; text-align: center; }
 .wanted-stamp {
@@ -3908,3 +3922,105 @@ button.lobby-row:disabled { cursor: not-allowed; opacity: 0.55; }
 .test-code:hover { border-style: solid; border-color: hsl(var(--tx)); }
 .test-code:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
 a.sys-tool { display: inline-block; text-decoration: none; }
+
+/* ── Marco de programa de PyCraft OS (ProgramShell) ── */
+.program-bar {
+  display: flex; flex-wrap: wrap; align-items: center; column-gap: 12px; row-gap: 4px;
+  min-height: 30px; padding: 3px 10px; background: hsl(var(--surface)); border-bottom: 2px solid hsl(var(--tx));
+}
+.program-brand { font-size: 18px; letter-spacing: 0.08em; line-height: 1; white-space: nowrap; color: hsl(var(--tx)); }
+.program-back { white-space: nowrap; padding: 2px 6px; color: hsl(var(--tx2)); text-decoration: none; }
+.program-back:hover, .program-back:focus-visible { background: hsl(var(--tx)); color: hsl(var(--bg)); }
+
+/* Etiqueta chica en la barra de un programa (modo local, vista docente) */
+.desk-note {
+  font-family: 'Courier New', monospace; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; line-height: 1;
+  padding: 2px 6px; color: hsl(var(--accent)); border: 2px solid hsl(var(--accent)); white-space: nowrap; cursor: help;
+}
+
+/* ── Tipografía del sistema (punto 3.6) ──
+   Dentro de PyCraft OS (.desk-theme o .desk: programas, login, 404, diálogos, cofre y final) el
+   botón grande habla en Jersey, como títulos y ventanas. Silkscreen queda
+   solo como la voz de la landing. */
+.desk-theme .cta-btn, .desk .cta-btn { font-family: var(--font-jersey), monospace; font-weight: 400; font-size: 20px; letter-spacing: 0.06em; padding: 12px 22px; }
+.desk-theme .lib-run-row .cta-btn, .desk .lib-run-row .cta-btn { padding: 10px 18px; }
+
+
+/* ─────────────────────────────────────────────
+   HALLOWEEN — decoración (components/ui/HalloweenLayer.tsx)
+   Sprites de public/halloween/, dibujados por scripts/sprites/halloween.py
+   ───────────────────────────────────────────── */
+html:root[data-season="halloween"] { --cursor-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='40' viewBox='0 0 13 20' shape-rendering='crispEdges'%3E%3Cpath fill='%23ff7a1a' d='M1 1h1v1h-1zM1 2h2v1h-2zM1 3h3v1h-3zM1 4h4v1h-4zM1 5h5v1h-5zM1 6h6v1h-6zM1 7h7v1h-7zM1 8h8v1h-8zM1 9h9v1h-9zM1 10h10v1h-10zM1 11h11v1h-11zM1 12h12v1h-12zM1 13h8v1h-8zM1 14h8v1h-8zM1 15h3v1h-3zM6 15h4v1h-4zM1 16h2v1h-2zM6 16h4v1h-4zM1 17h1v1h-1zM7 17h4v1h-4zM7 18h4v1h-4zM8 19h2v1h-2z'/%3E%3Cpath fill='%23f3e9d6' d='M1 2h1v1h-1zM1 3h2v1h-2zM1 4h3v1h-3zM1 5h4v1h-4zM1 6h5v1h-5zM1 7h6v1h-6zM1 8h7v1h-7zM1 9h8v1h-8zM1 10h9v1h-9zM1 11h6v1h-6zM1 12h3v1h-3zM5 12h2v1h-2zM1 13h2v1h-2zM5 13h2v1h-2zM1 14h1v1h-1zM6 14h2v1h-2zM6 15h2v1h-2zM7 16h2v1h-2zM7 17h2v1h-2z'/%3E%3Cpath fill='%230e0a14' d='M0 0h1v1h-1zM0 1h2v1h-2zM0 2h1v1h-1zM2 2h1v1h-1zM0 3h1v1h-1zM3 3h1v1h-1zM0 4h1v1h-1zM4 4h1v1h-1zM0 5h1v1h-1zM5 5h1v1h-1zM0 6h1v1h-1zM6 6h1v1h-1zM0 7h1v1h-1zM7 7h1v1h-1zM0 8h1v1h-1zM8 8h1v1h-1zM0 9h1v1h-1zM9 9h1v1h-1zM0 10h1v1h-1zM10 10h1v1h-1zM0 11h1v1h-1zM7 11h5v1h-5zM0 12h1v1h-1zM4 12h1v1h-1zM7 12h1v1h-1zM0 13h1v1h-1zM3 13h2v1h-2zM7 13h1v1h-1zM0 14h1v1h-1zM2 14h1v1h-1zM5 14h1v1h-1zM8 14h1v1h-1zM0 15h2v1h-2zM5 15h1v1h-1zM8 15h1v1h-1zM0 16h1v1h-1zM6 16h1v1h-1zM9 16h1v1h-1zM6 17h1v1h-1zM9 17h1v1h-1zM7 18h2v1h-2z'/%3E%3C/svg%3E") 0 0, default; --cursor-hand: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='34' viewBox='0 0 16 17' shape-rendering='crispEdges'%3E%3Cpath fill='%23ff7a1a' d='M5 1h2v1h-2zM4 2h4v1h-4zM4 3h4v1h-4zM4 4h4v1h-4zM4 5h6v1h-6zM4 6h9v1h-9zM1 7h2v1h-2zM4 7h11v1h-11zM1 8h15v1h-15zM2 9h14v1h-14zM2 10h14v1h-14zM3 11h12v1h-12zM3 12h12v1h-12zM4 13h10v1h-10zM4 14h10v1h-10zM5 15h8v1h-8zM5 16h8v1h-8z'/%3E%3Cpath fill='%23f3e9d6' d='M4 1h2v1h-2zM4 2h2v1h-2zM4 3h2v1h-2zM4 4h2v1h-2zM4 5h2v1h-2zM7 5h2v1h-2zM4 6h2v1h-2zM7 6h2v1h-2zM10 6h2v1h-2zM1 7h2v1h-2zM4 7h10v1h-10zM2 8h12v1h-12zM2 9h12v1h-12zM3 10h10v1h-10zM3 11h10v1h-10zM4 12h8v1h-8zM4 13h8v1h-8zM5 14h6v1h-6z'/%3E%3Cpath fill='%230e0a14' d='M4 0h2v1h-2zM3 1h1v1h-1zM6 1h1v1h-1zM3 2h1v1h-1zM6 2h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM3 4h1v1h-1zM6 4h3v1h-3zM3 5h1v1h-1zM6 5h1v1h-1zM9 5h3v1h-3zM0 6h2v1h-2zM3 6h1v1h-1zM6 6h1v1h-1zM9 6h1v1h-1zM12 6h2v1h-2zM0 7h1v1h-1zM3 7h1v1h-1zM14 7h1v1h-1zM1 8h1v1h-1zM14 8h1v1h-1zM1 9h1v1h-1zM14 9h1v1h-1zM2 10h1v1h-1zM13 10h1v1h-1zM2 11h1v1h-1zM13 11h1v1h-1zM3 12h1v1h-1zM12 12h1v1h-1zM3 13h1v1h-1zM12 13h1v1h-1zM4 14h1v1h-1zM11 14h1v1h-1zM4 15h8v1h-8z'/%3E%3C/svg%3E") 10 0, pointer; }
+
+.hw-layer { position: fixed; inset: 0; pointer-events: none; z-index: 60; overflow: hidden; }
+.hw-layer img, .hw-layer span { image-rendering: pixelated; }
+
+.hw-web { position: absolute; top: 0; width: 120px; height: 120px; opacity: 0.8; }
+.hw-web--left { left: 0; }
+.hw-web--right { right: 0; transform: scaleX(-1); }
+
+/* araña colgada del hilo de la telaraña izquierda: sube y baja despacio */
+.hw-spider { position: absolute; top: 0; left: 58px; width: 54px; animation: hw-dangle 7s ease-in-out infinite; transform-origin: top center; }
+.hw-spider__thread { position: absolute; left: 26px; bottom: 100%; width: 2px; height: 200px; background: rgba(226, 218, 238, 0.55); }
+.hw-spider__body {
+  position: absolute; left: 0; top: 0; display: block; width: 54px; height: 24px;
+  background: url('/halloween/spider.png') 0 0 / 108px 24px no-repeat;
+  animation: hw-legs 0.5s steps(1) infinite;
+}
+@keyframes hw-dangle {
+  0%, 100% { transform: translateY(70px); }
+  50%      { transform: translateY(120px); }
+}
+@keyframes hw-legs { 50% { background-position: -54px 0; } }
+
+/* murciélago que cruza la pantalla aleteando */
+.hw-bat { position: absolute; left: 0; animation: hw-fly 7s linear forwards; }
+.hw-bat--rtl { animation-name: hw-fly-rtl; }
+.hw-bat__body {
+  display: block; width: 52px; height: 24px;
+  background: url('/halloween/bat.png') 0 0 / 104px 24px no-repeat;
+  animation: hw-flap 0.22s steps(1) infinite;
+}
+.hw-bat--rtl .hw-bat__body { transform: scaleX(-1); }
+@keyframes hw-flap { 50% { background-position: -52px 0; } }
+@keyframes hw-fly {
+  0%   { transform: translate(-60px, 0); }
+  25%  { transform: translate(25vw, -18px); }
+  50%  { transform: translate(50vw, 14px); }
+  75%  { transform: translate(75vw, -10px); }
+  100% { transform: translate(calc(100vw + 60px), 6px); }
+}
+@keyframes hw-fly-rtl {
+  0%   { transform: translate(calc(100vw + 60px), 0); }
+  25%  { transform: translate(75vw, 16px); }
+  50%  { transform: translate(50vw, -14px); }
+  75%  { transform: translate(25vw, 10px); }
+  100% { transform: translate(-60px, -6px); }
+}
+
+/* relámpago: dos destellos suaves (menos de 3 por segundo) + el rayo pixel */
+.hw-flash { position: absolute; inset: 0; background: hsl(258 70% 88%); opacity: 0; animation: hw-flash 0.9s ease-out forwards; }
+.hw-bolt { position: absolute; top: 0; width: 56px; height: 192px; opacity: 0; animation: hw-bolt 0.9s steps(1) forwards; }
+@keyframes hw-flash {
+  0%   { opacity: 0; }
+  5%   { opacity: 0.32; }
+  14%  { opacity: 0.04; }
+  24%  { opacity: 0.22; }
+  60%, 100% { opacity: 0; }
+}
+@keyframes hw-bolt {
+  0%   { opacity: 0; }
+  5%   { opacity: 1; }
+  14%  { opacity: 0; }
+  24%  { opacity: 0.9; }
+  40%, 100% { opacity: 0; }
+}
+
+@media (max-width: 640px) {
+  .hw-web { width: 80px; height: 80px; }
+  .hw-spider { left: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-spider { animation: none; transform: translateY(90px); }
+  .hw-spider__body { animation: none; }
+}

@@ -66,7 +66,7 @@ export default function ContinueWindow({ onYes, onNo }: { onYes: () => void; onN
           </li>
         ))}
       </ul>
-      <p style={{ margin: 0, fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 11, letterSpacing: '0.08em', color: 'hsl(var(--tx3))' }}>
+      <p style={{ margin: 0, fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.08em', color: 'hsl(var(--tx3))' }}>
         ↑ ↓ para elegir · Enter para confirmar
       </p>
     </div>

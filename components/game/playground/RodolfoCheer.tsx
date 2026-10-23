@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import RodolfoImg from '@/components/game/RodolfoImg'
 
 const CHEERS = [
   '¡Vas requetebién!',
@@ -36,8 +37,7 @@ export default function RodolfoCheer({ streak, onDone }: Props) {
         </div>
         <div className="label-mono" style={{ color: 'var(--on-accent)', opacity: 0.85 }}>Racha de {streak}</div>
       </div>
-      <img
-        src="/rodolfo/rodolfo.gif"
+      <RodolfoImg
         width={80}
         height={80}
         alt="Rodolfo festejando"

@@ -16,6 +16,7 @@ import { markBookPage, setBookLastPage, EMPTY_BOOK_PROGRESS, type BibliotecaProg
 import { BookGlyph, Ico, ICO_LEFT, ICO_PLAY, ICO_RIGHT, ICO_STAR, ICO_UNDO } from './LibrarySprites'
 import SpellTable from './SpellTable'
 import { ConsoleAsk, ConsoleLine, ConsoleOutput, usePythonInput, type PendingInput } from '@/components/game/PyConsoleInput'
+import RodolfoImg from '@/components/game/RodolfoImg'
 
 const jersey = 'var(--font-jersey), monospace'
 const vt = 'var(--font-vt323), monospace'
@@ -262,7 +263,7 @@ export function PageTurn({ side, onClick, disabled, label }: { side: 'left' | 'r
 function LibrarianNote({ text }: { text: string }) {
   return (
     <div className="lib-note">
-      <img src="/rodolfo/rodolfo.gif" width={44} height={44} alt="" className="lib-note-pig" />
+      <RodolfoImg width={44} height={44} alt="" className="lib-note-pig" />
       <p><span className="lib-note-name">Rodolfo:</span> {text}</p>
     </div>
   )

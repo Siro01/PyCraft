@@ -17,7 +17,7 @@ export default async function PatioDeJuegosPage({ searchParams }: PageProps) {
   return (
     <div className="min-h-screen desk-theme">
       <Header />
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="max-w-6xl mx-auto px-4 py-8">
         <PlaygroundApp actKey={actKey} actTitle={ACT_TITLE[actKey] ?? actKey} />
       </main>
     </div>
