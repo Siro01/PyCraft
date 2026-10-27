@@ -10,9 +10,11 @@ import { sfx } from '@/lib/game/architect/sound'
 import {
   getPracticeCode, getPracticeIntroHidden, getPracticeSplit, getTextZoom, PRACTICE_SPLIT_DEFAULT,
   PRACTICE_SPLIT_MAX, PRACTICE_SPLIT_MIN, savePracticeCode, setPracticeIntroHidden, setPracticeSplit,
-  setTextZoom, TEXT_ZOOM_DEFAULT,
+  setTextZoom, TEXT_ZOOM_DEFAULT, getProjectorLight, setProjectorLight,
 } from '@/lib/storage/local-store'
 import ZoomControl from '@/components/game/ZoomControl'
+import ProjectorToggle, { PROJECTOR_PALETTE } from '@/components/game/ProjectorToggle'
+import { useIsAdmin } from '@/lib/hooks/useIsAdmin'
 import StickerLayer from '@/components/game/stickers/StickerLayer'
 import { ConsoleAsk, ConsoleOutput, usePythonInput } from '@/components/game/PyConsoleInput'
 import { useSysConfirm } from '@/components/ui/SysDialog'
@@ -47,6 +49,10 @@ export default function PracticeApp() {
   // ambos son gustos del alumno, se guardan en localStorage.
   const [introHidden, setIntroHidden] = useState(false)
   const [split, setSplit] = useState(PRACTICE_SPLIT_DEFAULT)
+  // Modo proyector: paleta clara para mostrar el patio en clase. Solo el
+  // docente ve el botón; se recuerda en su PC.
+  const isAdmin = useIsAdmin()
+  const [projector, setProjector] = useState(false)
   const splitRef = useRef(split)
   splitRef.current = split
   const paneRowRef = useRef<HTMLDivElement>(null)
@@ -76,12 +82,18 @@ export default function PracticeApp() {
     setZoom(getTextZoom())
     setIntroHidden(getPracticeIntroHidden())
     setSplit(getPracticeSplit())
+    setProjector(getProjectorLight())
     setLoaded(true)
   }, [])
 
   const handleZoom = (next: number) => {
     setZoom(next)
     setTextZoom(next)
+  }
+
+  const handleProjector = (next: boolean) => {
+    setProjector(next)
+    setProjectorLight(next)
   }
 
   const toggleIntro = () => {
@@ -178,7 +190,16 @@ export default function PracticeApp() {
   if (!loaded) return null
 
   return (
-    <ProgramShell layers={<StickerLayer surface="practice" />} bar={<ZoomControl zoom={zoom} onChange={handleZoom} />}>
+    <ProgramShell
+      layers={<StickerLayer surface="practice" />}
+      style={isAdmin && projector ? PROJECTOR_PALETTE : undefined}
+      bar={
+        <div className="flex items-center gap-2">
+          {isAdmin && <ProjectorToggle on={projector} onChange={handleProjector} />}
+          <ZoomControl zoom={zoom} onChange={handleZoom} />
+        </div>
+      }
+    >
       {confirmNode}
         <AppWindow
           title="PATIO_DE_PRACTICAS.EXE"
