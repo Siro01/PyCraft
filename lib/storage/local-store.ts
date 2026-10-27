@@ -313,6 +313,22 @@ export function setTextZoom(zoom: number): void {
   try { localStorage.setItem(TEXT_ZOOM_KEY, String(zoom)) } catch { /* ignore quota errors */ }
 }
 
+// ─── Modo proyector (patio de prácticas, solo docente) ──────────────────────
+// Paleta clara de alto contraste para proyectar en clase. Se recuerda en la PC
+// del docente, que es la que va conectada al proyector.
+
+const PROJECTOR_LIGHT_KEY = 'pysql:projector-light'
+
+export function getProjectorLight(): boolean {
+  if (typeof window === 'undefined') return false
+  try { return localStorage.getItem(PROJECTOR_LIGHT_KEY) === '1' } catch { return false }
+}
+
+export function setProjectorLight(on: boolean): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(PROJECTOR_LIGHT_KEY, on ? '1' : '0') } catch { /* ignore quota errors */ }
+}
+
 // ─── Layout del patio de prácticas: ancho editor/consola + ayuda oculta ──────
 // El alumno puede arrastrar el divisor entre el editor y la consola para
 // armar su propio espacio de trabajo — se guarda como fracción (0 a 1) del
