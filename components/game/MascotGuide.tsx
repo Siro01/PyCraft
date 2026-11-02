@@ -65,8 +65,8 @@ export default function MascotGuide({ tip, variant = 'gif', onOpenLesson, alert 
 
   return (
     <div
-      className="fixed bottom-6 right-0 z-50 flex items-end select-none"
-      style={{ pointerEvents: 'none' }}
+      className="fixed right-0 z-50 flex items-end select-none"
+      style={{ pointerEvents: 'none', bottom: 'var(--mascot-bottom, 24px)' /* la landing lo sube sobre su barra de tareas */ }}
     >
       {/* Globo de Rodolfo — solo visible cuando está abierto */}
       {state === 'open' && (

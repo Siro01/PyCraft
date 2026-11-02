@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { WindowMode } from '@/components/ui/AppWindow'
 
-// Gestor de ventanas del escritorio docente: qué programa está abierto,
-// minimizado o en pantalla completa, dónde quedó cada uno y cuál va arriba.
-// Se recuerda por PC (localStorage), así el docente encuentra su escritorio
-// como lo dejó. El dashboard del alumno maneja sus ventanas a mano en
-// BossMap y no se toca.
+// Gestor de ventanas de PyCraft OS (escritorio docente y landing): qué
+// programa está abierto, minimizado o en pantalla completa, dónde quedó cada
+// uno y cuál va arriba. Con `storageKey` se recuerda por PC (localStorage),
+// así el docente encuentra su escritorio como lo dejó; la landing pasa `null`
+// y siempre arranca vacía. El dashboard del alumno maneja sus ventanas a mano
+// en BossMap y no se toca.
 
 export type DeskMode = 'closed' | WindowMode
 
@@ -31,12 +32,13 @@ function initial<Id extends string>(ids: readonly Id[], openAtStart: readonly Id
   return s
 }
 
-export function useDesktopWindows<Id extends string>(ids: readonly Id[], storageKey: string, openAtStart: readonly Id[]) {
+export function useDesktopWindows<Id extends string>(ids: readonly Id[], storageKey: string | null, openAtStart: readonly Id[]) {
   const [wins, setWins] = useState<DeskState<Id>>(() => initial(ids, openAtStart))
   const loaded = useRef(false)
 
   // Leer después de montar: el servidor no conoce el localStorage.
   useEffect(() => {
+    if (!storageKey) return
     try {
       const raw = localStorage.getItem(storageKey)
       if (raw) {
@@ -56,7 +58,7 @@ export function useDesktopWindows<Id extends string>(ids: readonly Id[], storage
   }, [storageKey])
 
   useEffect(() => {
-    if (!loaded.current) return
+    if (!loaded.current || !storageKey) return
     try { localStorage.setItem(storageKey, JSON.stringify(wins)) } catch { /* sin storage */ }
   }, [wins, storageKey])
 

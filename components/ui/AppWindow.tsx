@@ -21,7 +21,10 @@ interface Props {
    *  no flotando por encima — las demás ventanas sí flotan y se arrastran. */
   flow?: boolean
   onFocus: () => void
-  onMove?: (x: number, y: number) => void
+  /** `cx`/`cy`: dónde está el puntero (la landing lo usa para soltar ventanas en la papelera). */
+  onMove?: (x: number, y: number, cx: number, cy: number) => void
+  /** Se llama al soltar la ventana después de arrastrarla, con la posición del puntero. */
+  onDragEnd?: (cx: number, cy: number) => void
   onClose?: () => void
   onMinimize?: () => void
   onToggleMaximize?: () => void
@@ -36,7 +39,7 @@ interface Props {
 // cambios que solo hacían falta acá.
 export default function AppWindow({
   title, icon, x, y, w, z, active, mode, essential = false, flow = false,
-  onFocus, onMove, onClose, onMinimize, onToggleMaximize, bodyStyle, children,
+  onFocus, onMove, onDragEnd, onClose, onMinimize, onToggleMaximize, bodyStyle, children,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ dx: number; dy: number } | null>(null)
@@ -63,11 +66,11 @@ export default function AppWindow({
     if (!pr) return
     const nx = Math.min(Math.max(0, e.clientX - pr.left - drag.current.dx), Math.max(0, pr.width - 80))
     const ny = Math.min(Math.max(0, e.clientY - pr.top - drag.current.dy), Math.max(0, pr.height - 40))
-    onMove(nx, ny)
+    onMove(nx, ny, e.clientX, e.clientY)
   }
 
   const onUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (drag.current) sfx.drop()
+    if (drag.current) { sfx.drop(); onDragEnd?.(e.clientX, e.clientY) }
     drag.current = null
   }
 
@@ -82,7 +85,7 @@ export default function AppWindow({
       className="win-pop"
       style={maximized
         ? {
-            position: 'fixed', left: 0, right: 0, bottom: 0, top: 'var(--dash-header-h, 56px)',
+            position: 'fixed', left: 0, right: 0, bottom: 'var(--dash-footer-h, 0px)', top: 'var(--dash-header-h, 56px)',
             zIndex: 60, background: 'hsl(var(--surface))', border: `2px solid ${ink}`, display: 'flex', flexDirection: 'column',
           }
         : flow

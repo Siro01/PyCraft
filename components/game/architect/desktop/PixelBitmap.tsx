@@ -485,3 +485,14 @@ export const ICON_KEYS: Bitmap = [
   '#oooooooooooooo#',
   '################',
 ]
+
+/** Flechita de acceso directo: va encima de los íconos que llevan a otra página (7×7). */
+export const ICON_SHORTCUT: Bitmap = [
+  '#######',
+  '#bb####',
+  '#bbb###',
+  '#bb#b##',
+  '#b#bbb#',
+  '##bbbb#',
+  '#######',
+]

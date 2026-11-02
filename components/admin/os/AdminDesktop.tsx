@@ -6,7 +6,7 @@ import { sfx } from '@/lib/game/architect/sound'
 import type { AdminAula } from '@/app/admin/aula-label'
 import AulaPicker from './AulaPicker'
 import StatusLine, { type Status } from './StatusLine'
-import { useDesktopWindows, useNarrowDesk } from './useDesktopWindows'
+import { useDesktopWindows, useNarrowDesk } from '@/components/ui/desk/useDesktopWindows'
 
 // Escritorio "PyCraft OS" del docente: el mismo marco que el dashboard del
 // alumno (borde de 2px, fondo de puntos, sombra dura), con barra de menú

@@ -390,12 +390,6 @@ body {
 .animate-mascot-wiggle { animation: mascot-wiggle 0.6s ease-in-out; }
 .animate-mascot-peek   { animation: mascot-peek 2s ease-in-out infinite; }
 
-@keyframes marquee {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-.animate-marquee       { animation: marquee 40s linear infinite; }
-.animate-marquee:hover { animation-play-state: paused; }
 
 @keyframes float-up {
   0%, 100% { transform: translateY(0px); }
@@ -1201,43 +1195,6 @@ button.sys-row:hover, .sys-row--hover:hover { background: hsl(var(--surface2)); 
 @keyframes title-flicker { 0%, 100% { opacity: 1; } 8% { opacity: 0.35; } 12% { opacity: 1; } 30% { opacity: 0.6; } 34% { opacity: 1; } }
 .title-build { animation: title-build 0.9s steps(9) both, title-flicker 0.7s steps(1) 0.95s 1; }
 
-/* Chispas pixel a los costados del título */
-@keyframes spark-twinkle { 0%, 100% { opacity: 0.25; transform: scale(1); } 50% { opacity: 1; transform: scale(1.25); } }
-@keyframes spark-rise { 0% { transform: translateY(0); } 100% { transform: translateY(-16px); } }
-.spark { animation: spark-twinkle 2.4s steps(3) infinite; }
-.spark-rise { animation: spark-rise 5s steps(10) infinite alternate; }
-
-/* Menú de la landing */
-.lp-link {
-  position: relative; font-family: var(--font-pixel), var(--font-jersey), monospace; font-size: 12px; letter-spacing: 0.1em;
-  text-transform: uppercase; color: hsl(var(--tx2)); padding: 6px 4px;
-}
-.lp-link::after { content: ''; position: absolute; left: 4px; right: 4px; bottom: 0; height: 2px; background: hsl(var(--accent)); transform: scaleX(0); transform-origin: left; transition: transform 0.15s steps(4); }
-.lp-link:hover, .lp-link:focus-visible { color: hsl(var(--tx)); }
-.lp-link:hover::after, .lp-link:focus-visible::after { transform: scaleX(1); }
-
-/* Encabezados de sección de la landing */
-.section-tab {
-  display: inline-block; margin-bottom: 14px; padding: 4px 10px;
-  font-family: var(--font-pixel), monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1;
-  background: hsl(var(--tx)); color: hsl(var(--bg));
-}
-.section-h2 {
-  font-family: var(--font-jersey), monospace; font-weight: 400; letter-spacing: 0.02em;
-  font-size: clamp(2rem, 4.4vw, 2.9rem); line-height: 1.02; color: hsl(var(--tx));
-  text-shadow: 3px 3px 0 hsl(var(--tx) / 0.14); margin: 0; text-wrap: balance;
-}
-
-/* Jefes del carrusel: ventanitas que se levantan al pasar */
-.boss-mini {
-  background: hsl(var(--surface)); border: 2px solid hsl(var(--border2)); box-shadow: 3px 3px 0 hsl(var(--tx) / 0.1);
-  transition: transform 0.1s steps(2), box-shadow 0.1s steps(2), border-color 0.1s;
-}
-.boss-mini:hover { transform: translate(-2px, -4px); border-color: hsl(var(--tx)); box-shadow: 5px 7px 0 hsl(var(--tx) / 0.2); }
-
-/* Acordeón de mecánicas: tipografías del escritorio */
-.acc-title { font-family: var(--font-pixel), monospace !important; font-size: 12px; }
-.acc-cell[data-open] .acc-title { font-size: 12px; }
 .acc-desc { font-family: var(--font-vt323), monospace !important; font-size: 18px !important; line-height: 1.15 !important; }
 
 /* Revisión final: .desk (cofre y final) hereda el mismo reset de esquinas que .desk-theme,
@@ -4024,3 +3981,52 @@ html:root[data-season="halloween"] { --cursor-arrow: url("data:image/svg+xml,%3C
   .hw-spider { animation: none; transform: translateY(90px); }
   .hw-spider__body { animation: none; }
 }
+
+/* ── Landing: escritorio de PyCraft OS (components/landing/LandingDesktop) ── */
+.landing-os ::selection { background: hsl(var(--tx)); color: hsl(var(--bg)); }
+/* La ventana enfocada ya se marca con su barra sólida; el foco de teclado entra ahí sin dibujar otro contorno. */
+.landing-os [role="dialog"]:focus { outline: none; }
+.landing-os a:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
+.landing-os .desk-icon { width: 96px; }
+.landing-os .desk-icon .desk-lbl { max-width: 100%; }
+@media (max-width: 719px), (max-height: 499px) { .landing-os .desk-icon { width: 100%; max-width: 92px; } }
+
+.os-menu-btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; cursor: pointer;
+  background: transparent; color: hsl(var(--tx)); border: 2px solid transparent;
+}
+.os-menu-btn:hover, .os-menu-btn--on { background: hsl(var(--tx)); color: hsl(var(--bg)); }
+
+.os-enter {
+  display: inline-flex; align-items: center; gap: 8px; height: 26px; padding: 0 12px; text-decoration: none;
+  font-family: var(--font-jersey), monospace; font-size: 17px; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1;
+  background: hsl(var(--tx)); color: hsl(var(--bg)); border: 2px solid hsl(var(--tx));
+}
+.os-enter:hover { background: hsl(var(--bg)); color: hsl(var(--tx)); }
+
+.os-start {
+  display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; cursor: pointer; flex-shrink: 0;
+  font-family: var(--font-jersey), monospace; font-size: 17px; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1;
+  background: hsl(var(--bg)); color: hsl(var(--tx)); border: 2px solid hsl(var(--tx)); box-shadow: 2px 2px 0 hsl(var(--tx) / 0.3);
+}
+.os-start:hover, .os-start--on { background: hsl(var(--tx)); color: hsl(var(--bg)); }
+.os-start--on { box-shadow: none; transform: translate(2px, 2px); }
+
+.os-task {
+  font-family: var(--font-jersey), monospace; font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; line-height: 1;
+  padding: 5px 10px; cursor: pointer; white-space: nowrap; border: 2px solid;
+}
+
+.os-tray-link { background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.os-tray-link:hover { color: hsl(var(--tx)); }
+
+.start-menu [role="menuitem"]:hover, .start-menu [role="menuitem"]:focus-visible { background: hsl(var(--tx)); color: hsl(var(--bg)) !important; outline: none; }
+.start-menu { animation: win-pop 0.16s steps(4) both; }
+@media (prefers-reduced-motion: reduce) { .start-menu { animation: none; } }
+.boss-file {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 2px; cursor: pointer;
+  background: transparent; border: 2px solid transparent; color: hsl(var(--tx));
+}
+.boss-file .desk-lbl { font-family: var(--font-vt323), monospace; font-size: 16px; line-height: 1; padding: 2px 4px; text-align: center; }
+.boss-file:hover .desk-lbl, .boss-file:focus-visible .desk-lbl, .boss-file[aria-pressed="true"] .desk-lbl { background: hsl(var(--tx)); color: hsl(var(--bg)); }
+.boss-file[aria-pressed="true"] { border-color: hsl(var(--tx)); border-style: dashed; }
