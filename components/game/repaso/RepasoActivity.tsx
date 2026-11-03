@@ -17,7 +17,7 @@ import { friendlyError } from '@/lib/game/friendly-error'
 import RodolfoTalk from './RodolfoTalk'
 import RodolfoImg from '@/components/game/RodolfoImg'
 
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 const jersey = 'var(--font-jersey), monospace'
 
 // El elogio depende de cómo llegó: a la primera, probando de nuevo, o con la respuesta de Rodolfo.

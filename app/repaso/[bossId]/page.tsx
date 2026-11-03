@@ -53,7 +53,7 @@ export default async function RepasoPage({ params }: PageProps) {
             <RepasoActivity repaso={repaso} boss={boss} canFight={canFight} />
           ) : (
             <Win title="ESCUELITA.EXE" active bodyStyle={{ padding: 24 }}>
-              <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 22, color: 'hsl(var(--tx2))', margin: 0 }}>
+              <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 22, color: 'hsl(var(--tx2))', margin: 0 }}>
                 Este repaso todavía no está habilitado. Si faltaste a esa clase, pedile a tu docente que te lo active.
               </p>
               <Link href="/repaso" className="repaso-ghost-btn" style={{ marginTop: 16, display: 'inline-flex' }}>Ver mis repasos</Link>

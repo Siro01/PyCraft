@@ -132,8 +132,8 @@ export default function LocalDashboard() {
         }
         emptyState={
           <Win title="MAPA_DE_JEFES.EXE" active bodyStyle={{ padding: '18px 20px' }}>
-            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, lineHeight: 1.2, color: 'hsl(var(--tx))', margin: 0 }}>Ningún jefe habilitado.</p>
-            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: '6px 0 0' }}>Entrá como Admin para habilitarlos.</p>
+            <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 21, lineHeight: 1.2, color: 'hsl(var(--tx))', margin: 0 }}>Ningún jefe habilitado.</p>
+            <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 18, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: '6px 0 0' }}>Entrá como Admin para habilitarlos.</p>
           </Win>
         }
       />

@@ -33,7 +33,7 @@ export default function StatusLine({ status }: { status: Status | null }) {
         flexShrink: 0, minHeight: 28, padding: '3px 12px',
         borderTop: `2px solid ${status.ok === false ? ink : 'hsl(var(--border2))'}`,
         background: 'hsl(var(--bg))', color: ink,
-        fontFamily: 'var(--font-vt323), monospace', fontSize: 18, lineHeight: 1,
+        fontFamily: 'var(--font-text), monospace', fontSize: 18, lineHeight: 1,
       }}
     >
       <span aria-hidden style={{ marginRight: 8, opacity: 0.6 }}>&gt;</span>

@@ -129,7 +129,7 @@ export default function Header({ username: usernameProp, role: roleProp }: Heade
           {username && (
             <div className="hidden sm:flex items-center gap-2">
               <span className="status-dot active" />
-              <span style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, color: 'hsl(var(--tx2))' }}>{username}</span>
+              <span style={{ fontFamily: 'var(--font-text), monospace', fontSize: 18, color: 'hsl(var(--tx2))' }}>{username}</span>
             </div>
           )}
 
@@ -139,7 +139,7 @@ export default function Header({ username: usernameProp, role: roleProp }: Heade
             aria-pressed={!muted}
             title={muted ? 'Sonido apagado — clic para activar' : 'Sonido activado — clic para silenciar'}
             style={{
-              fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.12em', padding: '7px 10px', cursor: 'pointer',
+              fontFamily: 'var(--font-mono), monospace', fontSize: 12, letterSpacing: '0.12em', padding: '7px 10px', cursor: 'pointer',
               background: 'transparent', color: muted ? 'hsl(var(--tx3))' : 'hsl(var(--tx2))', border: '2px solid hsl(var(--border2))',
               textDecoration: muted ? 'line-through' : 'none',
             }}
@@ -152,7 +152,7 @@ export default function Header({ username: usernameProp, role: roleProp }: Heade
             title={`Tema actual: ${theme} — clic para cambiar`}
             data-sfx="none"
             style={{
-              fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.12em', padding: '7px 10px', cursor: 'pointer',
+              fontFamily: 'var(--font-mono), monospace', fontSize: 12, letterSpacing: '0.12em', padding: '7px 10px', cursor: 'pointer',
               background: 'transparent', color: 'hsl(var(--tx2))', border: '2px solid hsl(var(--border2))',
             }}
           >
@@ -169,7 +169,7 @@ export default function Header({ username: usernameProp, role: roleProp }: Heade
               <button
                 type="submit"
                 className="hover:text-danger transition-colors"
-                style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, color: 'hsl(var(--tx3))', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px' }}
+                style={{ fontFamily: 'var(--font-text), monospace', fontSize: 18, color: 'hsl(var(--tx3))', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px' }}
               >
                 Salir
               </button>

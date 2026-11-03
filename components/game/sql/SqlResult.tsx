@@ -19,7 +19,7 @@ interface SqlResultProps {
   seedTables?: TableSnapshot[]
 }
 
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 const jersey = 'var(--font-jersey), monospace'
 
 function parseExpected(s: string): string[][] {
@@ -78,7 +78,7 @@ export default function SqlResult({ isCorrect, error, expected, sql, code, seedT
           <summary className="label-mono" style={{ cursor: 'pointer', color: 'hsl(var(--tx3))', width: 'fit-content' }}>
             Ver el mensaje de la compu
           </summary>
-          <pre className="whitespace-pre-wrap break-all mt-1" style={{ color: 'hsl(var(--tx2))', fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, lineHeight: 1.5 }}>
+          <pre className="whitespace-pre-wrap break-all mt-1" style={{ color: 'hsl(var(--tx2))', fontFamily: 'var(--font-mono), monospace', fontSize: 12, lineHeight: 1.5 }}>
             {error}
           </pre>
         </details>

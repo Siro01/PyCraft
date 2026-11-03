@@ -23,7 +23,7 @@ export default function AsciiQuestion({ size = 10, color = 'currentColor', class
       className={`animate-ascii-flicker select-none ${className}`}
       style={{
         margin: 0,
-        fontFamily: '"Courier New", ui-monospace, Consolas, monospace',
+        fontFamily: 'var(--font-mono), monospace',
         fontWeight: 700,
         fontSize: size,
         lineHeight: 1,

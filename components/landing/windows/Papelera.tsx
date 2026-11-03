@@ -12,7 +12,7 @@ export default function PapeleraWindow({ onOk }: { onOk: () => void }) {
         <PixelBitmap rows={ICON_WARN} scale={4} />
         <div>
           <div style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 22, lineHeight: 1, color: 'hsl(var(--danger))', letterSpacing: '0.04em' }}>NO SE PUEDE ELIMINAR</div>
-          <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 20, lineHeight: 1.2, color: 'hsl(var(--tx))', margin: '6px 0 0' }}>{BIN_MESSAGE}</p>
+          <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 20, lineHeight: 1.2, color: 'hsl(var(--tx))', margin: '6px 0 0' }}>{BIN_MESSAGE}</p>
         </div>
       </div>
       <button

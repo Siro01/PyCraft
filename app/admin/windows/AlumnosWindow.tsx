@@ -43,7 +43,7 @@ interface Props {
 }
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 const DEFAULT_NOTE = 'Compensación por el error del 15/10 (progreso mezclado entre PCs)'
 
 /** El alumno tiene algo que el docente debería mirar (incidente del 15/10). */

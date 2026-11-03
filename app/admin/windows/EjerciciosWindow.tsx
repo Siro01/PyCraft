@@ -27,7 +27,7 @@ interface Props {
 }
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 // Las consignas marcan código con `backticks`.
 function Inline({ text }: { text: string }) {

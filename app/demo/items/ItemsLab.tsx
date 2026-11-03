@@ -10,8 +10,8 @@ import { BATTLE_ITEMS } from '@/lib/game/shop'
 import type { ChallengeTier } from '@/types'
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
-const mono = "'Courier New', Courier, monospace"
+const vt = 'var(--font-text), monospace'
+const mono = "var(--font-mono), monospace"
 
 const TIERS: { id: ChallengeTier; label: string; note: string }[] = [
   { id: 'junior', label: 'Junior', note: 'sin vida — la Mandarina da Armadura' },

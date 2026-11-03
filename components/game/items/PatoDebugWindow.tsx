@@ -12,8 +12,8 @@ import { buildDuckSteps } from '@/lib/game/items/duck-explainer'
 import { sfx } from '@/lib/game/architect/sound'
 import type { Boss, Challenge } from '@/types'
 
-const vt = 'var(--font-vt323), monospace'
-const mono = "'Courier New', Courier, monospace"
+const vt = 'var(--font-text), monospace'
+const mono = "var(--font-mono), monospace"
 
 interface Props {
   boss: Boss

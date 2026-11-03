@@ -25,7 +25,7 @@ function Closed({ title, body }: { title: string; body: string }) {
         <ProgramShell bodyClassName="p-3 sm:p-10 flex justify-center">
           <Win title="ARENA.EXE" active tone="danger" style={{ width: '100%', maxWidth: 520 }} bodyStyle={{ padding: '18px 20px' }}>
             <div style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 34, lineHeight: 1, letterSpacing: '0.04em', color: 'hsl(var(--tx))' }}>{title}</div>
-            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: '10px 0 0' }}>{body}</p>
+            <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 21, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: '10px 0 0' }}>{body}</p>
           </Win>
         </ProgramShell>
       </main>

@@ -21,7 +21,7 @@ function XPBarPlayground() {
   return (
     <div className="max-w-6xl mx-auto px-4 pb-8">
       <Win title="BARRA_DE_EXPERIENCIA.SYS" bodyStyle={{ padding: 16 }}>
-        <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, lineHeight: 1.2, color: 'hsl(var(--tx2))', marginBottom: 14 }}>
+        <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 19, lineHeight: 1.2, color: 'hsl(var(--tx2))', marginBottom: 14 }}>
           Así se ve la vida del Archivista en la batalla. Pegale para ver los orbes y escuchar el sonido de experiencia, o hacé clic sobre la barra.
         </p>
         <div style={{ maxWidth: 520 }}>

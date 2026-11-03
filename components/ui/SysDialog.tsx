@@ -10,7 +10,7 @@ import { sfx } from '@/lib/game/architect/sound'
 // sólida (en peligro para lo que borra), VT323 adentro y botones Jersey.
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 export function DialogButton({ label, onClick, quiet, type = 'button', danger }: { label: string; onClick?: () => void; quiet?: boolean; type?: 'button' | 'submit'; danger?: boolean }) {
   const ink = danger ? 'hsl(var(--danger))' : 'hsl(var(--tx))'

@@ -30,7 +30,7 @@ const CodeMirrorEditor = dynamic(() => import('@/components/game/CodeMirrorEdito
 // abajo, dónde escribe. Lo que cambia la base se guarda en su cuenta como una
 // lista de sentencias (ver reino-store). Un paso a la vez: ver → escribir → ejecutar.
 
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 const jersey = 'var(--font-jersey), monospace'
 
 const SYNC_LABEL: Record<SyncState, string> = {
@@ -168,7 +168,7 @@ export default function ReinoApp() {
       <Win
         title="MI_REINO.DB"
         active
-        right={<span className="hidden sm:inline" style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.1em', color: 'hsl(var(--bg))' }}>{SYNC_LABEL[sync]}</span>}
+        right={<span className="hidden sm:inline" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 12, letterSpacing: '0.1em', color: 'hsl(var(--bg))' }}>{SYNC_LABEL[sync]}</span>}
         bodyStyle={{ padding: 16 }}
       >
         <h1 style={{ fontFamily: jersey, fontSize: 28, lineHeight: 1, margin: 0, color: 'hsl(var(--tx))' }}>Tu reino</h1>
@@ -224,7 +224,7 @@ export default function ReinoApp() {
                 <IconGrid size={12} color="currentColor" /> Armar con bloques
               </button>
             )}
-            <span className="hidden sm:inline" style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.1em', color: 'hsl(var(--bg))' }}>Ctrl+Enter para ejecutar</span>
+            <span className="hidden sm:inline" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 12, letterSpacing: '0.1em', color: 'hsl(var(--bg))' }}>Ctrl+Enter para ejecutar</span>
           </>
         }
       >

@@ -58,7 +58,7 @@ function drawAscii(ctx: CanvasRenderingContext2D, frame: Frame, dpr: number) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.fillStyle = '#000'
   ctx.fillRect(0, 0, LW, LH)
-  ctx.font = `bold 8px "Courier New", ui-monospace, Consolas, monospace`
+  ctx.font = `bold 8px var(--font-mono), monospace`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   const groups: number[][] = Array.from({ length: PISTOLERO_PALETTE.length * ALPHA_STEPS }, () => [])

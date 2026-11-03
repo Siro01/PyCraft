@@ -109,7 +109,7 @@ export default function LocalBattleView({ boss, victoryHref, practiceRequested =
               <IconLock size={32} color="hsl(var(--tx2))" />
               <div>
                 <p style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 22, lineHeight: 1.1, color: 'hsl(var(--tx))', margin: 0 }}>Nivel {TIER_LABELS[tier]} — próximamente</p>
-                <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: '6px 0 0' }}>Los desafíos de este nivel están en construcción. Probá con JUNIOR o TRAINEE.</p>
+                <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 19, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: '6px 0 0' }}>Los desafíos de este nivel están en construcción. Probá con JUNIOR o TRAINEE.</p>
               </div>
             </div>
             <a href="/dashboard" className="cta-btn cta-btn--primary" style={{ marginTop: 16 }}>← Volver al mapa</a>

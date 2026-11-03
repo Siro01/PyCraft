@@ -33,7 +33,7 @@ export default function NodeDetailPopover({ icon, title, body, status, positive,
         </span>
       </div>
       {body && (
-        <div className={status || onEnter ? 'px-2 pt-1.5' : 'px-2 py-1.5'} style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, lineHeight: 1.1, color: 'hsl(var(--tx2))' }}>
+        <div className={status || onEnter ? 'px-2 pt-1.5' : 'px-2 py-1.5'} style={{ fontFamily: 'var(--font-text), monospace', fontSize: 18, lineHeight: 1.1, color: 'hsl(var(--tx2))' }}>
           {body}
         </div>
       )}

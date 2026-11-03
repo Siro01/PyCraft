@@ -188,7 +188,7 @@ export default function BossIntro({ boss, lines, onDone, onOpenLesson, arena = f
             boxShadow: '5px 5px 0 hsl(var(--tx) / 0.2)',
             background: 'hsl(var(--surface))',
             padding: '18px 20px 16px',
-            fontFamily: 'var(--font-vt323), "Courier New", monospace',
+            fontFamily: 'var(--font-text), var(--font-mono), monospace',
             fontSize: 26,
             lineHeight: 1.3,
             color: 'hsl(var(--tx))',
@@ -198,7 +198,7 @@ export default function BossIntro({ boss, lines, onDone, onOpenLesson, arena = f
           }}
         >
           {/* Texto invisible reserva altura (siempre el texto completo) */}
-          <span style={{ visibility: 'hidden', display: 'block', fontFamily: 'var(--font-vt323), "Courier New", monospace', fontSize: 26, lineHeight: 1.3 }}>
+          <span style={{ visibility: 'hidden', display: 'block', fontFamily: 'var(--font-text), var(--font-mono), monospace', fontSize: 26, lineHeight: 1.3 }}>
             {currentLine?.text}
           </span>
 

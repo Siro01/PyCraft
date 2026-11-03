@@ -14,7 +14,7 @@ const N = CELL_W * CELL_H
 /** Cuánto pesa acertar el brillo frente a acertar la forma. */
 const TONE_W = 3.5
 
-export const FONT = '"Courier New", ui-monospace, Consolas, monospace'
+export const FONT = 'var(--font-mono), monospace'
 
 export interface Glyph { ch: string; mask: Float32Array; mean: number }
 

@@ -24,7 +24,7 @@ const TYPE_LABEL: Record<string, string> = {
   final:  'Final',
 }
 
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 // Cada jefe es una ventana del escritorio: barra sólida = disponible para combatir,
 // barra rayada = ya derrotado o todavía bloqueado.
@@ -39,7 +39,7 @@ export default function BossCard({ boss, hpCurrent, isEnabled = false, isDefeate
       right={
         <span
           style={{
-            fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', marginRight: 2,
+            fontFamily: 'var(--font-mono), monospace', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', marginRight: 2,
             color: playable ? 'hsl(var(--bg))' : 'hsl(var(--tx2))',
             background: playable ? 'transparent' : 'hsl(var(--surface))', padding: playable ? 0 : '1px 5px',
           }}

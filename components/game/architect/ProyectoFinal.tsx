@@ -277,7 +277,7 @@ function ResultTable({ cols, rows }: { cols: string[]; rows: (string | number | 
   if (rows.length === 0) return null
   return (
     <div style={{ overflow: 'auto', maxHeight: 130, border: '2px solid hsl(var(--tx))' }}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', fontFamily: 'var(--font-vt323), monospace', fontSize: 18 }}>
+      <table style={{ borderCollapse: 'collapse', width: '100%', fontFamily: 'var(--font-text), monospace', fontSize: 18 }}>
         <thead>
           <tr>
             {cols.map(c => (
@@ -302,8 +302,8 @@ function ResultTable({ cols, rows }: { cols: string[]; rows: (string | number | 
 }
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
-const monoLabel: CSSProperties = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--tx3))' }
+const vt = 'var(--font-text), monospace'
+const monoLabel: CSSProperties = { fontFamily: 'var(--font-mono), monospace', fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--tx3))' }
 
 // ── Main component ───────────────────────────────────────────────────────────
 
@@ -967,7 +967,7 @@ export default function ProyectoFinal() {
           <div style={{ fontFamily: vt, fontSize: 20, color: 'hsl(var(--tx2))', lineHeight: 1.25, maxWidth: '62ch' }}>{mission.instruction}</div>
           {mission.hint && (
             <div style={{ fontFamily: vt, fontSize: 17, color: 'hsl(var(--tx3))', marginTop: 5 }}>
-              <span style={{ color: 'hsl(var(--accent))', fontFamily: 'ui-monospace, Consolas, monospace' }}>&gt; </span>{mission.hint}
+              <span style={{ color: 'hsl(var(--accent))', fontFamily: 'var(--font-mono), monospace' }}>&gt; </span>{mission.hint}
             </div>
           )}
         </div>

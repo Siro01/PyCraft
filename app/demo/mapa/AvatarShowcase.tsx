@@ -46,7 +46,7 @@ export default function AvatarShowcase({ value, onChange }: { value: AvatarId; o
             </span>
             <span className="flex flex-col gap-1">
               <span style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 22, lineHeight: 1 }}>{LETTER[i]} · {info.name}</span>
-              <span style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, lineHeight: 1.1, opacity: 0.85 }}>{info.blurb}</span>
+              <span style={{ fontFamily: 'var(--font-text), monospace', fontSize: 18, lineHeight: 1.1, opacity: 0.85 }}>{info.blurb}</span>
               <span className="flex gap-1 mt-1" aria-hidden="true">
                 {(['light', 'dark', 'red'] as MapTheme[]).map((t) => (
                   <span key={t} title={`Paleta ${t}`} style={{ ...pal(t), border: '1px solid currentColor', padding: 1, background: 'hsl(var(--bg))' }}>

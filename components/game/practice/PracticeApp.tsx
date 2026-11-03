@@ -217,7 +217,7 @@ export default function PracticeApp() {
           <div className="flex flex-col" style={{ ...(maximized ? { height: '100%' } : {}), zoom }}>
             <div className="flex items-start gap-2 mb-3" style={{ flexShrink: 0 }}>
               {!introHidden && (
-                <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, color: 'hsl(var(--tx2))', flex: 1 }}>
+                <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 19, color: 'hsl(var(--tx2))', flex: 1 }}>
                   Escribí el Python que quieras y probalo — sin jefe, sin desafío, solo para practicar. Si tu código usa <code className="font-mono">input()</code>, la pregunta aparece en la consola: escribís la respuesta ahí mismo y apretás Enter.
                 </p>
               )}

@@ -24,7 +24,7 @@ function buildEditorTheme(accentColor: string, fillHeight: boolean) {
     {
       '&': {
         fontSize: '13.5px',
-        fontFamily: "'Courier New', Courier, monospace",
+        fontFamily: "var(--font-mono), monospace",
         background: 'hsl(var(--bg))',
         color: 'hsl(var(--tx))',
         // Por defecto el editor crece con el contenido (como siempre, en las

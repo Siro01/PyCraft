@@ -74,7 +74,7 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
   if (!act) {
     return (
       <div className="text-center py-10">
-        <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 20, color: 'hsl(var(--tx2))' }}>
+        <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 20, color: 'hsl(var(--tx2))' }}>
           Todavía no hay minijuegos armados para este acto.
         </p>
       </div>
@@ -157,7 +157,7 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
 
           {view.kind === 'home' && (
             <>
-              <p className="mb-4" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 20, color: 'hsl(var(--tx2))' }}>
+              <p className="mb-4" style={{ fontFamily: 'var(--font-text), monospace', fontSize: 20, color: 'hsl(var(--tx2))' }}>
                 Practicá {actTitle} con tandas cortas. Cada tanda terminada te da {PLAYGROUND_DIAMONDS_COMPLETE} diamantes, y si la sacás perfecta, {PLAYGROUND_DIAMONDS_PERFECT} más.
               </p>
               <PlaygroundChecklist act={act} state={playground} onPlay={startTopic} justChecked={justChecked} />
@@ -193,7 +193,7 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
               <div style={{ fontFamily: jersey, fontSize: 24, color: 'hsl(var(--tx))' }}>
                 {view.score}/{view.topic.exercises.length} correctas
               </div>
-              <p className="mb-4" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, color: 'hsl(var(--tx2))' }}>
+              <p className="mb-4" style={{ fontFamily: 'var(--font-text), monospace', fontSize: 19, color: 'hsl(var(--tx2))' }}>
                 Mejor racha: {view.streak} · {view.repeated ? 'ya sumaste el XP de esta tanda antes' : `+${view.xpGained} XP`}
               </p>
               <div className="mx-auto mb-3 flex flex-wrap items-end justify-center gap-x-8 gap-y-3">
@@ -202,7 +202,7 @@ export default function PlaygroundApp({ actKey, actTitle }: { actKey: string; ac
                 </div>
                 <DiamondCounter from={view.diamondsBefore} to={view.diamondsAfter} max={playgroundMaxDiamonds()} />
               </div>
-              <p className="mb-5" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, color: view.diamondsAfter > view.diamondsBefore ? 'hsl(var(--accent))' : 'hsl(var(--tx3))' }}>
+              <p className="mb-5" style={{ fontFamily: 'var(--font-text), monospace', fontSize: 19, color: view.diamondsAfter > view.diamondsBefore ? 'hsl(var(--accent))' : 'hsl(var(--tx3))' }}>
                 {view.newlyComplete && view.newlyPerfect
                   ? `¡Tanda terminada y perfecta! +${PLAYGROUND_DIAMONDS_COMPLETE + PLAYGROUND_DIAMONDS_PERFECT} diamantes.`
                   : view.newlyComplete

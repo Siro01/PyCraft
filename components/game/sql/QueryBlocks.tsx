@@ -416,7 +416,7 @@ export default function QueryBlocks({ initialCode = '', tables, onTry, onClose, 
       )}
 
       {needsTable ? (
-        <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, color: 'hsl(var(--tx2))', margin: 0 }}>
+        <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 21, color: 'hsl(var(--tx2))', margin: 0 }}>
           Primero creá una tabla: todavía no hay dónde {kind === 'insert' ? 'agregar' : kind === 'select' ? 'mirar' : kind === 'update' ? 'cambiar' : 'borrar'}.
         </p>
       ) : (
@@ -434,7 +434,7 @@ export default function QueryBlocks({ initialCode = '', tables, onTry, onClose, 
         <button type="button" className="sys-tool" onClick={probar} disabled={!complete} title={complete ? undefined : 'Completá las fichas primero'}>
           Probar en la pizarra
         </button>
-        <span style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 20, lineHeight: 1.1, color: 'hsl(var(--tx2))' }}>
+        <span style={{ fontFamily: 'var(--font-text), monospace', fontSize: 20, lineHeight: 1.1, color: 'hsl(var(--tx2))' }}>
           {free ? 'Para guardarlo en tu reino, escribilo vos abajo.' : 'Para atacar, escribilo vos en QUERY.SQL.'}
         </span>
       </div>
@@ -442,7 +442,7 @@ export default function QueryBlocks({ initialCode = '', tables, onTry, onClose, 
       {tried && (
         <div className="mt-3">
           {tried.error
-            ? <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, color: 'hsl(var(--tx))', margin: 0 }}>{friendlySqlError(tried.error, tried.code, tried.sql.schema).message}</p>
+            ? <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 21, color: 'hsl(var(--tx))', margin: 0 }}>{friendlySqlError(tried.error, tried.code, tried.sql.schema).message}</p>
             : <Produced sql={tried.sql} />}
         </div>
       )}

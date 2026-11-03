@@ -5,7 +5,7 @@ import MercaderV2 from '@/components/game/shop/MercaderV2'
 import { MERCADER_V2_VARIANTS } from '@/lib/game/mercader-v2-sprite'
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 // Fondo de la tienda del Abismo (ShopApp) — así se ve cada opción donde va a vivir.
 const ABYSS_BG = 'hsl(260 32% 4%)'

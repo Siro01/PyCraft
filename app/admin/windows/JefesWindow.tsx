@@ -30,7 +30,7 @@ interface Props {
 }
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 const ACTS = ACT_MAPS.map((a) => ({ key: a.key, roman: a.roman.replace('ACTO ', ''), title: a.title, bosses: a.bosses }))
 const ALL = ACTS.flatMap((a) => a.bosses)
 const actStart = new Set(ACTS.map((a) => a.bosses[0]?.id))

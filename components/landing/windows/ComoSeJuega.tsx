@@ -4,7 +4,7 @@ import { IconSnake, IconDatabase, IconSword } from '@/components/ui/PixelIcons'
 // como_se_juega.exe: las tres fases del taller, una debajo de la otra.
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 const PHASES: { step: string; title: string; colorVar: string; icon: ReactNode; desc: string }[] = [
   {

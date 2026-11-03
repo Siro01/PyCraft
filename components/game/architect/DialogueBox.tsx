@@ -62,7 +62,7 @@ export default function DialogueBox({
           background: '#04060a',
           boxShadow: `6px 6px 0 ${accent}33`,
           padding: '22px 22px 18px',
-          fontFamily: 'var(--font-jersey), "Courier New", monospace',
+          fontFamily: 'var(--font-jersey), var(--font-mono), monospace',
           fontSize: 26,
           lineHeight: 1.25,
           color: '#fff',

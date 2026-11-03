@@ -48,7 +48,7 @@ export function drawLuma(
   ctx.shadowBlur = 5
 
   if (mode === 'ascii') {
-    ctx.font = `bold 14px "Courier New", ui-monospace, Consolas, monospace`
+    ctx.font = `bold 14px var(--font-mono), monospace`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     for (let cy = 0; cy < H / 2; cy++) {

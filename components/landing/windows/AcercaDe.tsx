@@ -5,7 +5,7 @@ import { SITE } from '@/lib/site-config'
 // plataforma, tus datos, aviso legal), como "Propiedades del sistema".
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 const head = { fontFamily: jersey, fontSize: 18, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: 'hsl(var(--tx))', margin: '0 0 4px' }
 const body = { fontFamily: vt, fontSize: 19, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: 0 }
 const link = { color: 'hsl(var(--tx))', textDecoration: 'underline', textUnderlineOffset: 3 }

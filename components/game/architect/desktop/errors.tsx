@@ -119,7 +119,7 @@ export function buildTakeoverWindow(kind: ErrKind, text: string, deskW: number, 
   }
 }
 
-const mono = 'var(--font-vt323), monospace'
+const mono = 'var(--font-text), monospace'
 const jersey = 'var(--font-jersey), monospace'
 
 function OkButton({ label, onClick, quiet }: { label: string; onClick: () => void; quiet?: boolean }) {
@@ -151,7 +151,7 @@ export function ErrorBody({ win, onClose, onCloseAll, onDownload }: { win: ErrWi
             <div style={{ fontFamily: mono, fontSize: 20, lineHeight: 1.2, color: 'hsl(var(--tx))' }}>{win.text}</div>
           </div>
           {win.raw && (
-            <div style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, color: 'hsl(var(--danger))', wordBreak: 'break-word' }}>
+            <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 12, color: 'hsl(var(--danger))', wordBreak: 'break-word' }}>
               {win.raw}
             </div>
           )}
@@ -232,7 +232,7 @@ export function ErrorBody({ win, onClose, onCloseAll, onDownload }: { win: ErrWi
             <div className="take-fill" style={{ height: 14, background: 'hsl(var(--danger))' }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="animate-caret-line" style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.1em', color: 'hsl(var(--danger))' }}>ACCESO NO AUTORIZADO</span>
+            <span className="animate-caret-line" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 12, letterSpacing: '0.1em', color: 'hsl(var(--danger))' }}>ACCESO NO AUTORIZADO</span>
             <OkButton label="Cancelar" onClick={onClose} quiet />
           </div>
         </div>

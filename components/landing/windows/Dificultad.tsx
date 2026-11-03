@@ -8,8 +8,8 @@ import { sfx } from '@/lib/game/architect/sound'
 // Es demostrativo: elegir una opción solo cambia lo que se muestra, no guarda nada.
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
-const pixel = 'var(--font-pixel), monospace'
+const vt = 'var(--font-text), monospace'
+const pixel = 'var(--font-mono), monospace'
 
 const TIERS: { label: string; colorVar: string; level: number; icon: ReactNode; desc: string; badge?: string }[] = [
   {

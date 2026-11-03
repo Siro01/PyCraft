@@ -5,7 +5,7 @@ import { tokenize } from '@/components/game/LessonWindow'
 import type { RepasoLang } from '@/lib/game/repasos'
 import { sfx } from '@/lib/game/architect/sound'
 
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 interface Props {
   template: string

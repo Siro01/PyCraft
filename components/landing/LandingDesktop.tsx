@@ -13,6 +13,7 @@ import { SITE } from '@/lib/site-config'
 import MascotGuide from '@/components/game/MascotGuide'
 import CrashTransition from './CrashTransition'
 import Wallpaper from './Wallpaper'
+import WallpaperFX from './WallpaperFX'
 import StartMenu from './StartMenu'
 
 // La landing ES el escritorio de PyCraft OS: el título es el fondo de
@@ -67,7 +68,7 @@ const TIPS: Record<WinId | 'escritorio', string> = {
   papelera: '¡Acá no se borra nada! Todo el escritorio es parte del taller.',
 }
 
-const Loading = () => <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 20, color: 'hsl(var(--tx2))', margin: 0 }}>Cargando…</p>
+const Loading = () => <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 20, color: 'hsl(var(--tx2))', margin: 0 }}>Cargando…</p>
 const LeemeWindow = dynamic(() => import('./windows/Leeme'), { loading: Loading })
 const JefesWindow = dynamic(() => import('./windows/Jefes'), { loading: Loading })
 const ComoSeJuegaWindow = dynamic(() => import('./windows/ComoSeJuega'), { loading: Loading })
@@ -78,7 +79,7 @@ const AcercaDeWindow = dynamic(() => import('./windows/AcercaDe'), { loading: Lo
 const PapeleraWindow = dynamic(() => import('./windows/Papelera'), { loading: Loading })
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 const THEMES = ['dark', 'red', 'light'] as const
 type Theme = (typeof THEMES)[number]
 const THEME_LABEL: Record<Theme, string> = { dark: 'BN', light: 'WH', red: 'RD' }
@@ -456,6 +457,7 @@ export default function LandingDesktop() {
 
         {/* ── Escritorio ── */}
         <main ref={areaRef} className="relative" style={{ flex: 1, minHeight: 0 }}>
+          <WallpaperFX key={narrow ? 'bolsillo' : 'escritorio'} areaRef={areaRef} titleSelector=".wallpaper-title" />
           {narrow ? (
             <>
               <div className="absolute inset-0 overflow-y-auto" style={{ padding: '28px 12px 20px', display: 'flex', flexDirection: 'column', gap: 28 }}>
@@ -476,7 +478,8 @@ export default function LandingDesktop() {
             </>
           ) : (
             <>
-              <div className="absolute inset-0 flex items-center justify-center" style={{ padding: '24px 130px 24px 230px' }}>
+              {/* Margen igual a los dos lados: el título queda centrado en la pantalla, no en el hueco que dejan los íconos. */}
+              <div className="absolute inset-0 flex items-center justify-center" style={{ padding: '24px 220px' }}>
                 <Wallpaper narrow={false} onEnter={enter} />
               </div>
               <nav aria-label="Archivos de PyCraft OS" onKeyDown={onIconsKey} className="absolute inset-0" style={{ pointerEvents: 'none', zIndex: 5 }}>

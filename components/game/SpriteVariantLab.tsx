@@ -4,7 +4,7 @@ import Win from '@/components/ui/Win'
 import StripSprite from '@/components/game/StripSprite'
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 interface Variant {
   id: string

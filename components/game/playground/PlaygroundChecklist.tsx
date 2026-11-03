@@ -7,7 +7,7 @@ import type { PlaygroundState } from '@/lib/storage/local-store'
 import PlaygroundTopicIcon from './PlaygroundTopicIcon'
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 interface Props {
   act: PlaygroundAct

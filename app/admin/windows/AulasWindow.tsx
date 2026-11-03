@@ -25,7 +25,7 @@ interface Props {
 }
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 const TURNOS: { id: Turno; label: string }[] = [{ id: 'mañana', label: 'Mañana' }, { id: 'tarde', label: 'Tarde' }, { id: 'otro', label: 'Otro' }]
 const TURNO_LABEL: Record<string, string> = { 'mañana': 'Mañana', 'tarde': 'Tarde', 'otro': 'Otro' }
 const GRIP = ['##.##', '##.##', '.....', '##.##', '##.##', '.....', '##.##', '##.##']

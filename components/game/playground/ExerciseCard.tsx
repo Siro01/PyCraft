@@ -46,7 +46,7 @@ export default function ExerciseCard({ exercise, onAnswered }: Props) {
         </pre>
       )}
 
-      <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, color: 'hsl(var(--tx))', lineHeight: 1.25 }} className="mb-3">
+      <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 21, color: 'hsl(var(--tx))', lineHeight: 1.25 }} className="mb-3">
         {exercise.prompt}
       </p>
 
@@ -64,7 +64,7 @@ export default function ExerciseCard({ exercise, onAnswered }: Props) {
                 onClick={() => resolve(opt)}
                 className="text-left px-3 py-2"
                 style={{
-                  fontFamily: 'var(--font-vt323), monospace', fontSize: 19,
+                  fontFamily: 'var(--font-text), monospace', fontSize: 19,
                   border: `2px solid ${show ? (isCorrectOpt ? 'hsl(var(--accent))' : 'hsl(var(--danger))') : 'hsl(var(--border2))'}`,
                   background: show ? (isCorrectOpt ? 'hsl(var(--accent) / 0.14)' : 'hsl(var(--danger) / 0.1)') : 'hsl(var(--surface))',
                   color: 'hsl(var(--tx))',
@@ -89,7 +89,7 @@ export default function ExerciseCard({ exercise, onAnswered }: Props) {
             onKeyDown={(e) => { if (e.key === 'Enter' && fillValue.trim()) resolve(fillValue) }}
             placeholder="Escribí tu respuesta"
             className="flex-1"
-            style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, background: 'hsl(var(--surface))', color: 'hsl(var(--tx))', border: '2px solid hsl(var(--tx))', padding: '8px 12px' }}
+            style={{ fontFamily: 'var(--font-text), monospace', fontSize: 19, background: 'hsl(var(--surface))', color: 'hsl(var(--tx))', border: '2px solid hsl(var(--tx))', padding: '8px 12px' }}
           />
           <button
             type="button"
@@ -114,7 +114,7 @@ export default function ExerciseCard({ exercise, onAnswered }: Props) {
           <div style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 15, color: answered.correct ? 'hsl(var(--accent))' : 'hsl(var(--danger))' }}>
             {answered.correct ? '¡Correcto!' : `No era — la respuesta es "${exercise.answer}"`}
           </div>
-          <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, color: 'hsl(var(--tx2))', marginTop: 4 }}>
+          <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 18, color: 'hsl(var(--tx2))', marginTop: 4 }}>
             {exercise.explain}
           </p>
           {libro && (

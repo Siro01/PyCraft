@@ -10,7 +10,7 @@ import { sfx } from '@/lib/game/architect/sound'
 import { resetChestsForDemo } from '@/lib/storage/local-store'
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 const ACT_KEYS: ChestAct[] = ['python', 'sql', 'mixed', 'final']
 

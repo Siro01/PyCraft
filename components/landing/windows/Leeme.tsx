@@ -32,7 +32,7 @@ export function Bubble({ text, side, visible, delay }: {
       <div
         className="max-w-xs px-4 py-3"
         style={{
-          fontFamily: 'var(--font-vt323), monospace', fontSize: 22, lineHeight: 1.15,
+          fontFamily: 'var(--font-text), monospace', fontSize: 22, lineHeight: 1.15,
           background: right ? 'hsl(var(--accent))' : 'hsl(var(--surface))',
           color: right ? 'var(--on-accent, hsl(var(--bg)))' : 'hsl(var(--tx))',
           border: `2px solid ${right ? 'hsl(var(--accent))' : 'hsl(var(--tx))'}`,

@@ -10,7 +10,7 @@ import type { Book } from '@/lib/game/biblioteca'
 import { BOOK_PILE, BOOKEND, BookGlyph, CANDLE, CANDLE_B, PixelGrid, POTION, SEAL, SEAL_EMPTY } from './LibrarySprites'
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 // Alto del lomo: lo que pide el título (vertical) más una variación fija por
 // posición — no al azar: el estante se ve igual cada vez que el alumno vuelve.

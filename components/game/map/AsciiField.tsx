@@ -96,7 +96,7 @@ function AsciiField({ act, blink }: { act: ActMapDef; blink: boolean }) {
   const chH = (act.height * ART) / ASCII_ROWS
 
   return (
-    <g fontFamily="'Courier New', ui-monospace, Consolas, monospace" fontSize={chH * 0.95} fontWeight={700} shapeRendering="auto">
+    <g fontFamily="var(--font-mono), monospace" fontSize={chH * 0.95} fontWeight={700} shapeRendering="auto">
       {grid.map((row, r) => {
         // Una fila de cada ~5 se corre de lado un cuadro de vez en cuando.
         const glitchy = hash2(r, 0, 23) < 0.22

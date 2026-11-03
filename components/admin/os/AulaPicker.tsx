@@ -33,7 +33,7 @@ export function useAulaActiva(aulas: AdminAula[]) {
 }
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 // Desplegable propio del sistema (no el <select> nativo): lista con tinta
 // invertida para la opción marcada, flechas + Enter + Esc.

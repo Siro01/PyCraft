@@ -29,7 +29,7 @@ export default function RodolfoMapWarning({ message, onClose }: Props) {
             ×
           </button>
         </div>
-        <div className="px-3 py-2" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, lineHeight: 1.2, color: 'hsl(var(--tx))' }}>
+        <div className="px-3 py-2" style={{ fontFamily: 'var(--font-text), monospace', fontSize: 19, lineHeight: 1.2, color: 'hsl(var(--tx))' }}>
           {message}
         </div>
       </div>

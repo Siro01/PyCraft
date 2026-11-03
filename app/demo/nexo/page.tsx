@@ -7,7 +7,7 @@ import NexoCanvas from '@/components/game/nexo/NexoCanvas'
 import { NEXO_VARIANTS, ACTIVE_NEXO } from '@/lib/game/nexo-art'
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 const MAX = 360
 
