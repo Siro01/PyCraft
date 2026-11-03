@@ -3,7 +3,7 @@ import Header from '@/components/layout/Header'
 import ProgramShell from '@/components/ui/ProgramShell'
 import PlanBook, { type AtaqueInfo } from '@/components/game/planificacion/PlanBook'
 import { CHALLENGES } from '@/lib/game/challenges'
-import { PLAN_CLASES } from '@/lib/game/planificacion'
+import { PLAN_CLASES, PLAN_INTENSIVO } from '@/lib/game/planificacion'
 import { isLocalMode } from '@/lib/local-mode'
 
 export const metadata = { title: 'Planificación' }
@@ -19,7 +19,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 -->`
 
 interface PageProps {
-  searchParams: Promise<{ clase?: string }>
+  searchParams: Promise<{ clase?: string; ritmo?: string; jefe?: string }>
 }
 
 export default async function PlanificacionPage({ searchParams }: PageProps) {
@@ -33,9 +33,12 @@ export default async function PlanificacionPage({ searchParams }: PageProps) {
     if (profile?.role !== 'admin') redirect('/dashboard')
   }
 
-  const { clase } = await searchParams
-  const n = Number(clase)
-  const initialPage = Number.isInteger(n) && n >= 1 && n <= PLAN_CLASES.length ? n : 0
+  const { clase, ritmo, jefe } = await searchParams
+  // Ritmo intensivo: una página por jefe (`?ritmo=intensivo&jefe=N`).
+  const intensivo = ritmo === 'intensivo'
+  const n = Number(intensivo ? jefe : clase)
+  const last = intensivo ? PLAN_INTENSIVO.length : PLAN_CLASES.length
+  const initialPage = Number.isInteger(n) && n >= 1 && n <= last ? n : 0
 
   // Solo el título y el nivel de cada ataque: la solución no viaja al navegador.
   const ataques: Record<string, AtaqueInfo> = {}
@@ -47,7 +50,7 @@ export default async function PlanificacionPage({ searchParams }: PageProps) {
       <Header />
       <main className="max-w-6xl mx-auto px-4 py-8">
         <ProgramShell backHref="/admin" backLabel="Volver al panel">
-          <PlanBook initialPage={initialPage} ataques={ataques} />
+          <PlanBook initialPage={initialPage} initialRitmo={intensivo ? 'intensivo' : ritmo === 'normal' ? 'normal' : undefined} ataques={ataques} />
         </ProgramShell>
       </main>
     </div>

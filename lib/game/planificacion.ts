@@ -1511,3 +1511,304 @@ export const PLAN_CLASES: PlanClase[] = [
 export function getPlanClase(numero: number): PlanClase | undefined {
   return PLAN_CLASES.find((c) => c.numero === numero)
 }
+
+// ─── Ritmo intensivo: un jefe por clase, solo Junior ─────────────────────────
+//
+// Para cuando falta tiempo (taller de un mes): una clase por jefe. Entran solo
+// los temas que preparan ataques JUNIOR del jefe — los temas que solo sirven
+// para Trainee (and, acumular, sorted, ORDER BY, GROUP BY…) quedan afuera.
+// Por tema: el docente muestra el ejemplo y el aula hace el guiado; cada jefe
+// suma refuerzos con la misma forma de un ataque junior y otros datos, para
+// llegar a 4 ejercicios antes de pelear.
+
+export interface PlanIntensivoTema {
+  /** Referencia al tema del libro de 28 clases. */
+  clase: number
+  tema: number
+  /** Otro guiado igual a un ataque junior, con otros datos. */
+  refuerzo?: PlanEjercicio
+}
+
+export interface PlanIntensivo {
+  bossId: string
+  temas: PlanIntensivoTema[]
+}
+
+export const PLAN_INTENSIVO: PlanIntensivo[] = [
+  {
+    bossId: 'creeper-formulario',
+    temas: [
+      { clase: 1, tema: 0 },
+      { clase: 1, tema: 1 },
+      {
+        clase: 2, tema: 0,
+        refuerzo: {
+          pide: 'Completá con las variables de peso. Tiene que dar `7.0`.',
+          codigo: 'flechas = 8\npeso_flecha = 0.25\nbloques = 2\npeso_bloque = 2.5\n\npeso_total = (flechas * ___) + (bloques * ___)\nprint(peso_total)',
+          respuestas: ['peso_flecha', 'peso_bloque'],
+          sale: '7.0',
+        },
+      },
+    ],
+  },
+  {
+    bossId: 'guardian-puerta',
+    temas: [
+      {
+        clase: 3, tema: 0,
+        refuerzo: {
+          pide: 'Completá el `elif` para que con `bloque = "oro"` imprima `Bueno`.',
+          codigo: 'bloque = "oro"\n\nif bloque == "diamante":\n    print("Excelente")\nelif bloque == ___:\n    print("Bueno")\nelse:\n    print("Básico")',
+          respuestas: ['"oro"'],
+          sale: 'Bueno',
+        },
+      },
+      {
+        clase: 3, tema: 1,
+        refuerzo: {
+          pide: 'Con `energia = 2` tiene que imprimir `¡Sin energía!`. ¿Qué número va?',
+          codigo: 'energia = 2\n\nif energia <= ___:\n    print("¡Sin energía!")\nelif energia <= 8:\n    print("Un poco cansado")\nelse:\n    print("A full")',
+          respuestas: ['3'],
+          sale: '¡Sin energía!',
+        },
+      },
+    ],
+  },
+  {
+    bossId: 'golem-infinito',
+    temas: [
+      {
+        clase: 5, tema: 0,
+        refuerzo: {
+          pide: 'Completá el `range()` para imprimir del 1 al 5.',
+          codigo: 'for i in range(___, ___):\n    print(i)',
+          respuestas: ['1', '6'],
+          sale: '1\n2\n3\n4\n5',
+        },
+      },
+      {
+        clase: 5, tema: 1,
+        refuerzo: {
+          pide: '¿Cuánto baja la durabilidad en cada golpe? Tiene que hacer 4 golpes.',
+          codigo: 'durabilidad = 4\n\nwhile durabilidad > 0:\n    print("Golpe! durabilidad:", durabilidad)\n    durabilidad = durabilidad - ___\n\nprint("¡Se rompió!")',
+          respuestas: ['1'],
+          sale: 'Golpe! durabilidad: 4\nGolpe! durabilidad: 3\nGolpe! durabilidad: 2\nGolpe! durabilidad: 1\n¡Se rompió!',
+        },
+      },
+    ],
+  },
+  {
+    bossId: 'mercader-abismo',
+    temas: [
+      { clase: 7, tema: 0 },
+      { clase: 7, tema: 1 },
+      {
+        clase: 8, tema: 0,
+        refuerzo: {
+          pide: 'Completá el `for` para recorrer la lista e imprimir cada ítem.',
+          codigo: 'cofre = ["Pico", "Hacha", "Pala"]\n\nfor item in ___:\n    print(item)',
+          respuestas: ['cofre'],
+          sale: 'Pico\nHacha\nPala',
+        },
+      },
+    ],
+  },
+  {
+    bossId: 'maestro-craftero',
+    temas: [
+      { clase: 9, tema: 0 },
+      { clase: 9, tema: 1 },
+      {
+        clase: 10, tema: 0,
+        refuerzo: {
+          pide: 'Con nivel 5 o más es `espada`. Completá el número para que `mejor_arma(8)` dé `espada`.',
+          codigo: 'def mejor_arma(nivel):\n    if nivel >= ___:\n        return "espada"\n    else:\n        return "palo"\n\nprint(mejor_arma(8))',
+          respuestas: ['5'],
+          sale: 'espada',
+        },
+      },
+    ],
+  },
+  {
+    bossId: 'archivista',
+    temas: [
+      {
+        clase: 11, tema: 0,
+        refuerzo: {
+          pide: 'Completá la clave para imprimir el material.',
+          codigo: 'item = {"id": 2, "nombre": "Pico", "material": "hierro"}\n\nprint(item[___])',
+          respuestas: ['"material"'],
+          sale: 'hierro',
+        },
+      },
+      {
+        clase: 11, tema: 1,
+        refuerzo: {
+          pide: 'Completá la clave para imprimir el nombre de cada fila.',
+          codigo: 'inventario = [\n    {"id": 1, "nombre": "Pan"},\n    {"id": 2, "nombre": "Leche"},\n    {"id": 3, "nombre": "Torta"},\n]\n\nfor item in inventario:\n    print(item[___])',
+          respuestas: ['"nombre"'],
+          sale: 'Pan\nLeche\nTorta',
+        },
+      },
+    ],
+  },
+  {
+    bossId: 'constructor-vacio',
+    temas: [
+      {
+        clase: 13, tema: 0,
+        refuerzo: {
+          pide: 'La tabla tiene que llamarse `items`.',
+          codigo: "CREATE TABLE ___ (\n  id INTEGER PRIMARY KEY,\n  nombre TEXT\n);\nINSERT INTO items VALUES (1, 'Espada');\nSELECT * FROM items;",
+          respuestas: ['items'],
+          sale: '1|Espada',
+        },
+      },
+      { clase: 13, tema: 1 },
+      { clase: 14, tema: 0 },
+    ],
+  },
+  {
+    bossId: 'oraculo-oscuro',
+    temas: [
+      {
+        clase: 15, tema: 0,
+        refuerzo: {
+          pide: 'Traé solo la columna `nombre`.',
+          tabla: COFRE_ORACULO,
+          codigo: 'SELECT ___\nFROM cofre;',
+          respuestas: ['nombre'],
+          sale: 'Espada\nAntorcha\nPico\nManzana\nFlecha',
+        },
+      },
+      {
+        clase: 15, tema: 1,
+        refuerzo: {
+          pide: 'Traé el nombre del ítem con `id` 4.',
+          tabla: COFRE_ORACULO,
+          codigo: 'SELECT nombre\nFROM cofre\nWHERE id = ___;',
+          respuestas: ['4'],
+          sale: 'Manzana',
+        },
+      },
+    ],
+  },
+  {
+    bossId: 'contador-almas',
+    temas: [
+      {
+        clase: 17, tema: 0,
+        refuerzo: {
+          pide: 'Contá cuántos monstruos hay en total.',
+          tabla: MONSTRUOS,
+          codigo: 'SELECT ___(*)\nFROM monstruos;',
+          respuestas: ['COUNT'],
+          sale: '6',
+        },
+      },
+      {
+        clase: 17, tema: 1,
+        refuerzo: {
+          pide: 'Sumá el `hp` de todo el ejército.',
+          tabla: MONSTRUOS,
+          codigo: 'SELECT ___(hp)\nFROM monstruos;',
+          respuestas: ['SUM'],
+          sale: '129',
+        },
+      },
+    ],
+  },
+  {
+    bossId: 'falsificador',
+    temas: [
+      {
+        clase: 19, tema: 0,
+        refuerzo: {
+          pide: "Que la 'Espada' pase a ser de 'oro'.",
+          tabla: COFRE_FALSO,
+          codigo: 'UPDATE cofre\nSET material = ___\nWHERE nombre = ___;\nSELECT nombre, material FROM cofre;',
+          respuestas: ["'oro'", "'Espada'"],
+          sale: 'Espada|oro\nPico|hierro\nFlecha|madera\nTronco|madera\nPoción|vidrio',
+        },
+      },
+      {
+        clase: 19, tema: 1,
+        refuerzo: {
+          pide: "Borrá la 'Flecha'.",
+          tabla: COFRE_FALSO,
+          codigo: 'DELETE FROM cofre\nWHERE nombre = ___;\nSELECT nombre FROM cofre;',
+          respuestas: ["'Flecha'"],
+          sale: 'Espada\nPico\nTronco\nPoción',
+        },
+      },
+    ],
+  },
+  {
+    bossId: 'el-nexo',
+    temas: [
+      { clase: 21, tema: 0 },
+      { clase: 21, tema: 1 },
+      {
+        clase: 22, tema: 0,
+        refuerzo: {
+          pide: 'La fila es una tupla: el primer elemento es el índice `0`. Imprimí el nombre.',
+          codigo: db('cursor.execute("CREATE TABLE items (nombre TEXT)")\ncursor.execute("INSERT INTO items VALUES (?)", ("Arco",))\nconn.commit()\n\ncursor.execute("SELECT nombre FROM items")\nprint(cursor.fetchone()[___])'),
+          respuestas: ['0'],
+          sale: 'Arco',
+        },
+      },
+    ],
+  },
+  {
+    bossId: 'la-hydra',
+    temas: [
+      { clase: 23, tema: 0 },
+      {
+        clase: 23, tema: 1,
+        refuerzo: {
+          pide: 'Completá el `ORDER BY` para listar en orden alfabético.',
+          codigo: db('cursor.execute("CREATE TABLE inventario (nombre TEXT)")\ncursor.executemany("INSERT INTO inventario VALUES (?)", [("Torta",), ("Agua",), ("Miel",)])\nconn.commit()\n\ncursor.execute("SELECT nombre FROM inventario ORDER BY ___")\nfor row in cursor.fetchall():\n    print(row[0])'),
+          respuestas: ['nombre'],
+          sale: 'Agua\nMiel\nTorta',
+        },
+      },
+      { clase: 24, tema: 0 },
+    ],
+  },
+  {
+    bossId: 'dragon-rojo',
+    temas: [
+      {
+        clase: 25, tema: 0,
+        refuerzo: {
+          pide: 'La función ya está escrita: llamala para buscar el "Rubí".',
+          codigo: db('cursor.execute("CREATE TABLE tesoro (nombre TEXT, cantidad INTEGER)")\ncursor.executemany("INSERT INTO tesoro VALUES (?, ?)", [("Oro", 50), ("Rubí", 2)])\nconn.commit()\n\ndef buscar(nombre):\n    cursor.execute("SELECT nombre FROM tesoro WHERE nombre = ?", (nombre,))\n    resultado = cursor.fetchone()\n    if resultado:\n        print(f"Encontrado: {resultado[0]}")\n    else:\n        print("No encontrado")\n\nbuscar(___)'),
+          respuestas: ['"Rubí"'],
+          sale: 'Encontrado: Rubí',
+        },
+      },
+      { clase: 25, tema: 1 },
+      { clase: 26, tema: 0 },
+    ],
+  },
+  {
+    bossId: 'el-arquitecto',
+    temas: [
+      { clase: 27, tema: 0 },
+      { clase: 27, tema: 1 },
+      {
+        clase: 28, tema: 0,
+        refuerzo: {
+          pide: "Borrá el \"Arco\". Ojo: el texto va con comillas simples adentro del SQL: `'Arco'`.",
+          codigo: db('cursor.execute("CREATE TABLE inventario (nombre TEXT)")\ncursor.executemany("INSERT INTO inventario VALUES (?)", [("Espada",), ("Arco",), ("Poción",)])\nconn.commit()\n\ncursor.execute("DELETE FROM inventario WHERE nombre = ___")\nconn.commit()\nprint("Arco eliminado")\n\ncursor.execute("SELECT COUNT(*) FROM inventario")\nprint(cursor.fetchone()[0])'),
+          respuestas: ["'Arco'"],
+          sale: 'Arco eliminado\n2',
+        },
+      },
+    ],
+  },
+]
+
+export function getPlanIntensivo(bossId: string): PlanIntensivo | undefined {
+  return PLAN_INTENSIVO.find((p) => p.bossId === bossId)
+}

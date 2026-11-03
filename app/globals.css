@@ -3843,6 +3843,51 @@ button.lobby-row:disabled { cursor: not-allowed; opacity: 0.55; }
 .plan-index-day-temas { display: flex; flex-direction: column; gap: 1px; font-family: var(--font-text), monospace; font-size: 19px; line-height: 1.1; color: hsl(var(--tx)); }
 .plan-index-day-fight { color: hsl(var(--accent)); }
 
+/* Selector de ritmo en la barra de la ventana (barra sólida: tinta = --bg) */
+.plan-bar { display: inline-flex; align-items: center; gap: 8px; padding: 1px 4px; background: hsl(var(--bg)); }
+.plan-ritmo { display: inline-flex; }
+.plan-ritmo button {
+  height: 22px; padding: 0 9px; cursor: pointer; white-space: nowrap;
+  font-family: var(--font-jersey), monospace; font-size: 15px; line-height: 1; letter-spacing: 0.02em;
+  border: 2px solid hsl(var(--tx)); background: transparent; color: hsl(var(--tx2));
+}
+.plan-ritmo button + button { border-left: 0; }
+.plan-ritmo button:hover { color: hsl(var(--tx)); }
+.plan-ritmo button[aria-pressed="true"] { background: hsl(var(--accent)); border-color: hsl(var(--accent)); color: var(--on-accent, hsl(var(--bg))); }
+.plan-ritmo button:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
+.plan-ritmo-short { display: none; }
+@media (max-width: 600px) {
+  .plan-ritmo-long, .plan-zoom { display: none; }
+  .plan-ritmo-short { display: inline; }
+}
+
+/* Índice del ritmo intensivo: la fila entera es el botón del jefe */
+.plan-index-jefe {
+  width: 100%; display: grid; grid-template-columns: 92px minmax(200px, 1fr) minmax(0, 1.4fr) auto; align-items: start; gap: 10px;
+  padding: 10px 8px; text-align: left; cursor: pointer; color: hsl(var(--tx));
+  background: transparent; border: 0; border-bottom: 1px dashed hsl(var(--border2));
+}
+.plan-index-jefe:hover { background: hsl(var(--surface2)); }
+.plan-index-jefe:hover .plan-index-boss-name { text-decoration: underline; text-underline-offset: 4px; }
+.plan-index-jefe:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: -2px; }
+.plan-index-jefe .plan-index-day-temas { padding-top: 3px; }
+.plan-index-count { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; padding-top: 3px; font-family: var(--font-jersey), monospace; font-size: 17px; line-height: 1; color: hsl(var(--tx2)); white-space: nowrap; }
+
+/* Recorrido de la clase intensiva: el orden de un vistazo, cada paso salta a su bloque */
+.plan-track { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 0; margin: 0; padding: 0 0 4px; list-style: none; }
+.plan-track li { display: inline-flex; align-items: center; }
+.plan-track li:not(:last-child)::after { content: ""; width: 8px; height: 2px; margin: 0 2px; background: hsl(var(--tx3)); }
+.plan-track-step {
+  height: 28px; padding: 0 8px; cursor: pointer; white-space: nowrap; font-family: var(--font-jersey), monospace; font-size: 16px; line-height: 1;
+  border: 2px solid hsl(var(--tx)); background: transparent; color: hsl(var(--tx));
+}
+.plan-track-step--mostrar { border-style: dashed; border-color: hsl(var(--tx3)); color: hsl(var(--tx2)); }
+.plan-track-step--ejercicio { background: hsl(var(--tx)); color: hsl(var(--bg)); }
+.plan-track-step--jefe { background: hsl(var(--accent)); border-color: hsl(var(--accent)); color: var(--on-accent, hsl(var(--bg))); }
+.plan-track-step:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 hsl(var(--tx) / 0.25); }
+.plan-track-step:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
+.plan-v[id], .plan-fight[id] { scroll-margin-top: 16px; }
+
 @media (max-width: 860px) {
   .plan-body { grid-template-columns: 1fr; }
   .plan-rail { display: none; }
@@ -3851,6 +3896,9 @@ button.lobby-row:disabled { cursor: not-allowed; opacity: 0.55; }
   .plan-index-row { grid-template-columns: 1fr 1fr; }
   .plan-index-week { grid-column: 1 / -1; padding-top: 0; }
   .plan-index-boss { grid-column: 1 / -1; }
+  .plan-index-jefe { grid-template-columns: 1fr auto; }
+  .plan-index-jefe .plan-index-week { grid-column: 1 / -1; }
+  .plan-index-jefe .plan-index-boss { grid-column: 1 / -1; }
   .plan-code { font-size: 19px; }
   .plan-pide { font-size: 20px; }
   .plan-where-title { font-size: 28px; }
