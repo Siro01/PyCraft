@@ -453,7 +453,7 @@ export default function BossMap({
             <h1 className="text-2xl tracking-wide" style={{ color: 'hsl(var(--tx))', lineHeight: 1.05 }}>
               Bienvenido, <span style={{ color: 'hsl(var(--accent))' }}>{username}</span>
             </h1>
-            <p className="mt-1 mb-3" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 20, color: 'hsl(var(--tx2))' }}>
+            <p className="mt-1 mb-3" style={{ fontFamily: 'var(--font-text), monospace', fontSize: 20, color: 'hsl(var(--tx2))' }}>
               {totalDefeated} / {totalBosses} jefes derrotados
             </p>
             <div className="flex justify-between label-mono mb-1.5">
@@ -499,7 +499,7 @@ export default function BossMap({
             onMinimize={() => setControls((s) => ({ ...s, mode: 'minimized' }))}
             bodyStyle={{ padding: 16 }}
           >
-            <ul className="flex flex-col gap-2" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, color: 'hsl(var(--tx2))', listStyle: 'none', margin: 0, padding: 0 }}>
+            <ul className="flex flex-col gap-2" style={{ fontFamily: 'var(--font-text), monospace', fontSize: 19, color: 'hsl(var(--tx2))', listStyle: 'none', margin: 0, padding: 0 }}>
               <li><strong style={{ color: 'hsl(var(--tx))' }}>← → ↑ ↓</strong> o <strong style={{ color: 'hsl(var(--tx))' }}>WASD</strong> — moverte</li>
               <li><strong style={{ color: 'hsl(var(--tx))' }}>Enter</strong> o <strong style={{ color: 'hsl(var(--tx))' }}>Espacio</strong> — entrar a una puerta</li>
               <li>Pasá el mouse por una puerta para ver el detalle</li>

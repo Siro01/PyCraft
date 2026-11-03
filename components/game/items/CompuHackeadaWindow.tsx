@@ -11,9 +11,9 @@ import { ItemSprite } from './ItemSprites'
 import { sfx } from '@/lib/game/architect/sound'
 import type { CodeFix } from '@/lib/game/items/auto-fix'
 
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 const jersey = 'var(--font-jersey), monospace'
-const mono = "'Courier New', Courier, monospace"
+const mono = "var(--font-mono), monospace"
 
 export default function CompuHackeadaWindow({ fixes, hasBlanks, onClose }: { fixes: CodeFix[]; hasBlanks: boolean; onClose: () => void }) {
   const [phase, setPhase] = useState<'scan' | 'done'>('scan')

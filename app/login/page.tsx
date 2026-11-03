@@ -186,7 +186,7 @@ export default function LoginPage() {
             <span style={{ color: 'hsl(var(--tx3))' }}>= </span>
             <span style={{ color: 'hsl(var(--accent))' }}>BOSSRUSH</span>
           </div>
-          <div className="prompt" style={{ fontFamily: "'Courier New', monospace", fontSize: '12px', letterSpacing: '0.1em' }}>
+          <div className="prompt" style={{ fontFamily: "var(--font-mono), monospace", fontSize: '12px', letterSpacing: '0.1em' }}>
             <span style={{ color: 'hsl(var(--tx3))' }}>
               {LOCAL_MODE ? 'local_mode' : 'awaiting_player'}
             </span>{' '}
@@ -249,7 +249,7 @@ export default function LoginPage() {
                     onClick={() => setRole(r)}
                     style={{
                       flex: 1, padding: '8px 0',
-                      fontFamily: "'Courier New', monospace", fontSize: '12px',
+                      fontFamily: "var(--font-mono), monospace", fontSize: '12px',
                       letterSpacing: '0.06em',
                       border: `2px solid ${role === r ? 'hsl(var(--accent))' : 'hsl(var(--border2))'}`,
                       background: role === r ? 'hsl(var(--accent) / 0.12)' : 'hsl(var(--surface))',
@@ -270,7 +270,7 @@ export default function LoginPage() {
                 background: 'hsl(var(--danger) / 0.08)',
                 border: '2px solid hsl(var(--danger))',
                 boxShadow: '3px 3px 0 hsl(var(--danger) / 0.35)',
-                fontFamily: "'Courier New', monospace", fontSize: '12px', color: 'hsl(var(--danger))',
+                fontFamily: "var(--font-mono), monospace", fontSize: '12px', color: 'hsl(var(--danger))',
               }}>
                 {error}
               </div>
@@ -311,7 +311,7 @@ export default function LoginPage() {
                 background: 'hsl(var(--danger) / 0.08)',
                 border: '2px solid hsl(var(--danger))',
                 boxShadow: '3px 3px 0 hsl(var(--danger) / 0.35)',
-                fontFamily: "'Courier New', monospace", fontSize: '12px', color: 'hsl(var(--danger))',
+                fontFamily: "var(--font-mono), monospace", fontSize: '12px', color: 'hsl(var(--danger))',
               }}>
                 {error}
               </div>
@@ -365,7 +365,7 @@ export default function LoginPage() {
                 background: 'hsl(var(--danger) / 0.08)',
                 border: '2px solid hsl(var(--danger))',
                 boxShadow: '3px 3px 0 hsl(var(--danger) / 0.35)',
-                fontFamily: "'Courier New', monospace", fontSize: '12px', color: 'hsl(var(--danger))',
+                fontFamily: "var(--font-mono), monospace", fontSize: '12px', color: 'hsl(var(--danger))',
               }}>
                 {error}
               </div>

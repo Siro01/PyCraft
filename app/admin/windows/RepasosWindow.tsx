@@ -30,7 +30,7 @@ interface Props {
 }
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 const ACTS = ACT_MAPS
   .map((a) => ({ key: a.key, roman: a.roman.replace('ACTO ', ''), title: a.title, items: REPASOS.filter((r) => a.bosses.some((b) => b.id === r.bossId)).map((r) => ({ r, boss: a.bosses.find((b) => b.id === r.bossId) as Boss })) }))
   .filter((a) => a.items.length > 0)

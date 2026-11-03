@@ -50,7 +50,7 @@ export default function QuestLog({ bossStates, activeActKey, onSelectAct }: Prop
                   </span>
                   <span
                     className="flex-1 min-w-0 truncate"
-                    style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 17, color: state === 'locked' ? 'hsl(var(--tx3))' : 'hsl(var(--tx2))' }}
+                    style={{ fontFamily: 'var(--font-text), monospace', fontSize: 17, color: state === 'locked' ? 'hsl(var(--tx3))' : 'hsl(var(--tx2))' }}
                   >
                     {boss.name}
                   </span>

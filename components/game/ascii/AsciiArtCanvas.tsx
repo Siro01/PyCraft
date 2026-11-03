@@ -52,7 +52,7 @@ export default function AsciiArtCanvas({ art, style, color, width, height = Infi
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.fillStyle = '#000'
     ctx.fillRect(0, 0, w, h)
-    ctx.font = `bold ${font}px "Courier New", ui-monospace, Consolas, monospace`
+    ctx.font = `bold ${font}px var(--font-mono), monospace`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     if (style === 'fosforo') { ctx.shadowColor = color; ctx.shadowBlur = Math.max(2, font * 0.5) }

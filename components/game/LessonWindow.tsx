@@ -10,9 +10,9 @@ import type { Lesson, LessonLang, LessonTable } from '@/lib/game/lessons'
 // importantes marcadas y un botón para ver qué imprime cada paso. Se abre desde
 // el cerdito (vuela desde su esquina) y se puede volver a abrir cuando se quiera.
 
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 const jersey = 'var(--font-jersey), monospace'
-const monoLabel = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'hsl(var(--tx3))' }
+const monoLabel = { fontFamily: 'var(--font-mono), monospace', fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'hsl(var(--tx3))' }
 
 // ── Colores de sintaxis mínimos, por tokens ──────────────────────────────────
 

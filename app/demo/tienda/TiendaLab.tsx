@@ -11,7 +11,7 @@ import { BOSSES } from '@/lib/game/bosses'
 import { DIAMONDS_PER_BOSS, SHOP_UNLOCK_BOSS_NUMBER } from '@/lib/game/shop'
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 export default function TiendaLab() {
   const [defeated, setDefeated] = useState(2)

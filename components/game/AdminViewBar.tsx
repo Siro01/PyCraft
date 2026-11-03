@@ -92,7 +92,7 @@ export default function AdminViewBar({ view, tier }: Props) {
             value=""
             onChange={(e) => { if (e.target.value) router.push(e.target.value) }}
             style={{
-              fontFamily: 'var(--font-vt323), monospace', fontSize: 17, padding: '1px 4px',
+              fontFamily: 'var(--font-text), monospace', fontSize: 17, padding: '1px 4px',
               border: '2px solid hsl(var(--border2))', background: 'hsl(var(--surface2))', color: 'hsl(var(--tx))',
             }}
           >

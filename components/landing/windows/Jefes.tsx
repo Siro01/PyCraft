@@ -28,7 +28,7 @@ const ACTS = [
 
 const MYSTERY = 'el-arquitecto'
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 function BossGlyph({ boss, colorVar }: { boss: Boss; colorVar: string }) {
   const [err, setErr] = useState(false)

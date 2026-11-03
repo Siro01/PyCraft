@@ -10,7 +10,7 @@ import { MercaderPortrait } from './MercaderPortrait'
 import { ShopGlyph } from './ShopIcons'
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 const TABS = [
   { id: 'perk', label: 'Ítems' },

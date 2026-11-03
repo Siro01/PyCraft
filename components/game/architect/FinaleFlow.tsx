@@ -59,9 +59,9 @@ const QUESTIONS: Question[] = [
 
 // ── Estilos compartidos (todo por tokens del tema activo) ─────────────────────
 
-const jersey = 'var(--font-jersey), "Courier New", monospace'
-const vt = 'var(--font-vt323), monospace'
-const monoLabel: React.CSSProperties = { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--tx3))' }
+const jersey = 'var(--font-jersey), var(--font-mono), monospace'
+const vt = 'var(--font-text), monospace'
+const monoLabel: React.CSSProperties = { fontFamily: 'var(--font-mono), monospace', fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--tx3))' }
 
 function PixelButton({ children, onClick, filled = false, disabled = false }: {
   children: React.ReactNode; onClick: () => void; filled?: boolean; disabled?: boolean

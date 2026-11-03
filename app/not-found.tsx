@@ -23,7 +23,7 @@ export default function NotFound() {
                 <p style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 24, letterSpacing: '0.04em', color: 'hsl(var(--tx))', margin: '8px 0 0', lineHeight: 1.1 }}>
                   Este cofre no existe
                 </p>
-                <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 21, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: '10px 0 0' }}>
+                <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 21, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: '10px 0 0' }}>
                   La página que buscás no está acá. Puede que el link esté mal escrito, o que el Arquitecto se la haya llevado. Tu progreso está a salvo.
                 </p>
               </div>
@@ -37,7 +37,7 @@ export default function NotFound() {
             </div>
           </Win>
 
-          <p style={{ fontFamily: "'Courier New', monospace", fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--tx3))', textAlign: 'center', marginTop: 20 }}>
+          <p style={{ fontFamily: "var(--font-mono), monospace", fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--tx3))', textAlign: 'center', marginTop: 20 }}>
             Código de error: 404_NOT_FOUND
           </p>
         </div>

@@ -19,7 +19,7 @@ import { ConsoleAsk, ConsoleLine, ConsoleOutput, usePythonInput, type PendingInp
 import RodolfoImg from '@/components/game/RodolfoImg'
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 /** `código` entre backticks → chip de código. */
 export function RichText({ text }: { text: string }) {

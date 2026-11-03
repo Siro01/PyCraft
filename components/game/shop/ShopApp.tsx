@@ -182,7 +182,7 @@ export default function ShopApp({ totalDefeated, username, battleNear = false, u
                 <span style={{ fontFamily: jersey, fontSize: 30, lineHeight: 1, padding: '2px 12px', border: '3px solid hsl(var(--tx))', color: 'hsl(var(--tx))', transform: 'rotate(-3deg)', background: 'hsl(var(--surface))' }}>
                   CERRADO
                 </span>
-                <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 22, lineHeight: 1.2, color: 'hsl(var(--tx))' }}>
+                <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 22, lineHeight: 1.2, color: 'hsl(var(--tx))' }}>
                   “Todavía no atiendo a cualquiera. Volvé cuando hayas derrotado al jefe {SHOP_UNLOCK_BOSS_NUMBER}, el Guardián de la Puerta. Ahí vas a tener diamantes, y yo, clientes.”
                 </p>
                 <Link href="/dashboard" className="label-mono" style={{ padding: '6px 14px', border: '2px solid hsl(var(--tx))', background: 'hsl(var(--tx))', color: 'hsl(var(--bg))' }}>

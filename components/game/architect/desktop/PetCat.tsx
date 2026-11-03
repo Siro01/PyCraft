@@ -55,7 +55,7 @@ function Bubble({ text, advance, onNext, onTyped, style }: {
         position: 'fixed', zIndex: 600, cursor: advance || !done ? 'pointer' : 'default',
         background: 'hsl(var(--surface))', border: '2px solid hsl(var(--accent))',
         boxShadow: '5px 5px 0 hsl(var(--tx) / 0.2)', padding: '12px 16px 14px',
-        fontFamily: 'var(--font-jersey), "Courier New", monospace', fontSize: 24, lineHeight: 1.22,
+        fontFamily: 'var(--font-jersey), var(--font-mono), monospace', fontSize: 24, lineHeight: 1.22,
         color: 'hsl(var(--tx))', letterSpacing: '0.02em', userSelect: 'none',
         ...style,
       }}

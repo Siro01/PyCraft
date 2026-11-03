@@ -14,7 +14,7 @@ import { RichText, PageTurn } from './BookSpread'
 import { DUMMY, DUMMY_KO, Ico, ICO_RIGHT, ICO_SPARK, PixelGrid, SEAL } from './LibrarySprites'
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 const CHEERS = ['¡ZAS!', '¡PAF!', '¡PUM!', '¡CRAC!']
 const PRAISE_FIRST = ['¡Hechizo perfecto, a la primera!', '¡Le diste de lleno!', '¡Eso! Python te hizo caso.']

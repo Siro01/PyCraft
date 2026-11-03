@@ -16,7 +16,7 @@ interface Props {
 
 const itemStyle: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 12px', textAlign: 'left',
-  fontFamily: 'var(--font-vt323), monospace', fontSize: 21, lineHeight: 1, color: 'hsl(var(--tx))',
+  fontFamily: 'var(--font-text), monospace', fontSize: 21, lineHeight: 1, color: 'hsl(var(--tx))',
   background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'none',
 }
 

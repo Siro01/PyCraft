@@ -17,9 +17,9 @@ import type { ItemUseResult } from '@/lib/game/perk-effects'
 import type { ShopItem } from '@/types'
 import RodolfoImg from '@/components/game/RodolfoImg'
 
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 const jersey = 'var(--font-jersey), monospace'
-const mono = "'Courier New', Courier, monospace"
+const mono = "var(--font-mono), monospace"
 
 const RODOLFO_SEEN_KEY = 'pysql:inventario-py-rodolfo'
 

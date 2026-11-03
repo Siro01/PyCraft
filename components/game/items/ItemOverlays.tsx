@@ -108,10 +108,10 @@ export function PenguinTip({ language, onClose }: { language: 'python' | 'sql'; 
         </div>
         <div className="flex gap-3 p-3">
           <span className="item-anim-waddle shrink-0" style={{ display: 'block' }}><ItemSprite sprite="pinguino" size={44} /></span>
-          <div style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, lineHeight: 1.15, color: 'hsl(var(--tx))' }}>
+          <div style={{ fontFamily: 'var(--font-text), monospace', fontSize: 18, lineHeight: 1.15, color: 'hsl(var(--tx))' }}>
             <p>¡Hola! Yo me sé muchas palabras de {language === 'sql' ? 'SQL' : 'Python'}.</p>
             <p style={{ marginTop: 4, color: 'hsl(var(--tx2))' }}>
-              Escribí las primeras letras (por ejemplo <code style={{ fontFamily: "'Courier New', monospace", fontSize: 14, color: 'hsl(var(--tx))' }}>{example[0]}</code>) y te muestro cómo sigue. Elegí con las flechas y apretá Enter para completar <code style={{ fontFamily: "'Courier New', monospace", fontSize: 14, color: 'hsl(var(--tx))' }}>{example[1]}</code>.
+              Escribí las primeras letras (por ejemplo <code style={{ fontFamily: "var(--font-mono), monospace", fontSize: 14, color: 'hsl(var(--tx))' }}>{example[0]}</code>) y te muestro cómo sigue. Elegí con las flechas y apretá Enter para completar <code style={{ fontFamily: "var(--font-mono), monospace", fontSize: 14, color: 'hsl(var(--tx))' }}>{example[1]}</code>.
             </p>
             <button type="button" onClick={onClose} className="label-mono" style={{ marginTop: 8, padding: '3px 10px', border: '2px solid hsl(var(--tx))', background: 'hsl(var(--tx))', color: 'hsl(var(--bg))', cursor: 'pointer' }}>
               Dale

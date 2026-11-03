@@ -21,8 +21,8 @@ import PixelBurst from '@/components/game/repaso/PixelBurst'
 import type { Amulet, AmuletType, OwnedShopItem, ShopItem } from '@/types'
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
-const mono = "'Courier New', Courier, monospace"
+const vt = 'var(--font-text), monospace'
+const mono = "var(--font-mono), monospace"
 
 // INVENTARIO.EXE — compartido entre el escritorio (/dashboard) y la batalla.
 // Una grilla de casilleros, como la mochila de Minecraft: en reposo solo se ven

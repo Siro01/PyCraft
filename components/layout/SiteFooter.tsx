@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { SITE } from '@/lib/site-config'
 import { PixelBitmap, CHEST_CLOSED } from '@/components/game/architect/desktop/PixelBitmap'
 
-const pixel = 'var(--font-pixel), monospace'
-const linkStyle = { fontFamily: 'var(--font-vt323), monospace', fontSize: 18, color: 'hsl(var(--tx2))', display: 'inline-block', padding: '3px 0' } as const
+const pixel = 'var(--font-mono), monospace'
+const linkStyle = { fontFamily: 'var(--font-text), monospace', fontSize: 18, color: 'hsl(var(--tx2))', display: 'inline-block', padding: '3px 0' } as const
 
 function Col({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -27,7 +27,7 @@ export default function SiteFooter({ compact = false }: { compact?: boolean }) {
                 <span style={{ color: 'hsl(var(--python))' }}>PY</span>CRAFT BOSSRUSH
               </span>
             </div>
-            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: 0 }}>
+            <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 19, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: 0 }}>
               Plataforma web educativa de acceso restringido, destinada a talleres de introducción a la programación en Python y SQL para niñas y niños de 10 a 13 años.
             </p>
           </div>
@@ -46,7 +46,7 @@ export default function SiteFooter({ compact = false }: { compact?: boolean }) {
           </Col>
 
           <Col title="Tus datos">
-            <p style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 18, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: 0 }}>
+            <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 18, lineHeight: 1.2, color: 'hsl(var(--tx2))', margin: 0 }}>
               Esta plataforma no recopila datos personales sensibles ni información identificatoria de menores. Solo se utiliza un alias y, para la entrega del proyecto final, el correo electrónico del tutor responsable.
             </p>
           </Col>
@@ -55,7 +55,7 @@ export default function SiteFooter({ compact = false }: { compact?: boolean }) {
 
       <div style={{ borderTop: compact ? undefined : '2px solid hsl(var(--border2))' }}>
         <div className="max-w-6xl mx-auto px-5 py-3 flex items-center justify-between flex-wrap gap-x-6 gap-y-1"
-          style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 17, color: 'hsl(var(--tx3))' }}>
+          style={{ fontFamily: 'var(--font-text), monospace', fontSize: 17, color: 'hsl(var(--tx3))' }}>
           <span>© {year} {SITE.name}. Todos los derechos reservados · Desarrollado por <a href={SITE.githubUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'hsl(var(--tx2))', textDecoration: 'underline' }}>{SITE.author}</a></span>
           {compact && (
             <span className="flex gap-4">

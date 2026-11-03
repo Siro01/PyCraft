@@ -1,7 +1,6 @@
 import UISounds from '@/components/ui/UISounds'
 import type { Metadata } from 'next'
 import localFont from 'next/font/local'
-import { VT323, Silkscreen } from 'next/font/google'
 import PixelFXProvider from '@/components/ui/PixelFXProvider'
 import PistoleroWatcher from '@/components/game/raid/PistoleroWatcher'
 import CloudSyncBoot from '@/components/layout/CloudSyncBoot'
@@ -18,20 +17,23 @@ const jersey25 = localFont({
   display: 'swap',
 })
 
-// VT323 — fuente pixel-art terminal para diálogos de jefes
-const vt323 = VT323({
-  weight: '400',
-  subsets: ['latin'],
-  variable: '--font-vt323',
+// JetBrains Mono (OFL, app/fonts/JetBrainsMono-OFL.txt) — la letra de lectura de todo el
+// sitio, como en omarchy.org. --font-mono va a tamaño normal; --font-text es la misma
+// letra achicada para que entre en los tamaños pensados para VT323 sin rehacerlos.
+const jetbrains = localFont({
+  src: './fonts/JetBrainsMono-latin.woff2',
+  weight: '100 800',
+  style: 'normal',
+  variable: '--font-mono',
   display: 'swap',
 })
-
-// Silkscreen — pixel-art puro para botones y etiquetas de la landing (CTA, menú)
-const silkscreen = Silkscreen({
-  weight: ['400', '700'],
-  subsets: ['latin'],
-  variable: '--font-pixel',
+const jetbrainsText = localFont({
+  src: './fonts/JetBrainsMono-latin.woff2',
+  weight: '100 800',
+  style: 'normal',
+  variable: '--font-text',
   display: 'swap',
+  declarations: [{ prop: 'size-adjust', value: '72%' }],
 })
 
 export const metadata: Metadata = {
@@ -41,7 +43,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" data-theme="dark" suppressHydrationWarning className={`${jersey25.variable} ${vt323.variable} ${silkscreen.variable}`}>
+    <html lang="es" data-theme="dark" suppressHydrationWarning className={`${jersey25.variable} ${jetbrains.variable} ${jetbrainsText.variable}`}>
       <head>
         <script
           dangerouslySetInnerHTML={{

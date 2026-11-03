@@ -5,7 +5,7 @@ import { PixelBitmap, ICON_ARROW_RIGHT } from '@/components/game/architect/deskt
 import { sfx } from '@/lib/game/architect/sound'
 import RodolfoImg from '@/components/game/RodolfoImg'
 
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 const jersey = 'var(--font-jersey), monospace'
 
 interface Props {

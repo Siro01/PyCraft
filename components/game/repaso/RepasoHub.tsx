@@ -12,7 +12,7 @@ import { sfx } from '@/lib/game/architect/sound'
 import { getRepasoProgress, type RepasoProgressMap } from '@/lib/storage/local-store'
 import RodolfoTalk from './RodolfoTalk'
 
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 const jersey = 'var(--font-jersey), monospace'
 
 interface Props {

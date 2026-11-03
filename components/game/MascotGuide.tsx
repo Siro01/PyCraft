@@ -80,12 +80,12 @@ export default function MascotGuide({ tip, variant = 'gif', onOpenLesson, alert 
               <span style={{ fontFamily: 'var(--font-jersey), monospace', fontSize: 15, letterSpacing: '0.08em' }}>RODOLFO</span>
             </div>
             {alertText && (
-              <div className="px-3 py-2" role="alert" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, lineHeight: 1.15, color: 'hsl(var(--tx))', borderBottom: tip ? '1px dashed hsl(var(--border2))' : undefined }}>
+              <div className="px-3 py-2" role="alert" style={{ fontFamily: 'var(--font-text), monospace', fontSize: 19, lineHeight: 1.15, color: 'hsl(var(--tx))', borderBottom: tip ? '1px dashed hsl(var(--border2))' : undefined }}>
                 <strong style={{ color: 'hsl(var(--accent))' }}>¡Ojo! </strong>{alertText}
               </div>
             )}
             {tip && (
-              <div className="px-3 py-2" style={{ fontFamily: 'var(--font-vt323), monospace', fontSize: 19, lineHeight: 1.15, color: 'hsl(var(--tx))' }}>
+              <div className="px-3 py-2" style={{ fontFamily: 'var(--font-text), monospace', fontSize: 19, lineHeight: 1.15, color: 'hsl(var(--tx))' }}>
                 {tip}
               </div>
             )}

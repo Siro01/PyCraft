@@ -10,8 +10,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
-        mono: ["'Courier New'", 'Courier', 'SF Mono', 'monospace'],
+        sans: ['var(--font-mono)', 'monospace'],
+        mono: ['var(--font-mono)', 'monospace'],
       },
       colors: {
         // Mapped to CSS custom properties — always go through variables

@@ -7,7 +7,7 @@ import { sfx } from '@/lib/game/architect/sound'
 // mercader.exe: lo que trae el Mercader Ambulante, como casilleros de inventario.
 
 const jersey = 'var(--font-jersey), monospace'
-const vt = 'var(--font-vt323), monospace'
+const vt = 'var(--font-text), monospace'
 
 const SLOTS = [
   { id: 'mercader', Icon: IconWizard, title: 'Mercader Ambulante', colorVar: '--accent', desc: 'Cada 2 jefes aparece el Mercader con un amuleto para la próxima batalla.' },
