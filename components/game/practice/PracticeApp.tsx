@@ -8,10 +8,14 @@ import CodeMirrorEditor from '@/components/game/CodeMirrorEditor'
 import { PixelBitmap, ICON_TERMINAL } from '@/components/game/architect/desktop/PixelBitmap'
 import { sfx } from '@/lib/game/architect/sound'
 import {
-  getPracticeCode, getPracticeIntroHidden, getPracticeSplit, getTextZoom, PRACTICE_SPLIT_DEFAULT,
-  PRACTICE_SPLIT_MAX, PRACTICE_SPLIT_MIN, savePracticeCode, setPracticeIntroHidden, setPracticeSplit,
+  getPracticeCode, getPracticeSplit, getTextZoom, PRACTICE_SPLIT_DEFAULT,
+  PRACTICE_SPLIT_MAX, PRACTICE_SPLIT_MIN, savePracticeCode, setPracticeSplit,
   setTextZoom, TEXT_ZOOM_DEFAULT, getProjectorLight, setProjectorLight,
+  getPracticeSqlCode, savePracticeSqlCode, getPracticeLang, setPracticeLang, type PracticeLang,
 } from '@/lib/storage/local-store'
+import type { TableDiff } from '@/lib/game/executor/sql-runner'
+import { friendlySqlError } from '@/lib/game/friendly-error'
+import SqlTable from '@/components/game/sql/SqlTable'
 import ZoomControl from '@/components/game/ZoomControl'
 import ProjectorToggle, { PROJECTOR_PALETTE } from '@/components/game/ProjectorToggle'
 import { useIsAdmin } from '@/lib/hooks/useIsAdmin'
@@ -31,10 +35,35 @@ print("Ítem:", nombre_item)
 print("Cantidad:", cantidad)
 `
 
-type RunState = { kind: 'idle' } | { kind: 'ok'; output: string } | { kind: 'error'; message: string; output?: string; failed?: boolean }
+const STARTER_SQL = `-- ¡Patio de SQL! Escribí tus órdenes y apretá ▶ Ejecutar.
+-- Cada vez que ejecutás arranca una base de datos vacía: primero creá la tabla.
+
+CREATE TABLE cofre (
+  id INTEGER PRIMARY KEY,
+  nombre TEXT,
+  cantidad INTEGER
+);
+
+INSERT INTO cofre VALUES (1, 'Espada', 1);
+INSERT INTO cofre VALUES (2, 'Antorcha', 16);
+INSERT INTO cofre VALUES (3, 'Manzana', 8);
+
+SELECT nombre, cantidad FROM cofre;
+`
+
+type RunState =
+  | { kind: 'idle' }
+  | { kind: 'ok'; output: string }
+  | { kind: 'error'; message: string; output?: string; failed?: boolean }
+  | { kind: 'sql'; columns: string[]; rows: string[][]; changes: TableDiff[] }
+  | { kind: 'sqlError'; message: string; suggestion?: string; raw: string }
 
 export default function PracticeApp() {
   const [code, setCode] = useState(STARTER_CODE)
+  // Python o SQL: cada lenguaje tiene su propia libreta guardada.
+  const [lang, setLang] = useState<PracticeLang>('python')
+  const [sqlCode, setSqlCode] = useState(STARTER_SQL)
+  const [sqlReady, setSqlReady] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [engineReady, setEngineReady] = useState(false)
   const [running, setRunning] = useState(false)
@@ -44,10 +73,8 @@ export default function PracticeApp() {
   // de montar lee el zoom guardado — mismo motivo que el resto del estado
   // que viene de localStorage en esta pantalla.
   const [zoom, setZoom] = useState(TEXT_ZOOM_DEFAULT)
-  // Ocultar el párrafo de ayuda para ganar espacio, y la fracción de ancho
-  // que le toca al editor contra la consola (el resto es de la consola) —
-  // ambos son gustos del alumno, se guardan en localStorage.
-  const [introHidden, setIntroHidden] = useState(false)
+  // Fracción de ancho que le toca al editor contra la consola (el resto es
+  // de la consola) — gusto del alumno, se guarda en localStorage.
   const [split, setSplit] = useState(PRACTICE_SPLIT_DEFAULT)
   // Modo proyector: paleta clara para mostrar el patio en clase. Solo el
   // docente ve el botón; se recuerda en su PC.
@@ -79,8 +106,10 @@ export default function PracticeApp() {
   useEffect(() => {
     const saved = getPracticeCode()
     if (saved) setCode(saved)
+    const savedSql = getPracticeSqlCode()
+    if (savedSql) setSqlCode(savedSql)
+    setLang(getPracticeLang())
     setZoom(getTextZoom())
-    setIntroHidden(getPracticeIntroHidden())
     setSplit(getPracticeSplit())
     setProjector(getProjectorLight())
     setLoaded(true)
@@ -94,15 +123,6 @@ export default function PracticeApp() {
   const handleProjector = (next: boolean) => {
     setProjector(next)
     setProjectorLight(next)
-  }
-
-  const toggleIntro = () => {
-    sfx.click()
-    setIntroHidden((hidden) => {
-      const next = !hidden
-      setPracticeIntroHidden(next)
-      return next
-    })
   }
 
   // Arrastre del divisor entre editor y consola — el alumno arma su propio
@@ -151,13 +171,57 @@ export default function PracticeApp() {
     return () => { cancelled = true }
   }, [])
 
+  // Motor de SQL (sql.js, el mismo de las batallas): es chico, se precarga igual.
+  useEffect(() => {
+    let cancelled = false
+    import('@/lib/game/executor/sql-runner').then(({ getSqlJs }) =>
+      getSqlJs().then(() => { if (!cancelled) setSqlReady(true) }).catch(() => {}),
+    )
+    return () => { cancelled = true }
+  }, [])
+
+  const isSql = lang === 'sql'
+  const ready = isSql ? sqlReady : engineReady
+
+  const switchLang = (next: PracticeLang) => {
+    if (next === lang || running) return
+    sfx.click()
+    setLang(next)
+    setPracticeLang(next)
+    setRun({ kind: 'idle' })
+  }
+
   const handleChange = (val: string) => {
-    setCode(val)
     if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => savePracticeCode(val), 400)
+    if (isSql) {
+      setSqlCode(val)
+      saveTimer.current = setTimeout(() => savePracticeSqlCode(val), 400)
+    } else {
+      setCode(val)
+      saveTimer.current = setTimeout(() => savePracticeCode(val), 400)
+    }
+  }
+
+  const handleRunSql = async () => {
+    if (running || !sqlReady) return
+    sfx.click()
+    setRunning(true)
+    setRun({ kind: 'idle' })
+    const { runSQL } = await import('@/lib/game/executor/sql-runner')
+    const result = await runSQL(sqlCode)
+    setRunning(false)
+    if (result.error) {
+      sfx.miss()
+      const help = friendlySqlError(result.error, sqlCode, result.schema)
+      setRun({ kind: 'sqlError', message: help.message, suggestion: help.suggestion, raw: result.error })
+    } else {
+      sfx.confirm()
+      setRun({ kind: 'sql', columns: result.columns, rows: result.rows, changes: result.changes ?? [] })
+    }
   }
 
   const handleRun = async () => {
+    if (isSql) return handleRunSql()
     if (running || !engineReady) return
     sfx.click()
     setRunning(true)
@@ -179,11 +243,16 @@ export default function PracticeApp() {
 
   const [askConfirm, confirmNode] = useSysConfirm()
   const handleReset = async () => {
-    const ok = await askConfirm({ title: 'REINICIAR.EXE', body: <>¿Volver el código al ejemplo inicial? Se borra lo que escribiste.</>, ok: 'Reiniciar', danger: true })
+    const ok = await askConfirm({ title: 'REINICIAR.EXE', body: <>¿Volver el código {isSql ? 'SQL ' : ''}al ejemplo inicial? Se borra lo que escribiste.</>, ok: 'Reiniciar', danger: true })
     if (!ok) return
     sfx.trash()
-    setCode(STARTER_CODE)
-    savePracticeCode(STARTER_CODE)
+    if (isSql) {
+      setSqlCode(STARTER_SQL)
+      savePracticeSqlCode(STARTER_SQL)
+    } else {
+      setCode(STARTER_CODE)
+      savePracticeCode(STARTER_CODE)
+    }
     setRun({ kind: 'idle' })
   }
 
@@ -215,42 +284,44 @@ export default function PracticeApp() {
           bodyStyle={{ padding: maximized ? 12 : 16 }}
         >
           <div className="flex flex-col" style={{ ...(maximized ? { height: '100%' } : {}), zoom }}>
-            <div className="flex items-start gap-2 mb-3" style={{ flexShrink: 0 }}>
-              {!introHidden && (
-                <p style={{ fontFamily: 'var(--font-text), monospace', fontSize: 19, color: 'hsl(var(--tx2))', flex: 1 }}>
-                  Escribí el Python que quieras y probalo — sin jefe, sin desafío, solo para practicar. Si tu código usa <code className="font-mono">input()</code>, la pregunta aparece en la consola: escribís la respuesta ahí mismo y apretás Enter.
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={toggleIntro}
-                className="label-mono shrink-0"
-                title={introHidden ? 'Mostrar ayuda' : 'Ocultar ayuda'}
-                style={{
-                  height: 22, padding: '0 8px', display: 'flex', alignItems: 'center', gap: 4,
-                  border: '2px solid hsl(var(--tx))', background: 'transparent', color: 'hsl(var(--tx2))', cursor: 'pointer',
-                  marginLeft: introHidden ? 0 : undefined,
-                }}
-              >
-                {introHidden ? '▾ Ayuda' : '▴ Ocultar'}
-              </button>
+            <div className="flex items-center mb-3" style={{ flexShrink: 0 }}>
+              <div role="group" aria-label="Lenguaje" className="flex shrink-0" style={{ border: '2px solid hsl(var(--tx))' }}>
+                {(['python', 'sql'] as const).map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => switchLang(l)}
+                    aria-pressed={lang === l}
+                    disabled={running}
+                    className="label-mono"
+                    title={l === 'python' ? 'Escribir Python' : 'Escribir SQL'}
+                    style={{
+                      height: 18, padding: '0 8px', display: 'flex', alignItems: 'center', border: 'none', cursor: 'pointer',
+                      background: lang === l ? 'hsl(var(--tx))' : 'transparent',
+                      color: lang === l ? 'hsl(var(--bg))' : 'hsl(var(--tx2))',
+                    }}
+                  >
+                    {l === 'python' ? 'Python' : 'SQL'}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div ref={paneRowRef} className="flex flex-col lg:grid gap-3" style={{ ...(maximized ? { flex: 1, minHeight: 0 } : {}), gridTemplateColumns: `minmax(0, ${split}fr) 14px minmax(0, ${1 - split}fr)` }}>
               <div className="min-w-0 flex flex-col">
                 <div className="label-mono mb-1" style={{ height: 18, display: 'flex', alignItems: 'center', color: 'hsl(var(--tx3))', flexShrink: 0 }}>Editor</div>
                 <div style={{ border: '2px solid hsl(var(--tx))', ...(maximized ? { flex: 1, minHeight: 0 } : {}) }}>
-                  <CodeMirrorEditor value={code} onChange={handleChange} language="python" accentColor={ACCENT} onCtrlEnter={handleRun} fillHeight={maximized} />
+                  <CodeMirrorEditor key={lang} value={isSql ? sqlCode : code} onChange={handleChange} language={lang} accentColor={ACCENT} onCtrlEnter={handleRun} fillHeight={maximized} />
                 </div>
                 <div className="flex items-center gap-2 mt-3" style={{ flexShrink: 0 }}>
                   <button
                     type="button"
                     onClick={pending ? () => { sfx.click(); stop() } : handleRun}
-                    disabled={!engineReady || (running && !pending)}
+                    disabled={!ready || (running && !pending)}
                     className={`cta-btn${pending ? '' : ' cta-btn--primary'}`}
-                    style={{ opacity: !engineReady || (running && !pending) ? 0.6 : 1 }}
+                    style={{ opacity: !ready || (running && !pending) ? 0.6 : 1 }}
                   >
-                    {!engineReady ? <LoadingBar label="Cargando motor Python..." size="xs" tone="current" estimatedMs={10000} />
+                    {!ready ? <LoadingBar label={isSql ? 'Cargando motor SQL...' : 'Cargando motor Python...'} size="xs" tone="current" estimatedMs={isSql ? 2000 : 10000} />
                       : pending ? '■ Detener (Esc)'
                       : running ? <LoadingBar label="Ejecutando..." size="xs" tone="current" estimatedMs={1200} />
                       : '▶ Ejecutar (Ctrl+Enter)'}
@@ -300,6 +371,29 @@ export default function PracticeApp() {
                     <>
                       {run.kind === 'idle' && <span style={{ color: 'hsl(var(--tx3))' }}>{running ? 'Ejecutando…' : 'Todavía no ejecutaste nada.'}</span>}
                       {run.kind === 'ok' && <ConsoleOutput display={run.output} />}
+                      {run.kind === 'sql' && (
+                        <div className="flex flex-col gap-3" style={{ whiteSpace: 'normal' }}>
+                          {run.changes.map((c) => (
+                            <SqlTable key={c.name} label={c.name} isTable created={c.created} columns={c.columns} rows={c.rows} />
+                          ))}
+                          {run.columns.length > 0 && <SqlTable label="resultado" columns={run.columns} rows={run.rows} />}
+                          {run.changes.length === 0 && run.columns.length === 0 && (
+                            <span style={{ color: 'hsl(var(--tx3))' }}>Listo. La consulta no devolvió ninguna fila.</span>
+                          )}
+                        </div>
+                      )}
+                      {run.kind === 'sqlError' && (
+                        <div className="flex flex-col gap-1" style={{ whiteSpace: 'normal' }}>
+                          <div style={{ color: 'hsl(var(--danger))' }}>{run.message}</div>
+                          {run.suggestion && (
+                            <div style={{ color: 'hsl(var(--tx2))' }}>¿Quisiste decir <code className="code-chip">{run.suggestion}</code>?</div>
+                          )}
+                          <details>
+                            <summary className="label-mono" style={{ cursor: 'pointer', color: 'hsl(var(--tx3))', width: 'fit-content' }}>Ver el mensaje de la compu</summary>
+                            <pre className="whitespace-pre-wrap break-all mt-1" style={{ color: 'hsl(var(--tx2))', fontSize: 12 }}>{run.raw}</pre>
+                          </details>
+                        </div>
+                      )}
                       {run.kind === 'error' && (
                         <>
                           {run.output && <ConsoleOutput display={run.output} />}
