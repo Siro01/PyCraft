@@ -17,6 +17,8 @@ const FINALE_KEY   = 'pysql:finale'
 const FINALE_DECO_KEY = 'pysql:finale-deco'
 const PLAYGROUND_KEY = 'pysql:playground'
 const PRACTICE_KEY = 'pysql:practice-code'
+const PRACTICE_SQL_KEY = 'pysql:practice-sql'
+const PRACTICE_LANG_KEY = 'pysql:practice-lang'
 const TEXT_ZOOM_KEY = 'pysql:text-zoom'
 const PRACTICE_LAYOUT_KEY = 'pysql:practice-layout'
 const PRACTICE_INTRO_KEY = 'pysql:practice-intro-hidden'
@@ -286,6 +288,30 @@ export function getPracticeCode(): string | null {
 export function savePracticeCode(code: string): void {
   if (typeof window === 'undefined') return
   try { localStorage.setItem(PRACTICE_KEY, code) } catch { /* ignore quota errors */ }
+}
+
+// El patio también corre SQL (Acto II): otra libreta aparte para no pisar el
+// Python, y se recuerda en qué lenguaje quedó.
+export type PracticeLang = 'python' | 'sql'
+
+export function getPracticeSqlCode(): string | null {
+  if (typeof window === 'undefined') return null
+  try { return localStorage.getItem(PRACTICE_SQL_KEY) } catch { return null }
+}
+
+export function savePracticeSqlCode(code: string): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(PRACTICE_SQL_KEY, code) } catch { /* ignore quota errors */ }
+}
+
+export function getPracticeLang(): PracticeLang {
+  if (typeof window === 'undefined') return 'python'
+  try { return localStorage.getItem(PRACTICE_LANG_KEY) === 'sql' ? 'sql' : 'python' } catch { return 'python' }
+}
+
+export function setPracticeLang(lang: PracticeLang): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(PRACTICE_LANG_KEY, lang) } catch { /* ignore quota errors */ }
 }
 
 // ─── Zoom de texto: patio de juegos y patio de prácticas ─────────────────────
@@ -981,7 +1007,7 @@ export function clearUserProgress(): void {
   const keys = [
     SHOP_OWNED_KEY, PLAYGROUND_KEY, AMULETS_KEY, FINALE_KEY, FINALE_DECO_KEY, EQUIPPED_PERKS_KEY, REPASOS_KEY,
     ARENA_KEY, ARMOR_KEY, SHOP_COUPON_KEY, SECRET_RUN_KEY, SECRET_PATHS_KEY, STICKER_POKES_KEY, STICKER_PLACEMENTS_KEY,
-    BIBLIOTECA_KEY, PRACTICE_KEY, ADMIN_DIAMOND_BONUS_KEY,
+    BIBLIOTECA_KEY, PRACTICE_KEY, PRACTICE_SQL_KEY, PRACTICE_LANG_KEY, ADMIN_DIAMOND_BONUS_KEY,
     'pysql:mercader-visited', 'pysql:mercader-ambulante-visited', 'pysql:inventario-py-rodolfo', 'pysql:penguin-tip-seen',
   ]
   const prefixes = ['pysql:solved:', 'pysql:repaso-nudge-']
