@@ -1,10 +1,11 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import initSqlJs, { type SqlJsStatic } from 'sql.js'
 import {
-  ARENA_TEMPLATES, ARENA_TOPIC_IDS, buildDuel, buildFromTemplate, toPublic, type ArenaExercise,
+  ARENA_TEMPLATES, ARENA_TOPIC_IDS, buildDuel, buildFromTemplate, templatesFor, toPublic, type ArenaExercise,
 } from '@/lib/game/arena/generators'
 import { ARENA_MIX, ARENA_TOPICS, normalizeOutput } from '@/lib/game/arena/rules'
 import { buildRoomExercises } from '@/lib/game/arena/team-server'
+import { getPlanClase, PLAN_INTENSIVO } from '@/lib/game/planificacion'
 
 // Los ejercicios de la arena salen de plantillas con datos al azar. Acá se
 // prueban muchas semillas de cada una: que estén bien armadas y, las de SQL,
@@ -38,7 +39,7 @@ function runSql(e: ArenaExercise, code: string): string {
 describe('plantillas', () => {
   it('hay al menos 2 plantillas por cada tema de la arena', () => {
     for (const topic of ARENA_TOPICS) {
-      expect(ARENA_TEMPLATES.filter((t) => t.bossId === topic.id).length, topic.id).toBeGreaterThanOrEqual(2)
+      expect(templatesFor(topic.id).length, topic.id).toBeGreaterThanOrEqual(2)
     }
   })
 
@@ -71,6 +72,27 @@ describe('plantillas', () => {
 
   it('la misma semilla da el mismo ejercicio (los dos rivales ven lo mismo)', () => {
     for (const t of ARENA_TEMPLATES) expect(buildFromTemplate(t, 42)).toEqual(buildFromTemplate(t, 42))
+  })
+})
+
+describe('ritmo intensivo', () => {
+  const shared = ARENA_TOPICS.filter((b) => ARENA_TOPIC_IDS.has(b.id))
+
+  it('cada ejercicio de la arena corresponde a un tema que el intensivo da en ese jefe', () => {
+    for (const plan of PLAN_INTENSIVO) {
+      const dados = plan.temas.flatMap(({ clase, tema }) => getPlanClase(clase)?.temas[tema]?.arena ?? [])
+      for (const t of templatesFor(plan.bossId)) expect(dados, `${plan.bossId}: ${t.id}`).toContain(buildFromTemplate(t, 42).title)
+    }
+  })
+
+  it('ni con un tema ni en la mezcla aparece ORDER BY en el Oráculo o GROUP BY en el Contador', () => {
+    for (const seed of SEEDS) {
+      const duels = [buildDuel('oraculo-oscuro', shared, seed, 6), buildDuel('contador-almas', shared, seed, 6), buildDuel(ARENA_MIX, shared, seed, 6)]
+      for (const e of duels.flat()) {
+        if (e.bossId === 'oraculo-oscuro') expect(e.initialCode).not.toContain('ORDER BY')
+        if (e.bossId === 'contador-almas') expect(e.initialCode).not.toContain('GROUP BY')
+      }
+    }
   })
 })
 

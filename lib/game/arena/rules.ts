@@ -33,6 +33,13 @@ export const ARENA_XP_LOSS = 5
 /** Tema especial: cada ejercicio sale de un tema distinto de los que vieron los dos. */
 export const ARENA_MIX = 'mezcla'
 
+/**
+ * El taller va al ritmo intensivo (1 jefe por clase, solo Junior): la arena no
+ * pide lo que ese ritmo deja afuera (and, acumular, ORDER BY, GROUP BY).
+ * Al volver al libro de 28 clases, poner en false y salen todas las plantillas.
+ */
+export const ARENA_RITMO_INTENSIVO = true
+
 /** Temas que pueden salir en la arena: todos los jefes menos el final. */
 export const ARENA_TOPICS: Boss[] = BOSSES.filter((b) => b.type !== 'final')
 
