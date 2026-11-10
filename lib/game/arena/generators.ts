@@ -11,7 +11,7 @@
 // Agregar una plantilla: sumarla a TEMPLATES con su bossId. Si un tema no
 // tiene plantillas, no aparece en la arena.
 
-import { ARENA_EXERCISES, ARENA_MIX } from './rules'
+import { ARENA_EXERCISES, ARENA_MIX, ARENA_RITMO_INTENSIVO } from './rules'
 import type { Boss, ChallengeType } from '@/types'
 
 export interface ArenaExercise {
@@ -41,6 +41,8 @@ interface Template {
   id: string
   bossId: string
   type: ChallengeType
+  /** Su tema solo se da en el libro de 28 clases: no sale con ARENA_RITMO_INTENSIVO. */
+  ritmoCompleto?: boolean
   build: (r: Rng) => Omit<ArenaExercise, 'id' | 'bossId' | 'type'>
 }
 
@@ -155,7 +157,7 @@ const TEMPLATES: Template[] = [
     },
   },
   {
-    id: 'if-and', bossId: 'guardian-puerta', type: 'python',
+    id: 'if-and', bossId: 'guardian-puerta', type: 'python', ritmoCompleto: true,
     build: (r) => {
       const llave = r() < 0.7, k = int(r, 3, 8), nivel = int(r, 1, 12)
       const code = lines(`tiene_llave = ${llave ? 'True' : 'False'}`, `nivel = ${nivel}`, '', `if tiene_llave ___ nivel >= ${k}:`, '    print("Pasás")', 'else:', '    print("No pasás")')
@@ -209,7 +211,7 @@ const TEMPLATES: Template[] = [
     },
   },
   {
-    id: 'for-suma', bossId: 'golem-infinito', type: 'python',
+    id: 'for-suma', bossId: 'golem-infinito', type: 'python', ritmoCompleto: true,
     build: (r) => {
       const n = int(r, 4, 12)
       const code = lines('total = 0', 'for i in range(1, ___):', '    total = total + ___', '', 'print(total)')
@@ -408,7 +410,7 @@ const TEMPLATES: Template[] = [
 
   // ══ 8 · Oráculo Oscuro · SELECT · WHERE · ORDER BY ══════════════════════
   ...(['where-igual', 'where-mayor', 'order-by'] as const).map((id): Template => ({
-    id, bossId: 'oraculo-oscuro', type: 'sql',
+    id, bossId: 'oraculo-oscuro', type: 'sql', ritmoCompleto: id === 'order-by',
     build: (r) => {
       const prices = sample(r, Array.from({ length: 40 }, (_, i) => (i + 1) * 5), 5)
       const mats = sample(r, MATERIALS, 3)
@@ -444,7 +446,7 @@ const TEMPLATES: Template[] = [
 
   // ══ 9 · Contador de Almas · COUNT · SUM · GROUP BY ══════════════════════
   ...(['count-where', 'sum-hp', 'group-by'] as const).map((id): Template => ({
-    id, bossId: 'contador-almas', type: 'sql',
+    id, bossId: 'contador-almas', type: 'sql', ritmoCompleto: id === 'group-by',
     build: (r) => {
       const tipos = sample(r, MOBS, 3)
       const rows = Array.from({ length: int(r, 5, 7) }, (_, i) => {
@@ -627,7 +629,7 @@ const TEMPLATES: Template[] = [
 export const ARENA_TEMPLATES: readonly Template[] = TEMPLATES
 
 export function templatesFor(bossId: string): Template[] {
-  return TEMPLATES.filter((t) => t.bossId === bossId)
+  return TEMPLATES.filter((t) => t.bossId === bossId && !(ARENA_RITMO_INTENSIVO && t.ritmoCompleto))
 }
 
 /** Temas con al menos una plantilla. */
