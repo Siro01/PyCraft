@@ -16,6 +16,7 @@ import { isTestUser } from '@/lib/test-student/server'
 import AdminViewBar from '@/components/game/AdminViewBar'
 import { ADMIN_VIEW_COOKIE, parseAdminView } from '@/lib/admin/view-mode'
 import { ARENA_UNLOCK_BOSS_ID } from '@/lib/game/arena/rules'
+import { AREA_UNLOCK_BOSS_ID, accesoAreaTrabajo } from '@/lib/game/cartas/acceso'
 
 // ─── Supabase mode ────────────────────────────────────────────────────────────
 // createClient is dynamically imported so the module doesn't crash when
@@ -75,6 +76,13 @@ async function SupabaseDashboard() {
   }
   const arena = isAdmin ? 'open' : !battleMap.get(ARENA_UNLOCK_BOSS_ID)?.completed ? 'locked' : arenaClosed ? 'closed' : 'open'
 
+  // AreaTrabajo (proyecto final): Mi Reino + habilitada por el docente para el aula.
+  const areaTrabajo = await accesoAreaTrabajo(
+    supabase,
+    { id: user.id, isAdmin, aulaId: profile?.aula_id ?? null },
+    !!battleMap.get(AREA_UNLOCK_BOSS_ID)?.completed,
+  ).catch(() => 'closed' as const)
+
   const progress: Record<string, { hp: number; defeated: boolean }> = {}
   for (const [bossId, b] of battleMap) {
     progress[bossId] = { hp: b.hp, defeated: b.completed }
@@ -94,6 +102,7 @@ async function SupabaseDashboard() {
         totalDefeated={totalDefeated}
         repasoIds={repasoIds}
         arena={arena}
+        areaTrabajo={areaTrabajo}
         headerExtra={tier && enabledTiers.length > 1 ? <TierSelector enabled={enabledTiers} current={tier} /> : undefined}
         emptyState={
           <Win title="MAPA_DE_JEFES.EXE" active bodyStyle={{ padding: '18px 20px' }}>

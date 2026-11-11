@@ -3,7 +3,8 @@
 import ProgramShell from '@/components/ui/ProgramShell'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import AppWindow, { type WindowMode } from '@/components/ui/AppWindow'
-import { ICON_BRUSH, ICON_FILE, ICON_FOLDER, ICON_KEYS, ICON_RAID, ICON_SWORDS, ICON_TERMINAL, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
+import { ICON_BRUSH, ICON_FILE, ICON_FOLDER, ICON_KEYS, ICON_MESA, ICON_RAID, ICON_SWORDS, ICON_TERMINAL, PixelBitmap } from '@/components/game/architect/desktop/PixelBitmap'
+import { MENSAJE_ACCESO, type AccesoArea } from '@/lib/game/cartas/acceso'
 import { RAID_UNLOCK_DEFEATED } from '@/lib/game/raid/secret-raid'
 import InventoryApp from '@/components/game/inventory/InventoryApp'
 import DiamondIcon from '@/components/ui/DiamondIcon'
@@ -49,6 +50,8 @@ interface BossMapProps {
   repasoIds?: string[]
   /** La Arena (solo modo cuenta): sin el campo no aparece el ícono. */
   arena?: 'open' | 'locked' | 'closed'
+  /** AreaTrabajo (proyecto final): sin el prop no se muestra el ícono. */
+  areaTrabajo?: AccesoArea
 }
 
 const PALETTE_LABEL: Record<MapTheme, string> = { light: 'BLANCO', dark: 'NEGRO', red: 'COLOR' }
@@ -58,7 +61,7 @@ type WinId = 'stats' | 'log' | 'controls' | 'inventory'
 interface WinState { mode: WindowMode; x: number; y: number; z: number }
 
 export default function BossMap({
-  bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, barNote, emptyState, testMode, isAdmin = false, avatar, repasoIds, arena,
+  bosses, progress, enabledIds, username, totalDefeated, headerExtra, notice, barNote, emptyState, testMode, isAdmin = false, avatar, repasoIds, arena, areaTrabajo,
 }: BossMapProps) {
   const firstAvailableId = useMemo(
     () => bosses.find((b) => enabledIds.has(b.id) && !progress[b.id]?.defeated)?.id,
@@ -282,6 +285,19 @@ export default function BossMap({
                 >
                   <PixelBitmap rows={ICON_RAID} scale={4} />
                   <span className="desk-lbl">raid.exe</span>
+                </a>
+              )}
+              {areaTrabajo && (
+                <a
+                  href={areaTrabajo === 'open' ? '/area-trabajo' : undefined}
+                  className="desk-icon"
+                  aria-disabled={areaTrabajo !== 'open'}
+                  onClick={(e) => { if (areaTrabajo !== 'open') { e.preventDefault(); sfx.denied() } else sfx.open() }}
+                  title={areaTrabajo === 'open' ? 'Abrir areatrabajo.exe: armá tu mazo de cartas' : MENSAJE_ACCESO[areaTrabajo]}
+                  style={{ textDecoration: 'none', opacity: areaTrabajo === 'open' ? 1 : 0.45, cursor: areaTrabajo === 'open' ? 'pointer' : 'not-allowed' }}
+                >
+                  <PixelBitmap rows={ICON_MESA} scale={3} />
+                  <span className="desk-lbl">areatrabajo.exe</span>
                 </a>
               )}
               <button

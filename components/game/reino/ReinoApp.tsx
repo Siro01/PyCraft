@@ -11,14 +11,13 @@ import SqlTable from '@/components/game/sql/SqlTable'
 import SqlResult from '@/components/game/sql/SqlResult'
 import QueryBlocks from '@/components/game/sql/QueryBlocks'
 import { sfx } from '@/lib/game/architect/sound'
-import { getBossById } from '@/lib/game/bosses'
 import type { TableSnapshot } from '@/lib/game/executor/sql-runner'
 import {
-  loadJournal, appendJournal, activeEntries, missingTrophies, defeatedBossIds, trophyStatement,
+  appendJournal, activeEntries, trophyStatement,
   MAX_ACTIVE, MAX_STATEMENT, type JournalEntry, type SyncState,
 } from '@/lib/game/reino-store'
-import { openReino, cloneReino, reinoTables, runInReino, exportReino, type ReinoRun } from '@/lib/game/reino-engine'
-import type { Boss } from '@/types'
+import { bootJournal, defeatedBosses, stampEntry } from '@/lib/game/reino-boot'
+import { openReino, cloneReino, reinoTables, runInReino, exportReino, TABLAS_JUEGO, type ReinoRun } from '@/lib/game/reino-engine'
 
 const CodeMirrorEditor = dynamic(() => import('@/components/game/CodeMirrorEditor'), {
   ssr: false,
@@ -39,24 +38,7 @@ const SYNC_LABEL: Record<SyncState, string> = {
   local: 'guardado en este navegador',
 }
 
-const stamp = (e: Omit<JournalEntry, 'created_at'>): JournalEntry => ({ ...e, created_at: new Date().toISOString() })
-
-async function defeatedBosses(): Promise<Boss[]> {
-  return (await defeatedBossIds()).map((id) => getBossById(id)).filter((b): b is Boss => !!b)
-}
-
-/** Registro + trofeos que falten. Una sola carga a la vez: si la pantalla se monta
- *  dos veces seguidas (o hay dos pestañas), no se duplican los trofeos. */
-let booting: Promise<{ entries: JournalEntry[]; sync: SyncState }> | null = null
-function bootJournal() {
-  booting ??= (async () => {
-    const loaded = await loadJournal()
-    const missing = missingTrophies(activeEntries(loaded.entries), await defeatedBosses())
-    if (!missing.length) return loaded
-    return { entries: [...loaded.entries, ...missing.map(stamp)], sync: await appendJournal(missing) }
-  })().finally(() => { setTimeout(() => { booting = null }, 0) })
-  return booting
-}
+const stamp = stampEntry
 
 export default function ReinoApp() {
   const dbRef = useRef<Database | null>(null)
@@ -159,7 +141,12 @@ export default function ReinoApp() {
     )
   }
 
-  const onlyTrophies = tables.length > 0 && tables.every((t) => t.name === 'trofeos')
+  // Las tablas del juego (reglas, economia) están siempre: van al final y no
+  // cuentan para saber si el alumno ya creó algo.
+  const esJuego = (n: string) => TABLAS_JUEGO.includes(n)
+  const propias = tables.filter((t) => !esJuego(t.name))
+  const ordenadas = [...propias, ...tables.filter((t) => esJuego(t.name))]
+  const onlyTrophies = propias.length > 0 && propias.every((t) => t.name === 'trofeos')
   const r = result?.run
 
   return (
@@ -176,18 +163,17 @@ export default function ReinoApp() {
           Una base de datos que es tuya. Lo que guardes acá te sigue a cualquier compu.
         </p>
 
-        {tables.length === 0 ? (
+        {propias.length === 0 && (
           <div className="reino-hint mt-4">
             <p>Tu reino está vacío. Primer paso: creá una tabla. Por ejemplo:</p>
             <pre>CREATE TABLE heroes (id INTEGER PRIMARY KEY, nombre TEXT, nivel INTEGER);</pre>
           </div>
-        ) : (
-          <div className="mt-4 flex flex-wrap gap-5 items-start">
-            {tables.map((t) => (
-              <SqlTable key={t.name} label={t.name} isTable columns={t.columns} rows={t.rows} maxHeight={232} />
-            ))}
-          </div>
         )}
+        <div className="mt-4 flex flex-wrap gap-5 items-start">
+          {ordenadas.map((t) => (
+            <SqlTable key={t.name} label={t.name} isTable columns={t.columns} rows={t.rows} maxHeight={232} />
+          ))}
+        </div>
         {onlyTrophies && (
           <div className="reino-hint mt-4">
             <p>Cada jefe que vencés deja un trofeo acá. Miralos con:</p>
@@ -202,7 +188,7 @@ export default function ReinoApp() {
         <QueryBlocks
           free
           // Sus tablas primero: los trofeos quedan al final de la lista.
-          tables={[...tables].sort((a, b) => Number(a.name === 'trofeos') - Number(b.name === 'trofeos'))}
+          tables={[...propias].sort((a, b) => Number(a.name === 'trofeos') - Number(b.name === 'trofeos'))}
           onTry={async (sql) => {
             const copy = await cloneReino(dbRef.current!)
             const t = runInReino(copy, sql)

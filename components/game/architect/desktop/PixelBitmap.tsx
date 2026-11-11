@@ -496,3 +496,36 @@ export const ICON_SHORTCUT: Bitmap = [
   '##bbbb#',
   '#######',
 ]
+
+/** AreaTrabajo: una mesa de trabajo con una carta encima (proyecto final). */
+export const ICON_MESA: Bitmap = [
+  '.....######.....',
+  '.....#oooo#.....',
+  '.....#oaao#.....',
+  '.....#oaao#.....',
+  '.....#oooo#.....',
+  '.....#o##o#.....',
+  '.....######.....',
+  '################',
+  '#hhhhhhhhhhhhhh#',
+  '################',
+  '.##..........##.',
+  '.##..........##.',
+  '.##..........##.',
+]
+
+/** Traspaso en Mañana vs Tarde: una cara con las manos tapando los ojos ("el otro equipo no mira"). */
+export const ICON_OJOS: Bitmap = [
+  '....########....',
+  '..##oooooooo##..',
+  '.#oooooooooooo#.',
+  '#hhhhhhoohhhhhh#',
+  '#h#h#h#oo#h#h#h#',
+  '#hhhhhhoohhhhhh#',
+  '#oooooooooooooo#',
+  '#oooooooooooooo#',
+  '#ooo########ooo#',
+  '.#oooooooooooo#.',
+  '..##oooooooo##..',
+  '....########....',
+]
