@@ -10,7 +10,9 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "sim:balance": "vitest run tests/cartas/balance.test.ts",
+    "uso:tokens": "node scripts/uso-tokens.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
