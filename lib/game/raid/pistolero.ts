@@ -7,7 +7,7 @@ import type { PistoleroPose } from './pistolero-art'
 // Personaje elegido por el docente (2026-10-13): El Bandido sin Nombre (la v3 de la vitrina).
 export const PISTOLERO_NAME = 'El Pistolero'
 
-// ─── Números del evento (PLAN-RAID.md §2.6 y §8) ─────────────────────────────
+// ─── Números del evento (evento sorpresa del docente; ver README · El Pistolero) ─────────────────────────────
 
 /** Aciertos que hacen falta por alumno conectado para bajarle toda la vida. */
 export const PISTOLERO_HITS_PER_STUDENT = 2

@@ -231,7 +231,7 @@ export const SHOP_CATALOG: ShopItem[] = [
   },
 
   // ── Para el equipo: ítems del duelo contra El Pistolero ──────────────────
-  // Solo funcionan en ese duelo (PLAN-RAID.md §4); el efecto lo aplica
+  // Solo funcionan en ese duelo; el efecto lo aplica
   // /api/raid (o la pantalla del duelo, en el caso del Chaleco).
   {
     id: 'item-bandera',

@@ -1,6 +1,6 @@
 // Raids contra los jefes secretos: reglas compartidas entre el servidor
 // (/api/raid/secreto) y las pantallas (lobby y pelea). Sin React ni Supabase.
-// Decisiones en PLAN-RAID.md §3 y §8.
+// Raids en equipo contra los jefes secretos (ver README · Raids y El Pistolero).
 
 import type { ChallengeTier, ChallengeType } from '@/types'
 

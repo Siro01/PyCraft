@@ -14,7 +14,8 @@ import type { Boss } from '@/types'
 //   Nunca se pierde lo que el alumno escribió.
 // · Modo local: todo en localStorage.
 
-export type JournalSource = 'libre' | 'botin' | 'reinicio'
+/** 'restaurar' = lo agregó "volver atrás" de AreaTrabajo (migración 020). */
+export type JournalSource = 'libre' | 'botin' | 'reinicio' | 'restaurar'
 
 export interface JournalEntry {
   statement: string
