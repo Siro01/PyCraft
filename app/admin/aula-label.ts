@@ -8,6 +8,8 @@ export interface AdminAula {
   hora_fin?: string | null
   /** La Arena abierta en esta aula (migración 013; sin la columna, abierta). */
   arena_enabled?: boolean | null
+  /** AreaTrabajo (proyecto final) abierta para esta aula (migración 020; sin la columna, cerrada). */
+  areatrabajo_habilitada?: boolean | null
 }
 
 const TURNO: Record<string, string> = { 'mañana': 'Mañana', 'tarde': 'Tarde', 'otro': 'Otro' }

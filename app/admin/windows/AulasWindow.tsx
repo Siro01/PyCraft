@@ -19,6 +19,7 @@ interface Props {
   onCreate: (a: NuevaAula) => Promise<boolean>
   onSaveHorario: (aulaId: string, field: 'hora_inicio' | 'hora_fin', value: string) => void
   onToggleArena: (aulaId: string) => void
+  onToggleArea: (aulaId: string) => void
   onGrip: (aula: AdminAula, e: ReactPointerEvent) => void
   onDelete: (aula: AdminAula) => void
   dragging: string | null
@@ -29,9 +30,9 @@ const vt = 'var(--font-text), monospace'
 const TURNOS: { id: Turno; label: string }[] = [{ id: 'mañana', label: 'Mañana' }, { id: 'tarde', label: 'Tarde' }, { id: 'otro', label: 'Otro' }]
 const TURNO_LABEL: Record<string, string> = { 'mañana': 'Mañana', 'tarde': 'Tarde', 'otro': 'Otro' }
 const GRIP = ['##.##', '##.##', '.....', '##.##', '##.##', '.....', '##.##', '##.##']
-const COLS = '20px minmax(150px, 1fr) auto 140px 104px'
+const COLS = '20px minmax(150px, 1fr) auto 140px 104px 104px'
 
-export default function AulasWindow({ aulas, countIn, onCreate, onSaveHorario, onToggleArena, onGrip, onDelete, dragging }: Props) {
+export default function AulasWindow({ aulas, countIn, onCreate, onSaveHorario, onToggleArena, onToggleArea, onGrip, onDelete, dragging }: Props) {
   const [adding, setAdding] = useState(aulas.length === 0)
   const [form, setForm] = useState<NuevaAula>({ nombre: '', turno: 'mañana', desde: '', hasta: '' })
 
@@ -94,10 +95,12 @@ export default function AulasWindow({ aulas, countIn, onCreate, onSaveHorario, o
             <span role="columnheader" className="label-mono">Horario</span>
             <span role="columnheader" className="label-mono">Alumnos</span>
             <span role="columnheader" className="label-mono">Arena</span>
+            <span role="columnheader" className="label-mono" title="AreaTrabajo: el proyecto final">Proyecto</span>
           </div>
           {aulas.map((a) => {
             const { alumnos, activos } = countIn(a.id)
             const arena = a.arena_enabled !== false
+            const area = a.areatrabajo_habilitada === true
             return (
               <div
                 key={a.id}
@@ -146,6 +149,17 @@ export default function AulasWindow({ aulas, countIn, onCreate, onSaveHorario, o
                     onClick={() => { sfx.toggle(!arena); onToggleArena(a.id) }}
                   >
                     {arena ? 'Abierta' : 'Cerrada'}
+                  </button>
+                </span>
+                <span role="cell">
+                  <button
+                    type="button"
+                    aria-pressed={area}
+                    className="aula-arena"
+                    title={area ? 'AreaTrabajo abierta para quien tiene Mi Reino — clic para cerrarla' : 'AreaTrabajo cerrada — clic para abrirla'}
+                    onClick={() => { sfx.toggle(!area); onToggleArea(a.id) }}
+                  >
+                    {area ? 'Abierta' : 'Cerrada'}
                   </button>
                 </span>
               </div>
