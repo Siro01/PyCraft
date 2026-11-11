@@ -15,6 +15,12 @@ interface PyodideInstance {
   setStdin: (opts: { stdin: () => string | null }) => void
   setStdout: (opts: { batched: (msg: string) => void }) => void
   loadPackage: (names: string | string[]) => Promise<unknown>
+  FS: {
+    writeFile: (path: string, data: Uint8Array) => void
+    unlink: (path: string) => void
+    cwd: () => string
+    analyzePath: (path: string) => { exists: boolean }
+  }
 }
 
 // Todo lo que Python imprime llega acá — Pyodide llama a `batched` una vez
@@ -71,6 +77,8 @@ async function getPyodide(): Promise<PyodideInstance> {
 }
 
 export interface PythonRunResult {
+  /** Lo que devolvió la sonda (opts.sonda), ya leído del JSON. */
+  sonda?: unknown
   /** Lo que imprimió, en texto plano (con lo que contestó en cada input()).
    *  Si hubo error, es lo que alcanzó a imprimir antes de fallar. */
   output: string
@@ -113,7 +121,7 @@ export type AskInput = (prompt: string, displaySoFar: string) => Promise<string 
 const CAPTURE_WRAPPER = `
 import sys, time, builtins, os, random
 
-_LIMITE_SEG = 3.0
+_LIMITE_SEG = float(_limite_seg)
 _LIMITE_LINEAS = 2000
 
 class _Freno(BaseException):
@@ -173,7 +181,8 @@ try:
     _compiled = compile(_user_code, '<alumno>', 'exec')
     sys.settrace(_tracer)
     try:
-        exec(_compiled, {'__name__': '__main__', 'input': _custom_input, 'print': _custom_print})
+        _ns = {'__name__': '__main__', 'input': _custom_input, 'print': _custom_print}
+        exec(_compiled, _ns)
     finally:
         sys.settrace(None)
 except _PideInput as _e:
@@ -182,7 +191,7 @@ except _Freno as _e:
     if str(_e) == 'lineas':
         _pyerr = 'Tu programa imprimió más de ' + str(_LIMITE_LINEAS) + ' líneas y lo frenamos. ¿Hay un bucle que nunca termina? Fijate que la variable del while cambie en cada vuelta.'
     else:
-        _pyerr = 'Tu programa tardó más de ' + str(int(_LIMITE_SEG)) + ' segundos y lo frenamos. ¿Hay un bucle que nunca termina? Fijate que la variable del while cambie en cada vuelta.'
+        _pyerr = 'Tu programa tardó más de ' + (str(int(_LIMITE_SEG)) + ' segundos' if _LIMITE_SEG >= 1 else 'medio segundo') + ' y lo frenamos. ¿Hay un bucle que nunca termina? Fijate que la variable del while cambie en cada vuelta.'
 except SyntaxError as _e:
     # Incluye IndentationError y TabError (son subclases): se informa el nombre real.
     _err = (type(_e).__name__, _e.msg or str(_e), _e.lineno)
@@ -203,6 +212,34 @@ except Exception as _e:
     _err = (_nombre, _msg, _linea)
 finally:
     sys.stdout.flush()
+
+# Sonda: después de un programa que terminó bien, la plataforma llama a las
+# funciones del alumno (carta, revisar, elegir) en su mismo espacio de nombres.
+# Las llamadas también tienen freno de tiempo; la sonda deja su resultado como
+# texto JSON en _pycraft_result.
+def _reiniciar_reloj():
+    global _deadline
+    _deadline = time.monotonic() + _LIMITE_SEG
+
+_sonda = None
+if _probe and _err is None and _pyerr is None and _pending is None:
+    _ns['_Freno'] = _Freno
+    _ns['_reiniciar_reloj'] = _reiniciar_reloj
+    _ns['_pycraft_result'] = None
+    _reiniciar_reloj()
+    try:
+        sys.settrace(_tracer)
+        try:
+            exec(compile(_probe, '<pycraft>', 'exec'), _ns)
+        finally:
+            sys.settrace(None)
+        _sonda = _ns.get('_pycraft_result')
+    except _Freno:
+        _sonda = '{"error": "tiempo"}'
+    except BaseException:
+        _sonda = '{"error": "sonda"}'
+    finally:
+        sys.stdout.flush()
 `
 
 /** Sin `ask`, input() no tiene quién le conteste (batallas, repasos, hechizos). */
@@ -232,16 +269,91 @@ export function stripAnswerMarks(s: string): string {
 // los jefes del Acto III y los libros de la Biblioteca.
 let sqlitePromise: Promise<unknown> | null = null
 
-export async function runPython(code: string, opts: { ask?: AskInput } = {}): Promise<PythonRunResult> {
+// ─── Puente al reino del alumno ──────────────────────────────────────────────
+// `reino.db` es una copia de "Mi Reino" (la base SQL del alumno) que se escribe
+// en el disco de Pyodide antes de cada ejecución. El preludio cambia
+// sqlite3.connect SOLO para ese nombre: la abre en modo lectura y devuelve
+// las filas como Fila (fila["poder"] y fila[0] funcionan las dos). Cualquier
+// otra base (":memory:", las de los jefes) se abre igual que siempre.
+// Se compila como '<pycraft>': no aparece en los errores del alumno.
+export const REINO_DB = 'reino.db'
+
+const PUENTE_REINO = `
+import sqlite3, os
+
+if not getattr(sqlite3, '_pycraft_puente', False):
+    _connect_original = sqlite3.connect
+
+    class Fila(dict):
+        """Una fila de la tabla: se lee por nombre de columna o por posición."""
+        def __getitem__(self, clave):
+            if isinstance(clave, (int, slice)):
+                return list(self.values())[clave]
+            if clave not in self:
+                raise KeyError('PYCRAFT_COL|' + str(clave) + '|' + ', '.join(self.keys()))
+            return dict.__getitem__(self, clave)
+        def __iter__(self):
+            # Como una tupla: nombre, poder = fila  /  for valor in fila
+            return iter(list(self.values()))
+
+    def _fabrica_fila(cursor, fila):
+        return Fila(zip([d[0] for d in cursor.description], fila))
+
+    def _connect(database, *args, **kwargs):
+        if isinstance(database, str) and not database.startswith('file:') and os.path.basename(database) == '${REINO_DB}':
+            if not os.path.exists('${REINO_DB}'):
+                raise sqlite3.OperationalError('PYCRAFT_SIN_REINO')
+            kwargs.pop('uri', None)
+            con = _connect_original('file:${REINO_DB}?mode=ro', *args, uri=True, **kwargs)
+            con.row_factory = _fabrica_fila
+            return con
+        return _connect_original(database, *args, **kwargs)
+
+    sqlite3.connect = _connect
+    sqlite3.Fila = Fila
+    sqlite3._pycraft_puente = True
+`
+let puenteInstalado = false
+
+/** Deja `reino.db` en el disco de Pyodide (o lo borra si esta ejecución no tiene reino). */
+function prepararReino(py: PyodideInstance, reino: Uint8Array | null | undefined): void {
+  const path = `${py.FS.cwd()}/${REINO_DB}`
+  try {
+    if (reino) py.FS.writeFile(path, reino)
+    else if (py.FS.analyzePath(path).exists) py.FS.unlink(path)
+  } catch { /* sin reino: el preludio avisa con un error claro */ }
+}
+
+export interface RunPythonOptions {
+  ask?: AskInput
+  /** La base del alumno (db.export() de Mi Reino) para leer como reino.db.
+   *  Sin esto, reino.db no existe en esta ejecución. */
+  reino?: Uint8Array | null
+  /** Freno por tiempo, en segundos (por defecto 3). */
+  limiteSeg?: number
+  /** Código Python que corre DESPUÉS del programa, si terminó bien, en su mismo
+   *  espacio de nombres. Deja un texto JSON en _pycraft_result. */
+  sonda?: string
+}
+
+export async function runPython(code: string, opts: RunPythonOptions = {}): Promise<PythonRunResult> {
   const py = await getPyodide()
   if (/\bsqlite3\b/.test(code)) {
     sqlitePromise ??= py.loadPackage('sqlite3').catch((e) => { sqlitePromise = null; throw e })
     try { await sqlitePromise } catch { return { output: '', display: '', error: 'No se pudo cargar sqlite3. Revisá la conexión a internet y probá de nuevo.' } }
+    if (!puenteInstalado) {
+      py.globals.set('_pycraft_src', PUENTE_REINO)
+      await py.runPythonAsync("exec(compile(_pycraft_src, '<pycraft>', 'exec'), {})")
+      puenteInstalado = true
+    }
   }
+  prepararReino(py, opts.reino)
 
   // Pass user code as a Python variable to avoid any escaping issues
   py.globals.set('_user_code', code)
   py.globals.set('_seed', Math.floor(Math.random() * 2 ** 31))
+  py.globals.set('_limite_seg', opts.limiteSeg ?? 3)
+  py.globals.set('_probe', opts.sonda ?? '')
   const answers: string[] = []
 
   for (;;) {
@@ -264,7 +376,12 @@ export async function runPython(code: string, opts: { ask?: AskInput } = {}): Pr
     }
 
     const pending = pyStr(py.globals.get('_pending'))
-    if (pending === null) return { output: stripAnswerMarks(display), display, error: null }
+    if (pending === null) {
+      let sonda: unknown
+      const crudo = pyStr(py.globals.get('_sonda'))
+      if (crudo !== null) { try { sonda = JSON.parse(crudo) } catch { sonda = { error: 'sonda' } } }
+      return { output: stripAnswerMarks(display), display, error: null, sonda }
+    }
 
     if (!opts.ask) return { output: stripAnswerMarks(display), display, error: NO_INPUT_ERROR }
     if (answers.length >= MAX_ANSWERS) {

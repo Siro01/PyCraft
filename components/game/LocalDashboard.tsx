@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/layout/Header'
 import BossMap from '@/components/game/BossMap'
+import { AREA_UNLOCK_BOSS_ID } from '@/lib/game/cartas/acceso'
 import { LoadingScreen } from '@/components/ui/LoadingBar'
 import { BOSSES } from '@/lib/game/bosses'
 import { REPASO_BOSS_IDS } from '@/lib/game/repasos'
@@ -98,6 +99,8 @@ export default function LocalDashboard() {
         totalDefeated={totalDefeated}
         // Sin panel docente (modo local) no hay quién los habilite: quedan todos a mano.
         repasoIds={REPASO_BOSS_IDS}
+        // AreaTrabajo: sin docente que la habilite, se abre con Mi Reino (jefe 7).
+        areaTrabajo={progress[AREA_UNLOCK_BOSS_ID]?.defeated || user?.role === 'admin' ? 'open' : 'locked'}
         headerExtra={
           <div className="flex flex-col items-end gap-2 self-end">
             {/* Tier selector */}

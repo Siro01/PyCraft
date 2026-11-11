@@ -938,6 +938,8 @@ input[type="number"], input[type="search"], textarea {
 .sys-tool:hover, .sys-tool[aria-expanded="true"] { background: hsl(var(--tx)); color: hsl(var(--bg)); }
 .sys-tool:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 hsl(var(--tx) / 0.14); }
 .sys-tool--solid { background: hsl(var(--tx)); color: hsl(var(--bg)); }
+/* Botón chico con un ícono pixel adentro (AreaTrabajo, DISEÑO): objetivo de clic de 34×32 como mínimo. */
+.sys-tool--icono { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 34px; min-height: 32px; padding: 5px 7px; }
 .aula-new { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; padding: 12px; border: 2px dashed hsl(var(--tx)); background: hsl(var(--bg)); }
 .aula-seg {
   font-family: var(--font-text), monospace; font-size: 18px; line-height: 1; padding: 7px 10px; cursor: pointer;
@@ -4080,3 +4082,55 @@ html:root[data-season="halloween"] { --cursor-arrow: url("data:image/svg+xml,%3C
 .boss-file[aria-pressed="true"] { border-color: hsl(var(--tx)); border-style: dashed; }
 /* WallpaperFX dibuja el título en píxeles mientras está desarmado */
 .wallpaper-title[data-fx] { opacity: 0; }
+
+/* ── Arena de Cartas: borde animado de la carta legendaria ── */
+.carta-ants { animation: carta-ants 0.9s steps(5) infinite; }
+@keyframes carta-ants { to { stroke-dashoffset: -10; } }
+@media (prefers-reduced-motion: reduce) { .carta-ants { animation: none; } }
+
+/* ── Arena de Cartas: el volteo al atacar (pasos de píxel, livianos) ──
+   La duración viene en --dur (lenta / normal / rápida). Con
+   prefers-reduced-motion no se anima: la carta aparece dada vuelta. */
+.volteo { position: relative; flex-shrink: 0; isolation: isolate; }
+.volteo > .volteo-cara { position: absolute; inset: 0; }
+.volteo--giro.volteo--andando .volteo-dorso,
+.volteo--salto.volteo--andando .volteo-dorso { animation: vt-giro-dorso var(--dur) steps(8) forwards; }
+.volteo--giro.volteo--andando .volteo-frente,
+.volteo--salto.volteo--andando .volteo-frente { animation: vt-giro-frente var(--dur) steps(8) forwards; }
+.volteo--salto.volteo--andando { animation: vt-salto var(--dur) steps(10) forwards; }
+.volteo--barrido.volteo--andando .volteo-frente { animation: vt-barrido var(--dur) steps(11) forwards; }
+.volteo--barrido.volteo--andando .volteo-linea { animation: vt-linea var(--dur) steps(11) forwards; }
+.volteo-linea { position: absolute; left: -2px; right: -2px; height: 3px; top: 0; opacity: 0; pointer-events: none; }
+.volteo-pieza { animation: vt-pieza calc(var(--dur) * 0.3) steps(2) forwards; animation-delay: var(--retraso); }
+.volteo-chispa { position: absolute; left: 50%; top: 50%; opacity: 0; pointer-events: none; animation: vt-chispa calc(var(--dur) * 0.7) steps(5) forwards; animation-delay: calc(var(--dur) * 0.5); }
+@keyframes vt-giro-dorso { 0% { transform: scaleX(1); } 50%, 100% { transform: scaleX(0); } }
+@keyframes vt-giro-frente { 0%, 50% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
+@keyframes vt-salto { 0% { transform: translateY(0); } 40% { transform: translateY(-16%); } 75% { transform: translateY(0); } 87% { transform: translateY(-3%); } 100% { transform: translateY(0); } }
+@keyframes vt-barrido { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes vt-linea { 0% { top: 0; opacity: 1; } 99% { top: 100%; opacity: 1; } 100% { top: 100%; opacity: 0; } }
+@keyframes vt-pieza { to { opacity: 0; } }
+@keyframes vt-chispa { 0% { opacity: 1; transform: translate(-50%, -50%); } 100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))); } }
+@media (prefers-reduced-motion: reduce) {
+  .volteo, .volteo *, .volteo-pieza, .volteo-chispa { animation: none !important; }
+}
+
+/* ── Arena de Cartas: el choque de cada ronda (jugo medido) ── */
+.arena-centro--choque { animation: arena-sacudida 160ms steps(4) 80ms; }
+@keyframes arena-sacudida { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(2px, 0); } 50% { transform: translate(-2px, 1px); } 75% { transform: translate(1px, -1px); } }
+.arena-gana-a { transform: translateX(14px); transition: transform 120ms steps(3); }
+.arena-gana-b { transform: translateX(-14px); transition: transform 120ms steps(3); }
+.arena-pierde { filter: grayscale(1) brightness(0.7); transition: filter 120ms steps(2); }
+.arena-pop { animation: arena-pop 360ms steps(4); }
+@keyframes arena-pop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+.arena-ventaja { animation: arena-pop 300ms steps(3); }
+@media (prefers-reduced-motion: reduce) {
+  .arena-centro--choque, .arena-pop, .arena-ventaja { animation: none !important; }
+  .arena-gana-a, .arena-gana-b { transform: none; }
+}
+
+/* ── Muestra: el abanico de la presentación ── */
+.abanico-carta { animation: abanico-entra 420ms steps(6) both; animation-delay: var(--retraso, 0ms); }
+@keyframes abanico-entra { from { opacity: 0; transform: translateY(40px) rotate(0deg); } }
+.muestra-fade { animation: muestra-fade 300ms steps(4) both; }
+@keyframes muestra-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .abanico-carta, .muestra-fade { animation: none !important; } }

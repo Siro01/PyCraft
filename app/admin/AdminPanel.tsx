@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { PixelBitmap, ICON_FOLDER, ICON_TEAM_SHIELD, ICON_TERMINAL, ICON_SWORDS, ICON_RAID, ICON_KEYS, ICON_FILE, ICON_WANTED, ICON_BIN, ICON_BIN_OPEN } from '@/components/game/architect/desktop/PixelBitmap'
+import { PixelBitmap, ICON_FOLDER, ICON_TEAM_SHIELD, ICON_TERMINAL, ICON_SWORDS, ICON_RAID, ICON_KEYS, ICON_FILE, ICON_WANTED, ICON_BIN, ICON_BIN_OPEN, ICON_MESA } from '@/components/game/architect/desktop/PixelBitmap'
 import { PlaceNode } from '@/components/game/map/MapNodeIcon'
 import { IconSkull, IconSigma } from '@/components/ui/PixelIcons'
 import AdminDesktop, { type DeskProgram } from '@/components/admin/os/AdminDesktop'
@@ -24,6 +24,8 @@ import ReinosWindow from './windows/ReinosWindow'
 import ArenaWindow from './windows/ArenaWindow'
 import RaidWindow from './windows/RaidWindow'
 import TestWindow from './windows/TestWindow'
+import PlanFinalWindow from './windows/PlanFinalWindow'
+import AreaTrabajoWindow from './windows/AreaTrabajoWindow'
 import { aulaHorario, type AdminAula } from './aula-label'
 import { TEST_USERNAME } from '@/lib/test-student/constants'
 import { REPASOS } from '@/lib/game/repasos'
@@ -63,7 +65,7 @@ const TURNO_LABEL: Record<string, string> = {
   'otro': 'Otro',
 }
 
-type WinId = 'jefes' | 'aulas' | 'alumnos' | 'repasos' | 'ejercicios' | 'stats' | 'reinos' | 'arena' | 'raid' | 'test' | 'planificacion' | 'pistolero'
+type WinId = 'jefes' | 'aulas' | 'alumnos' | 'repasos' | 'ejercicios' | 'stats' | 'reinos' | 'arena' | 'raid' | 'test' | 'planificacion' | 'planfinal' | 'areatrabajo' | 'pistolero'
 
 /** Glifo de 8×8 de PixelIcons en la misma caja de 48px que `mapa.exe` del alumno. */
 function Boxed({ children }: { children: React.ReactNode }) {
@@ -119,6 +121,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
   const [arenaStatus, sayArena] = useStatus()
   const [raidStatus, sayRaid] = useStatus()
   const [testStatus, sayTest] = useStatus()
+  const [areaStatus, sayArea] = useStatus()
   const [ask, confirmNode] = useSysConfirm()
 
   const isTierEnabled = (id: string, tier: ChallengeTier) =>
@@ -131,6 +134,15 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
     if (error) { sayAulas(`${error.message} — ¿ejecutaste la migración 013_arena.sql?`, false); return }
     setAulas((prev) => prev.map((a) => (a.id === id ? { ...a, arena_enabled: next } : a)))
     sayAulas(`Arena ${next ? 'abierta' : 'cerrada'} en ${aulaName(id)}`)
+  }
+
+  // AreaTrabajo (proyecto final): cerrada por defecto; el docente la abre por aula.
+  const toggleArea = async (id: string) => {
+    const next = !(aulas.find((a) => a.id === id)?.areatrabajo_habilitada ?? false)
+    const { error } = await createClient().from('aulas').update({ areatrabajo_habilitada: next }).eq('id', id)
+    if (error) { sayAulas(`${error.message} — ¿ejecutaste la migración 020_area_trabajo.sql?`, false); return }
+    setAulas((prev) => prev.map((a) => (a.id === id ? { ...a, areatrabajo_habilitada: next } : a)))
+    sayAulas(`AreaTrabajo ${next ? 'abierta' : 'cerrada'} en ${aulaName(id)}`)
   }
 
   const toggleTier = async (id: string, tier: ChallengeTier) => {
@@ -357,6 +369,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
       onCreate={createAula}
       onSaveHorario={saveHorario}
       onToggleArena={toggleArena}
+      onToggleArea={toggleArea}
       onGrip={(a, e) => { draggedId.current = a.id; trash.start(a, `${a.nombre} · ${TURNO_LABEL[a.turno] ?? a.turno}`, e) }}
       onDelete={deleteAula}
       dragging={trash.ghost ? draggedId.current : null}
@@ -394,7 +407,7 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
   const programs: DeskProgram<WinId>[] = [
     { id: 'jefes', file: 'jefes.exe', title: 'JEFES.EXE', w: 1080, status: jefesStatus, body: jefesBody,
       icon: <Boxed><IconSkull size={32} color="hsl(var(--tx))" /></Boxed> },
-    { id: 'aulas', file: 'aulas.exe', title: 'AULAS.EXE', w: 820, status: aulasStatus, body: aulasBody,
+    { id: 'aulas', file: 'aulas.exe', title: 'AULAS.EXE', w: 920, status: aulasStatus, body: aulasBody,
       icon: <PixelBitmap rows={ICON_FOLDER} scale={3} /> },
     { id: 'alumnos', file: 'alumnos.exe', title: 'ALUMNOS.EXE', w: 980, status: alumnosStatus, body: alumnosBody,
       badge: flagged, badgeLabel: `${flagged} alumno${flagged === 1 ? '' : 's'} para revisar (15/10)`,
@@ -432,6 +445,12 @@ export default function AdminPanel({ bosses, bossEnabledMap, students: initialSt
       body: <TestWindow ask={ask} say={sayTest} /> },
     { id: 'planificacion', file: 'plan.txt', title: 'PLANIFICACION', href: '/planificacion',
       icon: <PixelBitmap rows={ICON_FILE} scale={4} /> },
+    { id: 'areatrabajo', file: 'areatrabajo.exe', title: 'AREATRABAJO.EXE', w: 1100, status: areaStatus,
+      icon: <PixelBitmap rows={ICON_MESA} scale={3} />,
+      body: <AreaTrabajoWindow alumnos={students.filter((s) => s.role !== 'admin')} aulas={aulas} aulaId={anyAula} narrow={narrow} ask={ask} say={sayArea} /> },
+    { id: 'planfinal', file: 'plan_final.txt', title: 'PLAN_FINAL.TXT', w: 1040,
+      icon: <PixelBitmap rows={ICON_FILE} scale={4} />,
+      body: <PlanFinalWindow narrow={narrow} /> },
     { id: 'pistolero', file: 'pistolero.exe', title: 'PISTOLERO', href: '/admin/pistolero', place: 'corner',
       icon: <PixelBitmap rows={ICON_WANTED} scale={3} /> },
   ]

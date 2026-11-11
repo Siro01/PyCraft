@@ -34,7 +34,7 @@ function LocalBattlePage({ bossId, practice }: { bossId: string; practice: boole
   return (
     <LocalBattleView
       boss={boss}
-      victoryHref={boss.classNumber === 14 ? '/finale/proyecto' : undefined}
+      victoryHref={boss.classNumber === 14 ? '/finale' : undefined}
       practiceRequested={practice}
     />
   )
@@ -137,7 +137,7 @@ async function SupabaseBattlePage({ bossId, practiceRequested }: { bossId: strin
           showGuide={tier !== 'senior'}
           initialHp={practice ? boss.hpMax : battle?.hp_current ?? boss.hpMax}
           initialDefeated={practice ? false : battle?.is_completed ?? false}
-          victoryHref={!practice && boss.classNumber === 14 ? '/finale/proyecto' : undefined}
+          victoryHref={!practice && boss.classNumber === 14 ? '/finale' : undefined}
           practice={practice}
           defeatedBefore={defeatedBefore}
           testMode={isTest || adminTools}

@@ -94,7 +94,9 @@ const REGLAS: Record<string, Regla[]> = {
     [/^Cannot choose from an empty sequence$/, () => 'random.choice() no puede elegir de una lista vacía.'],
   ],
   KeyError: [
-    [/^(.+)$/, (m) => `el diccionario no tiene la clave ${m[1]}. Fijate cómo está escrita (mayúsculas y espacios cuentan).`],
+    // Una Fila de reino.db (ver el puente en pyodide-runner): se listan las columnas reales.
+    [/^['"]?PYCRAFT_COL\|(.*?)\|(.*?)['"]?$/, (m) => `tu tabla no tiene una columna '${m[1]}'. Las columnas que tiene son: ${m[2]}. Fijate cómo está escrita (mayúsculas y tildes cuentan).`],
+    [/^(.+)$/,(m) => `el diccionario no tiene la clave ${m[1]}. Fijate cómo está escrita (mayúsculas y espacios cuentan).`],
   ],
   ZeroDivisionError: [
     [/division by zero|modulo by zero/, () => 'no se puede dividir por cero.'],
@@ -124,7 +126,11 @@ const REGLAS: Record<string, Regla[]> = {
 
 // sqlite3 desde Python: los errores llegan como OperationalError, IntegrityError…
 const REGLAS_SQLITE: Regla[] = [
-  [/^no such table: (.+)$/, (m) => `no existe la tabla ${m[1]}. ¿La creaste antes con CREATE TABLE?`],
+  // reino.db: la base de Mi Reino, que desde Python solo se lee.
+  [/^PYCRAFT_SIN_REINO$/, () => 'todavía no hay nada en Mi Reino para abrir. Mi Reino se abre al vencer al Constructor del Vacío: cuando tengas tus tablas ahí, reino.db las va a tener.'],
+  [/^attempt to write a readonly database$/, () => 'desde Python tu mazo se mira, no se toca: cambialo con SQL en Mi Reino.'],
+  [/^no such table: cartas$/, () => 'tu reino todavía no tiene la tabla cartas. Creala con CREATE TABLE cartas en Mi Reino y volvé a ejecutar.'],
+  [/^no such table: (.+)$/,(m) => `no existe la tabla ${m[1]}. ¿La creaste antes con CREATE TABLE?`],
   [/^no such column: (.+)$/, (m) => `la tabla no tiene una columna que se llame ${m[1]}.`],
   [/^table (\w+) has no column named (\w+)$/, (m) => `la tabla ${m[1]} no tiene una columna que se llame ${m[2]}.`],
   [/^table (\w+) already exists$/, (m) => `la tabla ${m[1]} ya existe. Usá CREATE TABLE IF NOT EXISTS para no crearla dos veces.`],

@@ -180,6 +180,24 @@ export default function PracticeApp() {
     return () => { cancelled = true }
   }, [])
 
+  // Mi Reino como reino.db para Python (solo lectura). Se arma al abrir el
+  // patio y cada vez que se vuelve a esta pestaña (el alumno pudo haber
+  // cambiado su reino en otra), así ejecutar no espera a la red.
+  const reinoRef = useRef<Promise<Uint8Array | null> | null>(null)
+  useEffect(() => {
+    const cargar = () => {
+      // Si falla la carga (sin red), se sigue usando la copia anterior.
+      const anterior = reinoRef.current ?? Promise.resolve(null)
+      reinoRef.current = import('@/lib/game/cartas/puente')
+        .then((m) => m.cargarReinoParaPython())
+        .catch(() => anterior)
+    }
+    cargar()
+    const onVisible = () => { if (document.visibilityState === 'visible') cargar() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
   const isSql = lang === 'sql'
   const ready = isSql ? sqlReady : engineReady
 
@@ -227,7 +245,8 @@ export default function PracticeApp() {
     setRunning(true)
     setRun({ kind: 'idle' })
     const { runPython, STOPPED_ERROR } = await import('@/lib/game/executor/pyodide-runner')
-    const result = await runPython(code, { ask })
+    const reino = /reino\.db/.test(code) ? await (reinoRef.current ?? Promise.resolve(null)) : null
+    const result = await runPython(code, { ask, reino })
     setRunning(false)
     if (result.error === STOPPED_ERROR) {
       // Lo frenó el alumno: no es un error suyo, se deja lo que alcanzó a imprimir.

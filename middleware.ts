@@ -9,7 +9,7 @@ const ADMIN_ONLY = [
   '/demo/items', '/demo/tienda', '/demo/mercader-v2',
   '/demo/mercader', '/demo/architect-lab', '/demo/victory', '/demo/mapa', '/demo/inventario', '/demo/stickers', '/demo/secretos', '/demo/arena', '/demo/pistolero', '/demo/manual', '/demo/ascii', '/demo/halloween', '/planificacion',
 ]
-const PROTECTED = ['/dashboard', '/battle', '/repaso', '/reino', '/secreto', '/arena', '/pistolero', '/raid', ...ADMIN_ONLY]
+const PROTECTED = ['/dashboard', '/battle', '/repaso', '/reino', '/area-trabajo', '/secreto', '/arena', '/pistolero', '/raid', ...ADMIN_ONLY]
 
 function matches(pathname: string, routes: string[]) {
   return routes.some((r) => pathname === r || pathname.startsWith(`${r}/`))
@@ -81,6 +81,9 @@ export async function middleware(request: NextRequest) {
   // La API de la arena se pide muy seguido (lobby, duelo) y cada ruta ya verifica
   // la sesión por su cuenta (getArenaCaller): acá sería un viaje a Supabase de más.
   if (request.nextUrl.pathname.startsWith('/api/arena')) return NextResponse.next()
+  // La muestra corre en la PC del stand, aunque no haya internet: no se le pregunta
+  // nada a Supabase (no usa cuentas). El keep-alive tampoco necesita sesión.
+  if (matches(request.nextUrl.pathname, ['/muestra', '/api/keep-alive'])) return NextResponse.next()
   return handleSupabaseMode(request)
 }
 

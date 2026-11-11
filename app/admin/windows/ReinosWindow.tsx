@@ -24,7 +24,7 @@ interface Props {
 }
 
 const jersey = 'var(--font-jersey), monospace'
-const SOURCE_LABEL: Record<JournalEntry['source'], string> = { libre: 'escribió', botin: 'trofeo', reinicio: 'reinició' }
+const SOURCE_LABEL: Record<JournalEntry['source'], string> = { libre: 'escribió', botin: 'trofeo', reinicio: 'reinició', restaurar: 'volvió atrás' }
 const PAGE = 30
 
 function when(iso: string): string {
