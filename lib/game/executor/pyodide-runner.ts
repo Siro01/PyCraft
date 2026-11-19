@@ -182,6 +182,8 @@ try:
     sys.settrace(_tracer)
     try:
         _ns = {'__name__': '__main__', 'input': _custom_input, 'print': _custom_print}
+        if _preludio:
+            exec(compile(_preludio, '<pycraft>', 'exec'), _ns)
         exec(_compiled, _ns)
     finally:
         sys.settrace(None)
@@ -208,6 +210,10 @@ except Exception as _e:
     _linea = None
     for _fr, _ln in traceback.walk_tb(_e.__traceback__):
         if _fr.f_code.co_filename == '<alumno>':
+            # La máquina del Nexo (def sql) viene escrita arriba en el ataque y
+            # "no se toca": el error se marca en la línea que la llamó.
+            if _fr.f_code.co_name == 'sql' and _linea is not None:
+                continue
             _linea = _ln
     _err = (_nombre, _msg, _linea)
 finally:
@@ -315,6 +321,43 @@ if not getattr(sqlite3, '_pycraft_puente', False):
 `
 let puenteInstalado = false
 
+// ─── Máquina del Nexo ────────────────────────────────────────────────────────
+// En el Patio (modo Python), sql("...") y cargar_ejemplo("mobs") ya vienen
+// hechos: sql() devuelve una lista de diccionarios. Corre en el mismo espacio
+// de nombres que el alumno, antes de su código, compilado como '<pycraft>'
+// (no aparece en los errores). Cada ejecución arranca con una base vacía.
+// Si el alumno define su propia sql(), la suya gana.
+export const MAQUINA_SQL = `
+import sqlite3 as _sqlite3_nexo
+_base_nexo = _sqlite3_nexo.connect(":memory:")
+
+def sql(orden):
+    cursor = _base_nexo.execute(orden)
+    _base_nexo.commit()
+    if cursor.description is None:
+        return []
+    columnas = [c[0] for c in cursor.description]
+    return [dict(zip(columnas, fila)) for fila in cursor.fetchall()]
+
+_EJEMPLOS_NEXO = {
+    "mobs":  ("CREATE TABLE mobs (nombre TEXT, vida INTEGER)",
+              [("Zombie", 4), ("Creeper", 6), ("Esqueleto", 3)]),
+    "cofre": ("CREATE TABLE cofre (nombre TEXT, cantidad INTEGER)",
+              [("Diamante", 5), ("Hierro", 3), ("Oro", 7)]),
+}
+
+def cargar_ejemplo(nombre):
+    if nombre not in _EJEMPLOS_NEXO:
+        print("Rodolfo: no conozco el ejemplo", repr(nombre), "- probá con 'mobs' o 'cofre'")
+        return
+    crear, filas = _EJEMPLOS_NEXO[nombre]
+    _base_nexo.execute("DROP TABLE IF EXISTS " + nombre)
+    _base_nexo.execute(crear)
+    _base_nexo.executemany("INSERT INTO " + nombre + " VALUES (?, ?)", filas)
+    _base_nexo.commit()
+`
+const USA_MAQUINA = /\b(sql|cargar_ejemplo)\s*\(/
+
 /** Deja `reino.db` en el disco de Pyodide (o lo borra si esta ejecución no tiene reino). */
 function prepararReino(py: PyodideInstance, reino: Uint8Array | null | undefined): void {
   const path = `${py.FS.cwd()}/${REINO_DB}`
@@ -334,11 +377,14 @@ export interface RunPythonOptions {
   /** Código Python que corre DESPUÉS del programa, si terminó bien, en su mismo
    *  espacio de nombres. Deja un texto JSON en _pycraft_result. */
   sonda?: string
+  /** Patio en modo Python: precarga sql() y cargar_ejemplo() (ver MAQUINA_SQL). */
+  maquinaSql?: boolean
 }
 
 export async function runPython(code: string, opts: RunPythonOptions = {}): Promise<PythonRunResult> {
   const py = await getPyodide()
-  if (/\bsqlite3\b/.test(code)) {
+  const preludio = opts.maquinaSql && USA_MAQUINA.test(code) ? MAQUINA_SQL : ''
+  if (preludio || /\bsqlite3\b/.test(code)) {
     sqlitePromise ??= py.loadPackage('sqlite3').catch((e) => { sqlitePromise = null; throw e })
     try { await sqlitePromise } catch { return { output: '', display: '', error: 'No se pudo cargar sqlite3. Revisá la conexión a internet y probá de nuevo.' } }
     if (!puenteInstalado) {
@@ -354,6 +400,7 @@ export async function runPython(code: string, opts: RunPythonOptions = {}): Prom
   py.globals.set('_seed', Math.floor(Math.random() * 2 ** 31))
   py.globals.set('_limite_seg', opts.limiteSeg ?? 3)
   py.globals.set('_probe', opts.sonda ?? '')
+  py.globals.set('_preludio', preludio)
   const answers: string[] = []
 
   for (;;) {

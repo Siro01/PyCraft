@@ -246,7 +246,7 @@ export default function PracticeApp() {
     setRun({ kind: 'idle' })
     const { runPython, STOPPED_ERROR } = await import('@/lib/game/executor/pyodide-runner')
     const reino = /reino\.db/.test(code) ? await (reinoRef.current ?? Promise.resolve(null)) : null
-    const result = await runPython(code, { ask, reino })
+    const result = await runPython(code, { ask, reino, maquinaSql: true })
     setRunning(false)
     if (result.error === STOPPED_ERROR) {
       // Lo frenó el alumno: no es un error suyo, se deja lo que alcanzó a imprimir.
