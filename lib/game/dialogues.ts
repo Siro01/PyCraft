@@ -101,17 +101,17 @@ export const BOSS_DIALOGUES: Record<string, DialogueLine[]> = {
   'el-nexo': [
     { text: 'Soy El Nexo. El puente entre Python y la base de datos.' },
     { text: 'Hasta ahora usaste Python para listas en memoria y SQL en DB Browser por separado. Esta clase los conecta de verdad.' },
-    { text: 'conn = sqlite3.connect("inventario.db") abre la conexión. cursor = conn.cursor() es el mensajero que lleva tus consultas.' },
-    { text: 'cursor.execute("SELECT * FROM cofre") manda la consulta. cursor.fetchall() trae los resultados como lista de tuplas. conn.commit() guarda los cambios. conn.close() cierra todo.' },
-    { text: 'El SQL va adentro de execute(), entre comillas. El resto ya lo conocés. ¿Podés conectar los dos mundos?' },
+    { text: 'Arriba de cada ataque está mi máquina: sql(). No se toca. Vos le pasás una orden SQL, escrita como siempre, y ella la ejecuta.' },
+    { text: 'sql("SELECT * FROM cofre") te devuelve una lista de diccionarios, como en el Archivista. Un for y la recorrés.' },
+    { text: "La orden SQL va entre comillas dobles y los textos de adentro, entre simples: 'Hierro'. ¿Podés conectar los dos mundos?" },
   ],
 
   // ── BOSS 12 · Proyecto: agregar y listar ─────────────────────────────────
   'la-hydra': [
     { text: 'SSSSS. Cortame una cabeza y crecen dos. Soy La Hydra.' },
     { text: 'Este no es un ejercicio suelto. Es el primer pedazo de tu sistema de inventario real.' },
-    { text: 'Vas a escribir agregar_item(): conecta a la base, hace un INSERT con los datos que recibe, guarda con commit. Cada ítem que agregues queda grabado en el archivo.' },
-    { text: 'Y listar_items(): conecta, hace un SELECT *, trae todas las filas con fetchall(), las imprime. Abrís el programa la próxima vez y los datos siguen ahí.' },
+    { text: 'Cada cabeza mía es una fila. crecer(nombre, poder) hace un INSERT con f-string: las variables entran al SQL entre llaves.' },
+    { text: 'listar() las muestra en orden con ORDER BY. Y Python suma mi poder con un acumulador. ¡Igual que las cartas de tu mazo!' },
     { text: '¿Podés construir algo que persista? A ver si podés con mis cabezas.' },
   ],
 
@@ -119,9 +119,9 @@ export const BOSS_DIALOGUES: Record<string, DialogueLine[]> = {
   'dragon-rojo': [
     { text: '...' },
     { text: 'Soy el Dragón Rojo. El más antiguo. El más temido.' },
-    { text: 'Ya tenés un sistema que agrega y lista. Ahora lo completamos. buscar_item(nombre) hace un SELECT con WHERE y te dice si existe o no.' },
-    { text: 'quitar_item(nombre) busca primero, te muestra qué va a borrar, pide confirmación, y recién entonces ejecuta el DELETE. Sin confirmación, sin borrado. Ese es el estándar real.' },
-    { text: 'actualizar_cantidad(nombre, nueva_cantidad) hace un UPDATE. Un solo ítem, un solo campo, un solo WHERE. ¿Podés terminar el sistema y derrotarme?' },
+    { text: 'Ya sabés agregar y listar. Ahora, mi tesoro. buscar(nombre) hace un SELECT con WHERE: si la lista viene vacía, no está.' },
+    { text: 'DELETE se lleva algo de mi tesoro. Y UPDATE cambia lo que ya está: cantidad - 10 me roba 10 de oro.' },
+    { text: 'Un solo WHERE mal puesto y cambiás todo. ¿Te animás a tocar mi tesoro?' },
   ],
 
   // ── BOSS 14 · Sistema completo ────────────────────────────────────────────
@@ -129,7 +129,8 @@ export const BOSS_DIALOGUES: Record<string, DialogueLine[]> = {
     { text: '...' },
     { text: 'Llegaste.' },
     { text: 'Soy El Arquitecto. Diseñé cada jefe, cada ejercicio, cada base de datos de este mundo.' },
-    { text: 'Variables, condicionales, bucles, listas, funciones... CREATE, SELECT, INSERT, UPDATE, DELETE... Python conectado a SQLite.' },
-    { text: 'Todo lo que aprendiste, en un solo sistema. Demostrá que podés integrarlo. Este es el último desafío.' },
+    { text: 'Variables, condicionales, bucles, listas, funciones... CREATE, SELECT, INSERT, UPDATE, DELETE... y la máquina sql() que los une.' },
+    { text: 'Voy a revivir a los jefes que venciste. Cinco ataques: el Acto I, el Acto II, la fábrica de cartas, la carta rota... y tu carta contra la mía.' },
+    { text: 'Todo lo que aprendiste, en un solo examen. Este es el último desafío.' },
   ],
 }

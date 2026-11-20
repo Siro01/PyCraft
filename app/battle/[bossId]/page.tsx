@@ -8,7 +8,7 @@ import { getBossById } from '@/lib/game/bosses'
 import { getChallengesForBoss } from '@/lib/game/challenges'
 import { getEnabledBossIds } from '@/lib/supabase/enabled-bosses'
 import { getEnabledTiers } from '@/lib/supabase/enabled-tiers'
-import { TIER_COOKIE, pickTier } from '@/lib/game/tiers'
+import { TIER_COOKIE, pickTier, tierForBoss } from '@/lib/game/tiers'
 import TestHud from '@/components/game/TestHud'
 import { isTestUser } from '@/lib/test-student/server'
 import AdminViewBar from '@/components/game/AdminViewBar'
@@ -60,7 +60,8 @@ async function SupabaseBattlePage({ bossId, practiceRequested }: { bossId: strin
   const isAdmin = profile?.role === 'admin'
   const enabledTiers = await getEnabledTiers(supabase, user.id, isAdmin)
   const cookieStore = await cookies()
-  const tier = pickTier(enabledTiers, cookieStore.get(TIER_COOKIE)?.value)
+  const preferido = pickTier(enabledTiers, cookieStore.get(TIER_COOKIE)?.value)
+  const tier = preferido && tierForBoss(boss.type, preferido)
   const adminView = parseAdminView(cookieStore.get(ADMIN_VIEW_COOKIE)?.value)
   const adminTools = isAdmin && adminView === 'admin'
   if (!tier) redirect('/dashboard')

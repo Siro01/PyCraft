@@ -14,6 +14,7 @@ import {
   getBossProgress,
 } from '@/lib/storage/local-store'
 import { getChallengesForBoss } from '@/lib/game/challenges'
+import { tierForBoss } from '@/lib/game/tiers'
 import { AMULET_META } from '@/lib/game/amulets'
 import { IconCrystal, IconLock } from '@/components/ui/PixelIcons'
 import { LoadingScreen } from '@/components/ui/LoadingBar'
@@ -49,7 +50,7 @@ export default function LocalBattleView({ boss, victoryHref, practiceRequested =
     setUsername(user.name)
     setRole(user.role)
     const t = getLocalTier()
-    setTier(t)
+    setTier(tierForBoss(boss.type, t))
     setPractice(practiceRequested && !!getBossProgress(boss.id)?.defeated)
 
     // Load amulets and apply boss-hp-reduction if boss hasn't started yet

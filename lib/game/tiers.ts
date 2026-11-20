@@ -27,3 +27,10 @@ export function pickTier(enabled: ChallengeTier[], preferred?: string): Challeng
   if (preferred && (enabled as string[]).includes(preferred)) return preferred as ChallengeTier
   return enabled[0] ?? null
 }
+
+// Acto III (Python + SQL juntos) y el Arquitecto: solo JUNIOR, guiado, para
+// llegar con los tiempos del taller. Elija lo que elija el alumno, estos jefes
+// se pelean en JUNIOR (la vida del jefe es la suma de sus ataques JUNIOR).
+export function tierForBoss(bossType: string, tier: ChallengeTier): ChallengeTier {
+  return bossType === 'mixed' || bossType === 'final' ? 'junior' : tier
+}

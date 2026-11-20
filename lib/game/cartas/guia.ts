@@ -143,13 +143,13 @@ ORDER BY ___ DESC;`,
     consigna: 'Escribí la función carta(fila), que devuelve cómo se ve tu carta en texto. La plataforma la prueba sola con una carta tuya.',
     pista1: "Completá los huecos: el nombre de la tabla en el SELECT, y las columnas nombre y poder adentro de fila['...'].",
     pista2: "Con una tabla de mascotas sería: | {fila['nombre']} y | Edad: {fila['edad']}",
-    desafio: 'Una barra de poder: "█" * fila["poder"]',
+    desafio: 'Una barra de poder: "#" * fila["poder"]',
     plantilla: {
       lang: 'python',
-      codigo: `import sqlite3
-
-con = sqlite3.connect("reino.db")
-filas = con.execute("SELECT * FROM ___").fetchall()
+      codigo: `filas = mi_reino("""
+    SELECT *
+    FROM ___
+""")
 
 def carta(fila):
     texto = f"""
@@ -175,7 +175,7 @@ for fila in filas:
     plantilla: {
       lang: 'python',
       codigo: `topes = {}
-for regla in con.execute("SELECT * FROM reglas").fetchall():
+for regla in mi_reino("SELECT * FROM reglas"):
     topes[regla["rareza"]] = regla["___"]
 
 def revisar(fila):

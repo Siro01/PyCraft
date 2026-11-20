@@ -188,22 +188,23 @@ SELECT nombre, poder FROM cartas WHERE color = 'rayas';`,
     tarde: '2026-11-19',
     donde: ['Patio de prácticas'],
     tiempo: '15 min, al final, después del jefe',
-    objetivo: 'Abrir su propio mazo desde Python con sqlite3: el mismo connect del Nexo, pero con reino.db.',
-    aviso: 'reino.db funciona en el Patio con la sesión del alumno iniciada. Desde Python el mazo solo se lee: para cambiarlo, SQL en Mi Reino.',
+    objetivo: 'Abrir su propio mazo desde Python con mi_reino(): la hermana de la máquina sql() del Nexo, que lee su mazo.',
+    aviso: 'mi_reino() funciona en el Patio con la sesión del alumno iniciada. Desde Python el mazo solo se lee: para cambiarlo, SQL en Mi Reino.',
     proyectar: [
       {
         lang: 'python',
-        nota: 'Cada fila es como un diccionario: fila["nombre"], fila["poder"].',
-        codigo: `import sqlite3
-
-con = sqlite3.connect("reino.db")
-for fila in con.execute("SELECT * FROM cartas"):
-    print(fila["nombre"], "tiene poder", fila["poder"])`,
+        nota: 'sql() es una base vacía para practicar; mi_reino() lee TU mazo. Cada fila es como un diccionario: fila["nombre"], fila["poder"].',
+        codigo: `cartas = mi_reino("""
+    SELECT *
+    FROM cartas
+""")
+for fila in cartas:
+    print(fila["nombre"], "#" * fila["poder"])`,
       },
     ],
     pasos: [
       'Abrir el Patio de prácticas en modo Python.',
-      'Escribir el connect a reino.db y el for que recorre las cartas.',
+      'Escribir el mi_reino("SELECT * FROM cartas") y el for que recorre las cartas.',
       'Imprimir el nombre y su columna inventada: fila["sabor"], fila["bateria"]…',
     ],
     quedaHecho: [
@@ -287,10 +288,10 @@ UPDATE cartas SET poder = 3 WHERE nombre = 'Robot Aspiradora';`,
       {
         lang: 'python',
         nota: 'Una función que recibe una fila y devuelve el texto de la carta.',
-        codigo: `import sqlite3
-
-con = sqlite3.connect("reino.db")
-filas = con.execute("SELECT * FROM cartas").fetchall()
+        codigo: `filas = mi_reino("""
+    SELECT *
+    FROM cartas
+""")
 
 def carta(fila):
     texto = f"""
@@ -309,7 +310,7 @@ for fila in filas:
         lang: 'python',
         nota: 'La tabla reglas se convierte en un diccionario: rareza → poder máximo.',
         codigo: `topes = {}
-for regla in con.execute("SELECT * FROM reglas").fetchall():
+for regla in mi_reino("SELECT * FROM reglas"):
     topes[regla["rareza"]] = regla["poder_max"]
 
 def revisar(fila):
@@ -339,7 +340,7 @@ for fila in filas:
       'revisar tiene que devolver True o False (con return), no imprimir.',
       'Repasen el Archivista: un diccionario es una fila.',
     ],
-    siTerminan: 'Una barra de poder en la carta: "█" * fila["poder"]. Y que revisar también mire el color.',
+    siTerminan: 'Una barra de poder en la carta: "#" * fila["poder"]. Y que revisar también mire el color.',
   },
   {
     id: 'proyecto-3',

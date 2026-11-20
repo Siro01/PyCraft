@@ -116,11 +116,11 @@ export const BOSSES: Boss[] = [
     classNumber: 11,
     name: 'El Nexo',
     title: 'BOSS-11',
-    topic: 'Python + sqlite3',
+    topic: 'Python + SQL',
     type: 'mixed',
     hpMax: 360,
     color: '#A78BFA',
-    description: 'Conecta los dos mundos. cursor.execute es el puente.',
+    description: 'Conecta los dos mundos. La máquina sql() es el puente.',
   },
   {
     id: 'la-hydra',

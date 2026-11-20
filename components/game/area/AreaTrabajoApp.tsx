@@ -293,7 +293,7 @@ export default function AreaTrabajoApp() {
       ])
       const code = proyecto.python_code
       // Después del programa, la plataforma prueba carta() y revisar() (pasos 7 y 8).
-      const r = await runPython(code, { reino: await reinoDesdeDb(db), limiteSeg: 2, sonda: SONDA_PROGRAMAR })
+      const r = await runPython(code, { reino: await reinoDesdeDb(db), limiteSeg: 2, sonda: SONDA_PROGRAMAR, maquinaSql: true })
       setPyOut(r.error ? { text: `${r.output ? `${r.output}\n` : ''}${r.error}`, error: true } : { text: r.output || '(no imprimió nada)', error: false })
       if (r.error) { sfx.miss(); setPrueba(null); return }
       const s = (r.sonda ?? {}) as ResultadoProgramar
@@ -447,7 +447,7 @@ ${PLANTILLA_ELEGIR}` }))
             import('@/lib/game/executor/pyodide-runner'),
             import('@/lib/game/cartas/puente'),
           ])
-          const rr = await runPython(proyecto.python_code, { reino: await reinoDesdeDb(db), limiteSeg: 2, sonda: SONDA_TEXTOS })
+          const rr = await runPython(proyecto.python_code, { reino: await reinoDesdeDb(db), limiteSeg: 2, sonda: SONDA_TEXTOS, maquinaSql: true })
           if (rr.sonda && typeof rr.sonda === 'object' && !('error' in rr.sonda)) textos = rr.sonda as Record<string, string>
         } catch { /* sin textos: no frena la publicación */ }
       }

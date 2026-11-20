@@ -244,8 +244,8 @@ export default function PracticeApp() {
     sfx.click()
     setRunning(true)
     setRun({ kind: 'idle' })
-    const { runPython, STOPPED_ERROR } = await import('@/lib/game/executor/pyodide-runner')
-    const reino = /reino\.db/.test(code) ? await (reinoRef.current ?? Promise.resolve(null)) : null
+    const { runPython, STOPPED_ERROR, USA_REINO } = await import('@/lib/game/executor/pyodide-runner')
+    const reino = USA_REINO.test(code) ? await (reinoRef.current ?? Promise.resolve(null)) : null
     const result = await runPython(code, { ask, reino, maquinaSql: true })
     setRunning(false)
     if (result.error === STOPPED_ERROR) {

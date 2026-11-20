@@ -326,7 +326,9 @@ let puenteInstalado = false
 // hechos: sql() devuelve una lista de diccionarios. Corre en el mismo espacio
 // de nombres que el alumno, antes de su código, compilado como '<pycraft>'
 // (no aparece en los errores). Cada ejecución arranca con una base vacía.
-// Si el alumno define su propia sql(), la suya gana.
+// Si el alumno define su propia sql(), la suya gana. mi_reino("...") lee el
+// mazo del alumno (reino.db, solo lectura) y devuelve filas que se leen por
+// nombre de columna.
 export const MAQUINA_SQL = `
 import sqlite3 as _sqlite3_nexo
 _base_nexo = _sqlite3_nexo.connect(":memory:")
@@ -338,6 +340,15 @@ def sql(orden):
         return []
     columnas = [c[0] for c in cursor.description]
     return [dict(zip(columnas, fila)) for fila in cursor.fetchall()]
+
+def mi_reino(orden):
+    # El mazo del alumno (Mi Reino), en solo lectura: el puente abre reino.db
+    # y cada fila se lee por nombre (fila["poder"]) o por posición.
+    con = _sqlite3_nexo.connect("${REINO_DB}")
+    try:
+        return con.execute(orden).fetchall()
+    finally:
+        con.close()
 
 _EJEMPLOS_NEXO = {
     "mobs":  ("CREATE TABLE mobs (nombre TEXT, vida INTEGER)",
@@ -356,7 +367,9 @@ def cargar_ejemplo(nombre):
     _base_nexo.executemany("INSERT INTO " + nombre + " VALUES (?, ?)", filas)
     _base_nexo.commit()
 `
-const USA_MAQUINA = /\b(sql|cargar_ejemplo)\s*\(/
+const USA_MAQUINA = /\b(sql|cargar_ejemplo|mi_reino)\s*\(/
+/** El código lee el mazo del alumno: hay que pasarle reino.db. */
+export const USA_REINO = /reino\.db|\bmi_reino\s*\(/
 
 /** Deja `reino.db` en el disco de Pyodide (o lo borra si esta ejecución no tiene reino). */
 function prepararReino(py: PyodideInstance, reino: Uint8Array | null | undefined): void {

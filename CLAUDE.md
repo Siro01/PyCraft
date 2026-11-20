@@ -45,6 +45,7 @@ Guía para las sesiones de Claude Code en este repo. Lo que hace la plataforma, 
 | Guía del proyecto final para el docente | `lib/game/cartas/plan-final.ts` → ventana `app/admin/windows/PlanFinalWindow.tsx` |
 | Ejecutar Python | `lib/game/executor/pyodide-runner.ts`: freno por tiempo, `input()`, `reino.db` de solo lectura, sondas |
 | Ejecutar SQL | `lib/game/executor/sql-runner.ts` (sql.js) |
+| Máquina `sql()` y `mi_reino()` (Python + SQL para chicos) | `MAQUINA_SQL` en `pyodide-runner.ts`; plan y pendientes en `PLAN-SQL-AMIGABLE.md` |
 | Errores en palabras de chico | `lib/game/python-errors.ts`, `lib/game/friendly-error.ts` |
 | Mi Reino | `lib/game/reino-store.ts` (registro de sentencias, cola sin conexión), `reino-engine.ts` (replay + tablas del juego), `reino-boot.ts` |
 | Panel docente | `app/admin/AdminPanel.tsx` + `app/admin/windows/*` (un archivo por programa del escritorio) |
@@ -117,4 +118,5 @@ Lo que más gasta es el **largo de la sesión**: cada respuesta relee toda la co
 - Calendario: clases de jefes 8 a 11 (preparan el mazo en Mi Reino y el Patio) → Proyecto 1 a 3 (24/11 al 1/12) → El Arquitecto → cierre con torneo (9 y 10/12) → muestra (~18/12).
 - `elegir()` del alumno se valida en AreaTrabajo, pero **no se usa en las peleas**: hacerlo andar en la muestra requiere Python sin internet en la PC del stand. Hoy cada mazo juega con su orden de batalla.
 - Sin probar en el navegador: los botoncitos de pista (💡) y desafío (⭐), el "+N" de reglas rotas y "Agregar la plantilla" de `elegir()` en AreaTrabajo.
+- Desde el Nexo, Python habla con SQL solo con `sql()` (base de práctica) y `mi_reino()` (el mazo, solo lectura). El Acto III y el Arquitecto se pelean solo en Junior. Lo que falta migrar está en `PLAN-SQL-AMIGABLE.md` (Fase 4).
 - Próxima sesión: **ajustes de diseño** de AreaTrabajo, la arena y `/muestra`, siguiendo la regla de UI mínima.
