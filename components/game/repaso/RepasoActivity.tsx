@@ -36,7 +36,7 @@ async function runBeat(beat: FillBeat, values: string[]): Promise<RunResult> {
   const code = fillTemplate(beat.template, values)
   if (beat.lang === 'python') {
     const { runPython } = await import('@/lib/game/executor/pyodide-runner')
-    const { output, error } = await runPython(code)
+    const { output, error } = await runPython(code, { maquinaSql: true })
     if (error) return { ok: false, lines: output ? output.split('\n') : [], table: null, error }
     return { ok: normalize(output) === normalize(beat.expected), lines: output ? output.split('\n') : [], table: null, error: null }
   }

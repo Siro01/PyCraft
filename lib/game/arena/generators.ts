@@ -84,6 +84,28 @@ function fill(code: string, answers: string[]): string {
 const q = (s: string) => `"${s}"`
 const sq = (s: string) => `'${s}'`
 
+// Jefes 11 a 14: la máquina sql() de los ataques Junior (challenges.ts), a la
+// vista arriba del código, y el SQL en varias líneas entre """.
+const MAQUINA_NEXO = [
+  '# ===== MÁQUINA DEL NEXO (no se toca) =====',
+  'import sqlite3',
+  'base = sqlite3.connect(":memory:")',
+  'def sql(orden):',
+  '    cursor = base.execute(orden)',
+  '    if cursor.description is None:',
+  '        return []',
+  '    columnas = [c[0] for c in cursor.description]',
+  '    return [dict(zip(columnas, fila)) for fila in cursor.fetchall()]',
+  '# =========================================',
+  '',
+]
+const crearTabla = (tabla: string, columnas: string[]) =>
+  ['sql("""', `    CREATE TABLE ${tabla} (`, ...columnas.map((c, i) => `        ${c}${i < columnas.length - 1 ? ',' : ''}`), '    )', '""")']
+const insertar = (tabla: string, columnas: string[], filas: string[][]) =>
+  ['sql("""', `    INSERT INTO ${tabla} (${columnas.join(', ')})`, '    VALUES',
+    ...filas.map((f, i) => `        (${f.join(', ')})${i < filas.length - 1 ? ',' : ''}`), '""")']
+const leer = (variable: string, tabla: string) => [`${variable} = sql("""`, '    SELECT *', `    FROM ${tabla}`, '""")']
+
 // ─── Plantillas ────────────────────────────────────────────────────────────
 const TEMPLATES: Template[] = [
   // ══ 1 · Creeper Formulario · variables y tipos ══════════════════════════
@@ -521,16 +543,20 @@ const TEMPLATES: Template[] = [
     },
   })),
 
-  // ══ 11 · El Nexo · Python + sqlite3 ═════════════════════════════════════
+  // ══ 11 · El Nexo · la máquina sql() ═════════════════════════════════════
+  // Como en los ataques Junior de los jefes 11 a 14 (challenges.ts), la
+  // máquina sql() va arriba del código, a la vista: la arena corre con
+  // executeChallenge, que no la precarga.
   {
     id: 'nexo-count', bossId: 'el-nexo', type: 'python',
     build: (r) => {
       const inv = sample(r, ITEMS, int(r, 2, 5))
-      const code = lines('import sqlite3', '', 'conn = sqlite3.connect(":memory:")', 'cursor = conn.cursor()', 'cursor.execute("CREATE TABLE items (nombre TEXT)")',
-        `cursor.executemany("INSERT INTO items VALUES (?)", [${inv.map((x) => `("${x}",)`).join(', ')}])`, '', 'cursor.execute("SELECT ___(*) FROM items")', 'print(cursor.fetchone()[0])', 'conn.close()')
+      const code = lines(...MAQUINA_NEXO, ...crearTabla('items', ['nombre TEXT']), '',
+        ...insertar('items', ['nombre'], inv.map((x) => [sq(x)])), '',
+        ...leer('items', 'items'), 'print(___(items))')
       return {
-        title: 'Contar desde Python', description: 'Completá la función de SQL que cuenta las filas de la tabla.',
-        initialCode: code, solution: fill(code, ['COUNT']),
+        title: 'Contar desde Python', description: 'Completá la función de Python que cuenta cuántas filas trajo `sql()`. La máquina de arriba no se toca.',
+        initialCode: code, solution: fill(code, ['len']),
         expectedOutput: String(inv.length),
       }
     },
@@ -539,11 +565,12 @@ const TEMPLATES: Template[] = [
     id: 'nexo-insert', bossId: 'el-nexo', type: 'python',
     build: (r) => {
       const [a, b] = sample(r, ITEMS, 2)
-      const code = lines('import sqlite3', '', 'conn = sqlite3.connect(":memory:")', 'cursor = conn.cursor()', 'cursor.execute("CREATE TABLE items (nombre TEXT)")',
-        `cursor.execute("INSERT INTO items VALUES (?)", ("${a}",))`, 'cursor.execute("INSERT INTO items VALUES (?)", ___)', '', 'cursor.execute("SELECT nombre FROM items")', 'for fila in cursor.fetchall():', '    print(fila[0])', 'conn.close()')
+      const code = lines(...MAQUINA_NEXO, ...crearTabla('items', ['nombre TEXT']), '',
+        ...insertar('items', ['nombre'], [[sq(a)], [sq('___')]]), '',
+        ...leer('items', 'items'), 'for item in items:', '    print(item["nombre"])')
       return {
-        title: 'El segundo ítem', description: `Insertá "${b}" igual que la línea de arriba: como una tupla de un solo elemento.`,
-        initialCode: code, solution: fill(code, [`("${b}",)`]),
+        title: 'El segundo ítem', description: `Guardá "${b}" como segunda fila del INSERT. Adentro del SQL, el texto va con comillas simples.`,
+        initialCode: code, solution: fill(code, [b]),
         expectedOutput: lines(a, b),
       }
     },
@@ -552,11 +579,12 @@ const TEMPLATES: Template[] = [
     id: 'nexo-fetch', bossId: 'el-nexo', type: 'python',
     build: (r) => {
       const item = pick(r, ITEMS), n = int(r, 2, 40)
-      const code = lines('import sqlite3', '', 'conn = sqlite3.connect(":memory:")', 'cursor = conn.cursor()', 'cursor.execute("CREATE TABLE items (nombre TEXT, cantidad INTEGER)")',
-        `cursor.execute("INSERT INTO items VALUES (?, ?)", ("${item}", ${n}))`, '', 'cursor.execute("SELECT nombre, cantidad FROM items")', 'fila = cursor.fetchone()', 'print(fila[___])', 'conn.close()')
+      const code = lines(...MAQUINA_NEXO, ...crearTabla('cofre', ['nombre TEXT', 'cantidad INTEGER']), '',
+        ...insertar('cofre', ['nombre', 'cantidad'], [[sq(item), String(n)]]), '',
+        ...leer('cofre', 'cofre'), 'for item in cofre:', '    print(item["___"])')
       return {
-        title: 'La columna justa', description: 'La fila es una tupla (nombre, cantidad). Imprimí solo la cantidad: ¿qué índice tiene?',
-        initialCode: code, solution: fill(code, ['1']),
+        title: 'La columna justa', description: 'Cada fila es un diccionario con `nombre` y `cantidad`. Imprimí solo la cantidad: ¿qué clave va?',
+        initialCode: code, solution: fill(code, ['cantidad']),
         expectedOutput: String(n),
       }
     },
@@ -567,12 +595,17 @@ const TEMPLATES: Template[] = [
     id: 'hydra-order', bossId: 'la-hydra', type: 'python',
     build: (r) => {
       const inv = sample(r, ITEMS, 4)
-      const code = lines('import sqlite3', '', 'conn = sqlite3.connect(":memory:")', 'cursor = conn.cursor()', 'cursor.execute("CREATE TABLE inventario (nombre TEXT)")',
-        `cursor.executemany("INSERT INTO inventario VALUES (?)", [${inv.map((x) => `("${x}",)`).join(', ')}])`, '', 'cursor.execute("SELECT nombre FROM inventario ORDER BY ___")', 'for fila in cursor.fetchall():', '    print(fila[0])', 'conn.close()')
+      const sorted = [...inv].sort((a, b) => (a < b ? -1 : 1))
+      // Que sin el ORDER BY no salga ya ordenado por casualidad.
+      if (inv.every((x, i) => x === sorted[i])) inv.reverse()
+      const code = lines(...MAQUINA_NEXO, ...crearTabla('inventario', ['nombre TEXT']), '',
+        ...insertar('inventario', ['nombre'], inv.map((x) => [sq(x)])), '',
+        'inventario = sql("""', '    SELECT *', '    FROM inventario', '    ORDER BY ___', '""")',
+        'for item in inventario:', '    print(item["nombre"])')
       return {
         title: 'Listar en orden', description: 'Completá el `ORDER BY` para listar los nombres en orden alfabético.',
         initialCode: code, solution: fill(code, ['nombre']),
-        expectedOutput: [...inv].sort((a, b) => (a < b ? -1 : 1)).join('\n'),
+        expectedOutput: sorted.join('\n'),
       }
     },
   },
@@ -580,12 +613,13 @@ const TEMPLATES: Template[] = [
     id: 'hydra-funcion', bossId: 'la-hydra', type: 'python',
     build: (r) => {
       const inv = sample(r, ITEMS, int(r, 2, 4))
-      const code = lines('import sqlite3', '', 'conn = sqlite3.connect(":memory:")', 'cursor = conn.cursor()', 'cursor.execute("CREATE TABLE inventario (nombre TEXT)")', '',
-        'def agregar(nombre):', '    cursor.execute("INSERT INTO inventario VALUES (?)", ___)', '', ...inv.map((x) => `agregar("${x}")`), '',
-        'cursor.execute("SELECT COUNT(*) FROM inventario")', 'print(cursor.fetchone()[0])', 'conn.close()')
+      const code = lines(...MAQUINA_NEXO, ...crearTabla('inventario', ['nombre TEXT']), '',
+        'def agregar(nombre):', '    sql(f"""', '        INSERT INTO inventario (nombre)', '        VALUES', "            ('{___}')", '    """)', '',
+        ...inv.map((x) => `agregar("${x}")`), '',
+        ...leer('inventario', 'inventario'), 'print(len(inventario))')
       return {
-        title: 'Cortar cabezas', description: 'Completá el INSERT de la función: el parámetro tiene que ir como tupla de un elemento.',
-        initialCode: code, solution: fill(code, ['(nombre,)']),
+        title: 'Cortar cabezas', description: 'Completá el INSERT de la función: entre las llaves va el parámetro que recibe.',
+        initialCode: code, solution: fill(code, ['nombre']),
         expectedOutput: String(inv.length),
       }
     },
@@ -596,10 +630,11 @@ const TEMPLATES: Template[] = [
     id: 'dragon-buscar', bossId: 'dragon-rojo', type: 'python',
     build: (r) => {
       const inv = sample(r, ITEMS, 3), target = pick(r, inv)
-      const code = lines('import sqlite3', '', 'conn = sqlite3.connect(":memory:")', 'cursor = conn.cursor()', 'cursor.execute("CREATE TABLE inventario (nombre TEXT)")',
-        `cursor.executemany("INSERT INTO inventario VALUES (?)", [${inv.map((x) => `("${x}",)`).join(', ')}])`, '',
-        'def buscar(nombre):', '    cursor.execute("SELECT nombre FROM inventario WHERE nombre = ?", (nombre,))', '    fila = cursor.fetchone()', '    if fila:', '        print("Encontrado:", fila[0])', '    else:', '        print("No encontrado")', '',
-        'buscar(___)', 'buscar("Dragón")', 'conn.close()')
+      const code = lines(...MAQUINA_NEXO, ...crearTabla('inventario', ['nombre TEXT']), '',
+        ...insertar('inventario', ['nombre'], inv.map((x) => [sq(x)])), '',
+        'def buscar(nombre):', '    encontrados = sql(f"""', '        SELECT *', '        FROM inventario', "        WHERE nombre = '{nombre}'", '    """)',
+        '    if len(encontrados) > 0:', '        print("Encontrado:", encontrados[0]["nombre"])', '    else:', '        print("No encontrado")', '',
+        'buscar(___)', 'buscar("Dragón")')
       return {
         title: 'Buscar en el tesoro', description: `Llamá a \`buscar\` con "${target}".`,
         initialCode: code, solution: fill(code, [q(target)]),
@@ -612,13 +647,13 @@ const TEMPLATES: Template[] = [
     build: (r) => {
       const rows = sample(r, ITEMS, 2).map((nombre) => ({ nombre, cantidad: int(r, 1, 9) }))
       const target = pick(r, rows), n = int(r, 10, 50)
-      const code = lines('import sqlite3', '', 'conn = sqlite3.connect(":memory:")', 'cursor = conn.cursor()', 'cursor.execute("CREATE TABLE inventario (nombre TEXT, cantidad INTEGER)")',
-        `cursor.executemany("INSERT INTO inventario VALUES (?, ?)", [${rows.map((x) => `("${x.nombre}", ${x.cantidad})`).join(', ')}])`, '',
-        'cursor.execute("UPDATE inventario SET cantidad = ? WHERE nombre = ?", (___, ___))', '',
-        'cursor.execute("SELECT nombre, cantidad FROM inventario")', 'for nombre, cantidad in cursor.fetchall():', '    print(nombre, cantidad)', 'conn.close()')
+      const code = lines(...MAQUINA_NEXO, ...crearTabla('inventario', ['nombre TEXT', 'cantidad INTEGER']), '',
+        ...insertar('inventario', ['nombre', 'cantidad'], rows.map((x) => [sq(x.nombre), String(x.cantidad)])), '',
+        'sql("""', '    UPDATE inventario', '    SET cantidad = ___', '    WHERE nombre = ___', '""")', '',
+        ...leer('inventario', 'inventario'), 'for item in inventario:', '    print(item["nombre"], item["cantidad"])')
       return {
-        title: 'Actualizar el botín', description: `Ahora hay ${n} de "${target.nombre}". Completá la tupla: primero la cantidad, después el nombre.`,
-        initialCode: code, solution: fill(code, [String(n), q(target.nombre)]),
+        title: 'Actualizar el botín', description: `Ahora hay ${n} de "${target.nombre}". Completá el UPDATE: primero la cantidad, después el nombre con comillas simples.`,
+        initialCode: code, solution: fill(code, [String(n), sq(target.nombre)]),
         expectedOutput: rows.map((x) => `${x.nombre} ${x === target ? n : x.cantidad}`).join('\n'),
       }
     },

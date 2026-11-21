@@ -92,20 +92,38 @@ INSERT INTO monstruos VALUES (3, 'Esqueleto', 'No-muerto', 20);
 INSERT INTO monstruos VALUES (4, 'Creeper cargado', 'Creeper', 40);
 INSERT INTO monstruos VALUES (5, 'Araña', 'Bicho', 16);`
 
-// Acto III/IV: el archivo inventario.db (vive en el disco virtual de Pyodide)
-// se rearma en cada ejecución, así los ejemplos con funciones que abren y
-// cierran la conexión funcionan igual que en la batalla y siempre arrancan
-// con los mismos 4 ítems.
-const INVENTARIO_PRELUDE = `import sqlite3 as _sq
-_c = _sq.connect("inventario.db")
-_c.execute("DROP TABLE IF EXISTS cofre")
-_c.execute("CREATE TABLE cofre (id INTEGER PRIMARY KEY, nombre TEXT, tipo TEXT, cantidad INTEGER)")
-_c.executemany("INSERT INTO cofre (nombre, tipo, cantidad) VALUES (?, ?, ?)", [("Espada", "arma", 1), ("Arco", "arma", 1), ("Antorcha", "luz", 16), ("Pico", "herramienta", 1)])
-_c.commit()
-_c.close()
-del _sq, _c`
+// Acto III/IV: Python le habla a SQL con la máquina sql(), que ya viene
+// precargada (MAQUINA_SQL en lib/game/executor/pyodide-runner.ts; runBookCode
+// la activa). cargar_ejemplo("cofre") / ("mobs") arma una tabla de práctica.
+const EJEMPLOS_SETUP = 'cargar_ejemplo("cofre") trae Diamante 5, Hierro 3 y Oro 7. cargar_ejemplo("mobs") trae Zombie 4, Creeper 6 y Esqueleto 3.'
 
-const INVENTARIO_SETUP = 'Ya hay un archivo inventario.db con la tabla cofre: Espada, Arco, Antorcha y Pico.'
+const COFRE_TABLA = `sql("""
+    CREATE TABLE cofre (
+        nombre TEXT,
+        cantidad INTEGER
+    )
+""")
+
+sql("""
+    INSERT INTO cofre (nombre, cantidad)
+    VALUES
+        ('Diamante', 5),
+        ('Hierro', 3)
+""")`
+
+const COFRE_LISTA = `cofre = sql("""
+    SELECT *
+    FROM cofre
+""")
+for item in cofre:
+    print(item["nombre"], item["cantidad"])`
+
+const AGREGAR_ITEM = `def agregar_item(nombre, cantidad):
+    sql(f"""
+        INSERT INTO cofre (nombre, cantidad)
+        VALUES
+            ('{nombre}', {cantidad})
+    """)`
 
 // ─── ACTO I · Python ─────────────────────────────────────────────────────────
 
@@ -1150,90 +1168,150 @@ const ACT_II: Book[] = [
 
 const ACT_III: Book[] = [
   {
-    id: 'sqlite3',
+    id: 'sqlite3', // id viejo: se mantiene para no perder el progreso guardado
     actKey: 'mixed',
-    title: 'Python + sqlite3',
-    spine: 'sqlite3',
+    title: 'Python + SQL: la máquina sql()',
+    spine: 'sql()',
     lang: 'python',
     glyph: 'el-nexo',
     bossId: 'el-nexo',
     intro: 'Acá se juntan los dos mundos: Python le manda órdenes SQL a una base de datos. El Nexo custodia ese puente.',
     pages: [
       {
-        title: 'connect abre la puerta',
-        text: '`import sqlite3` trae la herramienta. `connect(":memory:")` crea una base que vive mientras corre el programa, ideal para practicar. El cursor es el mensajero.',
+        title: 'sql() es la máquina del Nexo',
+        text: 'La máquina `sql()` ya viene hecha. Le pasás la orden SQL entre `"""`, escrita como en el Acto II. Los textos de adentro van con comillas simples: `\'Diamante\'`.',
         lang: 'python',
-        code: 'import sqlite3\n\nconn = sqlite3.connect(":memory:")\ncursor = conn.cursor()\nprint("¡Conectado!")\nconn.close()',
-        highlight: [3, 4],
+        code: `sql("""
+    CREATE TABLE cofre (
+        nombre TEXT,
+        cantidad INTEGER
+    )
+""")
+
+sql("""
+    INSERT INTO cofre (nombre, cantidad)
+    VALUES
+        ('Diamante', 5),
+        ('Hierro', 3)
+""")
+print("¡Guardado!")`,
+        highlight: [1, 8, 11],
       },
       {
-        title: 'execute manda el SQL',
-        text: 'El SQL va entre comillas adentro de `execute()`. `fetchall()` trae todas las filas como una lista.',
+        title: 'SELECT devuelve una lista',
+        text: 'Con un SELECT, `sql()` te devuelve una lista de diccionarios: uno por fila, con el nombre de cada columna como clave.',
         lang: 'python',
-        code: 'import sqlite3\n\nconn = sqlite3.connect(":memory:")\ncursor = conn.cursor()\ncursor.execute("CREATE TABLE cofre (nombre TEXT, cantidad INTEGER)")\ncursor.execute("INSERT INTO cofre VALUES (\'Espada\', 1)")\ncursor.execute("INSERT INTO cofre VALUES (\'Antorcha\', 16)")\ncursor.execute("SELECT * FROM cofre")\nprint(cursor.fetchall())\nconn.close()',
-        highlight: [5, 8, 9],
+        code: `${COFRE_TABLA}
+
+cofre = sql("""
+    SELECT *
+    FROM cofre
+""")
+print(cofre)`,
+        highlight: [15, 19],
       },
       {
-        title: 'Cada fila es una tupla',
-        text: 'Una tupla es como una lista entre paréntesis. `fila[0]` es la primera columna, `fila[1]` la segunda.',
+        title: 'Cada fila es un diccionario',
+        text: '`cargar_ejemplo("cofre")` arma la tabla cofre ya llena. Con un `for` recorrés las filas: `item["nombre"]` es el nombre y `item["cantidad"]` la cantidad.',
         lang: 'python',
-        code: 'import sqlite3\n\nconn = sqlite3.connect(":memory:")\ncursor = conn.cursor()\ncursor.execute("CREATE TABLE cofre (nombre TEXT, cantidad INTEGER)")\ncursor.execute("INSERT INTO cofre VALUES (\'Espada\', 1)")\ncursor.execute("INSERT INTO cofre VALUES (\'Antorcha\', 16)")\ncursor.execute("SELECT nombre, cantidad FROM cofre")\nfor fila in cursor.fetchall():\n    print(fila[0], "x", fila[1])\nconn.close()',
-        highlight: [9, 10],
+        code: `cargar_ejemplo("cofre")
+
+${COFRE_LISTA}`,
+        highlight: [1, 7, 8],
       },
       {
-        title: 'Los ? llevan datos de Python',
-        text: 'Cada `?` se reemplaza por un dato de la tupla, en orden. Una tupla de UN solo dato lleva coma al final: `("Pico",)`.',
+        title: 'Barras con ORDER BY',
+        text: '`cargar_ejemplo("mobs")` trae la tabla mobs. El ORDER BY ordena en el SQL, y `"♥" * número` dibuja la barra en Python.',
         lang: 'python',
-        code: 'import sqlite3\n\nconn = sqlite3.connect(":memory:")\ncursor = conn.cursor()\ncursor.execute("CREATE TABLE cofre (nombre TEXT, cantidad INTEGER)")\nnombre = "Pico"\ncantidad = 1\ncursor.execute("INSERT INTO cofre VALUES (?, ?)", (nombre, cantidad))\ncursor.execute("SELECT * FROM cofre WHERE nombre = ?", ("Pico",))\nprint(cursor.fetchone())\nconn.close()',
-        highlight: [8, 9],
-        warn: 'Sin la coma, ("Pico") no es una tupla: es solo un texto entre paréntesis.',
+        code: `cargar_ejemplo("mobs")
+
+mobs = sql("""
+    SELECT *
+    FROM mobs
+    ORDER BY vida DESC
+""")
+for mob in mobs:
+    print(mob["nombre"], "♥" * mob["vida"])`,
+        highlight: [6, 9],
+        tryIt: 'Sacá el DESC y mirá cómo cambia el orden.',
       },
       {
-        title: 'fetchone trae una sola fila',
-        text: 'Para un resultado único, como un `COUNT(*)`, usás `fetchone()` y leés la posición 0.',
+        title: 'len() cuenta las filas',
+        text: 'Como `sql()` devuelve una lista, `len()` te dice cuántas filas trajo. Con `WHERE` filtrás antes de contar.',
         lang: 'python',
-        code: 'import sqlite3\n\nconn = sqlite3.connect(":memory:")\ncursor = conn.cursor()\ncursor.execute("CREATE TABLE cofre (nombre TEXT)")\ncursor.executemany("INSERT INTO cofre VALUES (?)", [("Espada",), ("Pico",), ("Arco",)])\ncursor.execute("SELECT COUNT(*) FROM cofre")\nprint(cursor.fetchone()[0])\nconn.close()',
+        code: `cargar_ejemplo("cofre")
+
+muchos = sql("""
+    SELECT *
+    FROM cofre
+    WHERE cantidad > 4
+""")
+print("Hay", len(muchos), "ítems con más de 4")`,
         highlight: [6, 8],
-        tryIt: 'Agregá ("Pan",) a la lista y volvé a contar.',
-      },
-      {
-        title: 'commit guarda, close cierra',
-        text: 'Los INSERT, UPDATE y DELETE quedan grabados recién con `conn.commit()`. Al terminar, `conn.close()`.',
-        lang: 'python',
-        code: 'import sqlite3\n\nconn = sqlite3.connect(":memory:")\ncursor = conn.cursor()\ncursor.execute("CREATE TABLE cofre (nombre TEXT)")\ncursor.execute("INSERT INTO cofre VALUES (\'Espada\')")\nconn.commit()\nprint("Cambios guardados")\nconn.close()',
-        highlight: [7, 9],
+        tryIt: 'Cambiá el 4 por un 2 y volvé a contar.',
       },
     ],
     spells: [
       {
         id: 'nexo-s1',
         prompt: 'Creá la tabla mobs para que el resto funcione.',
-        template: 'import sqlite3\n\nconn = sqlite3.connect(":memory:")\ncursor = conn.cursor()\ncursor.execute("CREATE TABLE ___ (nombre TEXT)")\ncursor.execute("INSERT INTO mobs VALUES (\'Zombi\')")\ncursor.execute("SELECT nombre FROM mobs")\nprint(cursor.fetchone()[0])',
-        expected: 'Zombi',
+        template: `sql("""
+    CREATE TABLE ___ (
+        nombre TEXT,
+        vida INTEGER
+    )
+""")
+
+sql("""
+    INSERT INTO mobs (nombre, vida)
+    VALUES
+        ('Zombie', 4)
+""")
+
+mobs = sql("""
+    SELECT *
+    FROM mobs
+""")
+print(mobs[0]["nombre"])`,
+        expected: 'Zombie',
         answers: ['mobs'],
         hint: 'Fijate cómo se llama la tabla en el INSERT de abajo.',
       },
       {
         id: 'nexo-s2',
-        prompt: 'Pasale el dato al `?` como una tupla de un elemento.',
-        template: 'import sqlite3\n\nconn = sqlite3.connect(":memory:")\ncursor = conn.cursor()\ncursor.execute("CREATE TABLE mobs (nombre TEXT)")\ncursor.execute("INSERT INTO mobs VALUES (?)", ___)\ncursor.execute("SELECT COUNT(*) FROM mobs")\nprint(cursor.fetchone()[0])',
-        expected: '1',
-        answers: ['("Zombi",)'],
-        hint: 'Una tupla de un solo dato lleva coma al final: ("Zombi",).',
+        prompt: 'Mostrá la vida de cada mob.',
+        template: `cargar_ejemplo("mobs")
+
+mobs = sql("""
+    SELECT *
+    FROM mobs
+""")
+for mob in mobs:
+    print(mob["nombre"], mob["___"])`,
+        expected: 'Zombie 4\nCreeper 6\nEsqueleto 3',
+        answers: ['vida'],
+        hint: 'La tabla mobs tiene dos columnas: nombre y vida.',
       },
       {
         id: 'nexo-s3',
-        prompt: 'La fila es (\'Zombi\', 20). Imprimí la vida.',
-        template: 'import sqlite3\n\nconn = sqlite3.connect(":memory:")\ncursor = conn.cursor()\ncursor.execute("CREATE TABLE mobs (nombre TEXT, hp INTEGER)")\ncursor.execute("INSERT INTO mobs VALUES (\'Zombi\', 20)")\ncursor.execute("SELECT nombre, hp FROM mobs")\nprint(cursor.fetchone()[___])',
-        expected: '20',
-        answers: ['1'],
-        hint: 'La posición 0 es el nombre; la vida es la siguiente.',
+        prompt: 'Contá los mobs con más de 3 de vida.',
+        template: `cargar_ejemplo("mobs")
+
+fuertes = sql("""
+    SELECT *
+    FROM mobs
+    WHERE vida > 3
+""")
+print(___(fuertes))`,
+        expected: '2',
+        answers: ['len'],
+        hint: 'La función de Python que cuenta los elementos de una lista: len.',
       },
     ],
     bossTips: [
-      'connect → cursor → execute → fetch → commit → close.',
-      'Una tupla de un solo dato necesita la coma: ("Espada",).',
-      'fetchone() devuelve una tupla: leé la posición que necesitás.',
+      'sql("""…""") manda la orden y devuelve una lista de diccionarios.',
+      'Adentro del SQL, los textos van con comillas simples: \'Zombie\'.',
+      'Cada fila se lee por su nombre: item["cantidad"].',
     ],
   },
   {
@@ -1244,77 +1322,155 @@ const ACT_III: Book[] = [
     lang: 'python',
     glyph: 'la-hydra',
     bossId: 'la-hydra',
-    intro: 'A la Hydra le cortás una cabeza y vuelve. Tus datos tienen que hacer lo mismo: guardarse en un archivo y volver siempre.',
-    prelude: INVENTARIO_PRELUDE,
-    setup: INVENTARIO_SETUP,
+    intro: 'A la Hydra le cortás una cabeza y vuelve. Tus funciones tienen que hacer lo mismo: guardar siempre igual y mostrar siempre todo.',
+    setup: EJEMPLOS_SETUP,
     pages: [
       {
         title: 'Una función para agregar',
-        text: 'Abre la conexión, hace el INSERT con `?`, guarda con commit y cierra. Así cada ítem nuevo queda en el archivo.',
+        text: 'La llamás y hace el INSERT. Con `f"""` las variables entran al SQL entre llaves; el texto además lleva comillas simples: `\'{nombre}\'`.',
         lang: 'python',
-        code: 'import sqlite3\n\ndef agregar_item(nombre, cantidad):\n    conn = sqlite3.connect("inventario.db")\n    cursor = conn.cursor()\n    cursor.execute("INSERT INTO cofre (nombre, cantidad) VALUES (?, ?)", (nombre, cantidad))\n    conn.commit()\n    conn.close()\n\nagregar_item("Manzana", 8)\nprint("Manzana guardada")',
-        highlight: [6, 7],
+        code: `cargar_ejemplo("cofre")
+
+${AGREGAR_ITEM}
+
+agregar_item("Esmeralda", 2)
+print("Esmeralda guardada")`,
+        highlight: [4, 7],
       },
       {
         title: 'Una función para listar',
-        text: 'SELECT con `ORDER BY nombre` para que salga en orden alfabético, y un for para imprimir cada fila.',
+        text: 'Un SELECT con `ORDER BY nombre` para que salga de la A a la Z, y un for para mostrar cada fila.',
         lang: 'python',
-        code: 'import sqlite3\n\ndef listar_items():\n    conn = sqlite3.connect("inventario.db")\n    cursor = conn.cursor()\n    cursor.execute("SELECT nombre, cantidad FROM cofre ORDER BY nombre")\n    for fila in cursor.fetchall():\n        print(f"{fila[0]}: {fila[1]}")\n    conn.close()\n\nlistar_items()',
-        highlight: [6, 7, 8],
-        tryIt: 'Cambiá ORDER BY nombre por ORDER BY cantidad DESC.',
+        code: `cargar_ejemplo("mobs")
+
+def listar():
+    mobs = sql("""
+        SELECT *
+        FROM mobs
+        ORDER BY nombre
+    """)
+    for mob in mobs:
+        print(mob["nombre"], mob["vida"])
+
+listar()`,
+        highlight: [7, 9, 10],
+        tryIt: 'Cambiá ORDER BY nombre por ORDER BY vida DESC.',
       },
       {
         title: 'Las dos juntas',
-        text: 'Lo que agregás con una función, lo ve la otra, porque las dos leen el mismo archivo.',
+        text: 'Lo que guarda una función, lo ve la otra, porque las dos le hablan a la misma base.',
         lang: 'python',
-        code: 'import sqlite3\n\ndef agregar_item(nombre, cantidad):\n    conn = sqlite3.connect("inventario.db")\n    conn.execute("INSERT INTO cofre (nombre, cantidad) VALUES (?, ?)", (nombre, cantidad))\n    conn.commit()\n    conn.close()\n\ndef listar_items():\n    conn = sqlite3.connect("inventario.db")\n    for fila in conn.execute("SELECT nombre, cantidad FROM cofre ORDER BY nombre"):\n        print(fila[0], fila[1])\n    conn.close()\n\nagregar_item("Pan", 4)\nlistar_items()',
-        highlight: [16, 17],
+        code: `cargar_ejemplo("cofre")
+
+${AGREGAR_ITEM}
+
+def listar_items():
+    cofre = sql("""
+        SELECT *
+        FROM cofre
+        ORDER BY nombre
+    """)
+    for item in cofre:
+        print(item["nombre"], item["cantidad"])
+
+agregar_item("Esmeralda", 2)
+listar_items()`,
+        highlight: [19, 20],
       },
       {
-        title: 'Sin commit, no pasó',
-        text: 'Si te olvidás el commit, el INSERT se pierde al cerrar la conexión. Comparalo con el ejemplo anterior.',
+        title: 'Sin comillas, no anda',
+        text: 'Si te olvidás las comillas simples alrededor de `{nombre}`, el SQL cree que Esmeralda es el nombre de una columna. Corré el ejemplo y mirá el error.',
         lang: 'python',
-        code: 'import sqlite3\n\nconn = sqlite3.connect("inventario.db")\nconn.execute("INSERT INTO cofre (nombre, cantidad) VALUES (\'Pan\', 4)")\nconn.close()\n\nconn = sqlite3.connect("inventario.db")\nprint(conn.execute("SELECT COUNT(*) FROM cofre").fetchone()[0])\nconn.close()',
-        highlight: [4, 5],
-        warn: 'Imprime 4: el Pan no se guardó. Agregá conn.commit() antes del close de la línea 5.',
+        code: `cargar_ejemplo("cofre")
+
+def agregar_item(nombre, cantidad):
+    sql(f"""
+        INSERT INTO cofre (nombre, cantidad)
+        VALUES
+            ({nombre}, {cantidad})
+    """)
+
+agregar_item("Esmeralda", 2)`,
+        highlight: [7],
+        warn: 'Da error: el SQL buscó una columna llamada Esmeralda. En la línea 7 va \'{nombre}\', con comillas simples.',
       },
       {
-        title: 'Contar por tipo',
-        text: 'El mismo GROUP BY del Acto II, ahora desde Python.',
+        title: 'SQL trae, Python suma',
+        text: 'El SELECT trae las filas y un `for` con un acumulador suma las cantidades.',
         lang: 'python',
-        code: 'import sqlite3\n\nconn = sqlite3.connect("inventario.db")\ncursor = conn.cursor()\ncursor.execute("SELECT tipo, COUNT(*) FROM cofre GROUP BY tipo ORDER BY tipo")\nfor tipo, cantidad in cursor.fetchall():\n    print(f"{tipo}: {cantidad}")\nconn.close()',
-        highlight: [5],
+        code: `cargar_ejemplo("cofre")
+
+cofre = sql("""
+    SELECT *
+    FROM cofre
+""")
+total = 0
+for item in cofre:
+    total = total + item["cantidad"]
+print("En el cofre hay", total, "cosas")`,
+        highlight: [7, 9],
       },
     ],
     spells: [
       {
         id: 'hydra-s1',
-        prompt: 'Completá la tupla del INSERT. Al final tiene que haber 5 ítems.',
-        template: 'import sqlite3\n\ndef agregar(nombre):\n    conn = sqlite3.connect("inventario.db")\n    conn.execute("INSERT INTO cofre (nombre) VALUES (?)", ___)\n    conn.commit()\n    conn.close()\n\nagregar("Manzana")\nconn = sqlite3.connect("inventario.db")\nprint(conn.execute("SELECT COUNT(*) FROM cofre").fetchone()[0])',
-        expected: '5',
-        answers: ['(nombre,)'],
-        hint: 'Una tupla de un solo dato: (nombre,) con la coma.',
+        prompt: 'Completá la función. Al final tiene que haber 4 ítems.',
+        template: `cargar_ejemplo("cofre")
+
+def agregar(nombre):
+    sql(f"""
+        INSERT INTO cofre (nombre, cantidad)
+        VALUES
+            ('{___}', 1)
+    """)
+
+agregar("Esmeralda")
+cofre = sql("""
+    SELECT *
+    FROM cofre
+""")
+print(len(cofre))`,
+        expected: '4',
+        answers: ['nombre'],
+        hint: 'Entre las llaves va el nombre de la variable que recibe la función: nombre.',
       },
       {
         id: 'hydra-s2',
-        prompt: 'Listá los nombres en orden alfabético.',
-        template: 'import sqlite3\n\nconn = sqlite3.connect("inventario.db")\nfor fila in conn.execute("SELECT nombre FROM cofre ORDER BY ___"):\n    print(fila[0])',
-        expected: 'Antorcha\nArco\nEspada\nPico',
+        prompt: 'Listá los mobs en orden alfabético.',
+        template: `cargar_ejemplo("mobs")
+
+mobs = sql("""
+    SELECT *
+    FROM mobs
+    ORDER BY ___
+""")
+for mob in mobs:
+    print(mob["nombre"])`,
+        expected: 'Creeper\nEsqueleto\nZombie',
         answers: ['nombre'],
         hint: 'Ordená por la columna que querés ver: nombre.',
       },
       {
         id: 'hydra-s3',
-        prompt: 'Contá cuántos ítems hay de cada tipo.',
-        template: 'import sqlite3\n\nconn = sqlite3.connect("inventario.db")\nfor tipo, n in conn.execute("SELECT tipo, COUNT(*) FROM cofre GROUP BY ___ ORDER BY tipo"):\n    print(f"{tipo}: {n}")',
-        expected: 'arma: 2\nherramienta: 1\nluz: 1',
-        answers: ['tipo'],
-        hint: 'Agrupás por la columna tipo.',
+        prompt: 'Sumá la vida de todos los mobs.',
+        template: `cargar_ejemplo("mobs")
+
+mobs = sql("""
+    SELECT *
+    FROM mobs
+""")
+total = 0
+for mob in mobs:
+    total = total + mob["___"]
+print(total)`,
+        expected: '13',
+        answers: ['vida'],
+        hint: 'Sumás la columna con el número: vida.',
       },
     ],
     bossTips: [
-      'Cada función abre, hace lo suyo y cierra la conexión.',
-      'Después de un INSERT va conn.commit().',
+      'Con f""" las variables entran al SQL entre llaves.',
+      'Los textos van con comillas simples: \'{nombre}\'. Los números, sin comillas: {cantidad}.',
       'ORDER BY nombre ordena de la A a la Z.',
     ],
   },
@@ -1327,69 +1483,152 @@ const ACT_III: Book[] = [
     glyph: 'dragon-rojo',
     bossId: 'dragon-rojo',
     intro: 'El Dragón Rojo quiere un sistema que no borre nada por error. Primero buscás, después confirmás, recién ahí tocás.',
-    prelude: INVENTARIO_PRELUDE,
-    setup: INVENTARIO_SETUP,
+    setup: EJEMPLOS_SETUP,
     pages: [
       {
-        title: 'buscar_item con fetchone',
-        text: '`fetchone()` trae una fila, o `None` si no encontró ninguna. Así sabés si el ítem existe.',
+        title: 'buscar(): WHERE con una variable',
+        text: '`sql()` devuelve la lista de lo que encontró. Si no encontró nada, la lista viene vacía: `[]`.',
         lang: 'python',
-        code: 'import sqlite3\n\ndef buscar_item(nombre):\n    conn = sqlite3.connect("inventario.db")\n    cursor = conn.cursor()\n    cursor.execute("SELECT * FROM cofre WHERE nombre = ?", (nombre,))\n    fila = cursor.fetchone()\n    conn.close()\n    return fila\n\nprint(buscar_item("Espada"))\nprint(buscar_item("Trineo"))',
-        highlight: [6, 7, 9],
+        code: `cargar_ejemplo("cofre")
+
+def buscar(nombre):
+    return sql(f"""
+        SELECT *
+        FROM cofre
+        WHERE nombre = '{nombre}'
+    """)
+
+print(buscar("Oro"))
+print(buscar("Trineo"))`,
+        highlight: [7, 10, 11],
       },
       {
         title: 'Preguntar si existe',
-        text: 'Con `is None` revisás si la búsqueda vino vacía, y le avisás al jugador en vez de romper el programa.',
+        text: 'Con `if len(encontrados) > 0` revisás si la búsqueda trajo algo, y le avisás al jugador en vez de romper el programa.',
         lang: 'python',
-        code: 'import sqlite3\n\ndef buscar_item(nombre):\n    conn = sqlite3.connect("inventario.db")\n    fila = conn.execute("SELECT nombre, cantidad FROM cofre WHERE nombre = ?", (nombre,)).fetchone()\n    conn.close()\n    return fila\n\nfila = buscar_item("Arco")\nif fila is None:\n    print("No existe")\nelse:\n    print(f"Hay {fila[1]} {fila[0]}")',
-        highlight: [10, 11, 12, 13],
+        code: `cargar_ejemplo("cofre")
+
+def buscar(nombre):
+    encontrados = sql(f"""
+        SELECT *
+        FROM cofre
+        WHERE nombre = '{nombre}'
+    """)
+    if len(encontrados) > 0:
+        print("Hay", encontrados[0]["cantidad"], "de", nombre)
+    else:
+        print("No hay", nombre)
+
+buscar("Hierro")`,
+        highlight: [9, 10, 11, 12],
         tryIt: 'Buscá "Trineo".',
       },
       {
         title: 'Quitar con confirmación',
-        text: 'Mostrás qué se va a borrar y preguntás con input(). Solo con una "s" se ejecuta el DELETE.',
+        text: 'Preguntás con input() antes de borrar. Solo con una "s" se ejecuta el DELETE.',
         lang: 'python',
-        code: 'import sqlite3\n\nconn = sqlite3.connect("inventario.db")\nrespuesta = input("¿Borrar el Arco? (s/n) ")\nif respuesta == "s":\n    conn.execute("DELETE FROM cofre WHERE nombre = ?", ("Arco",))\n    conn.commit()\n    print("Arco borrado")\nelse:\n    print("No se borró nada")\nprint(conn.execute("SELECT COUNT(*) FROM cofre").fetchone()[0], "ítems")\nconn.close()',
-        highlight: [4, 5, 6, 7],
+        code: `cargar_ejemplo("cofre")
+
+respuesta = input("¿Borrar el Hierro? (s/n) ")
+if respuesta == "s":
+    sql("""
+        DELETE FROM cofre
+        WHERE nombre = 'Hierro'
+    """)
+    print("Hierro borrado")
+else:
+    print("No se borró nada")
+
+cofre = sql("""
+    SELECT *
+    FROM cofre
+""")
+print("Quedan", len(cofre), "ítems")`,
+        highlight: [3, 4, 6, 7],
       },
       {
         title: 'Un UPDATE preciso',
-        text: 'Un ítem, un campo, un WHERE. Los dos `?` se llenan en orden: primero la cantidad, después el nombre.',
+        text: 'Un ítem, un campo, un WHERE. Con `f"""` el número entra sin comillas y el nombre con comillas simples.',
         lang: 'python',
-        code: 'import sqlite3\n\nconn = sqlite3.connect("inventario.db")\nconn.execute("UPDATE cofre SET cantidad = ? WHERE nombre = ?", (10, "Espada"))\nconn.commit()\nprint(conn.execute("SELECT nombre, cantidad FROM cofre WHERE nombre = \'Espada\'").fetchone())\nconn.close()',
-        highlight: [4],
+        code: `cargar_ejemplo("cofre")
+
+def cambiar(nombre, cantidad):
+    sql(f"""
+        UPDATE cofre
+        SET cantidad = {cantidad}
+        WHERE nombre = '{nombre}'
+    """)
+
+cambiar("Diamante", 10)
+
+${COFRE_LISTA}`,
+        highlight: [6, 7],
       },
     ],
     spells: [
       {
         id: 'dragon-s1',
-        prompt: 'Buscá el Pico con la función.',
-        template: 'import sqlite3\n\ndef buscar(nombre):\n    conn = sqlite3.connect("inventario.db")\n    fila = conn.execute("SELECT * FROM cofre WHERE nombre = ?", (nombre,)).fetchone()\n    conn.close()\n    return fila\n\nprint(buscar(___))',
-        expected: "(4, 'Pico', 'herramienta', 1)",
-        answers: ['"Pico"'],
-        hint: 'El nombre es texto: "Pico", entre comillas.',
+        prompt: 'Buscá el Oro con la función.',
+        template: `cargar_ejemplo("cofre")
+
+def buscar(nombre):
+    return sql(f"""
+        SELECT *
+        FROM cofre
+        WHERE nombre = '{nombre}'
+    """)
+
+encontrados = buscar(___)
+print(encontrados[0]["cantidad"])`,
+        expected: '7',
+        answers: ['"Oro"'],
+        hint: 'El nombre es texto: "Oro", entre comillas.',
       },
       {
         id: 'dragon-s2',
-        prompt: 'Borrá el Arco. Tienen que quedar 3 ítems.',
-        template: 'import sqlite3\n\nconn = sqlite3.connect("inventario.db")\nconn.execute("DELETE FROM cofre WHERE nombre = ?", (___,))\nconn.commit()\nprint(conn.execute("SELECT COUNT(*) FROM cofre").fetchone()[0])',
-        expected: '3',
-        answers: ['"Arco"'],
-        hint: 'Adentro de la tupla va el nombre entre comillas.',
+        prompt: 'Borrá el Hierro. Tienen que quedar 2 ítems.',
+        template: `cargar_ejemplo("cofre")
+
+sql("""
+    DELETE FROM cofre
+    WHERE nombre = ___
+""")
+
+cofre = sql("""
+    SELECT *
+    FROM cofre
+""")
+print(len(cofre))`,
+        expected: '2',
+        answers: ["'Hierro'"],
+        hint: "Adentro del SQL, el texto va con comillas simples: 'Hierro'.",
       },
       {
         id: 'dragon-s3',
-        prompt: 'Dejá la Espada con cantidad 10.',
-        template: 'import sqlite3\n\nconn = sqlite3.connect("inventario.db")\nconn.execute("UPDATE cofre SET cantidad = ? WHERE nombre = ?", (___, "Espada"))\nconn.commit()\nprint(conn.execute("SELECT cantidad FROM cofre WHERE nombre = \'Espada\'").fetchone()[0])',
+        prompt: 'Dejá el Diamante con cantidad 10.',
+        template: `cargar_ejemplo("cofre")
+
+sql("""
+    UPDATE cofre
+    SET cantidad = ___
+    WHERE nombre = 'Diamante'
+""")
+
+diamante = sql("""
+    SELECT *
+    FROM cofre
+    WHERE nombre = 'Diamante'
+""")
+print(diamante[0]["cantidad"])`,
         expected: '10',
         answers: ['10'],
-        hint: 'El primer ? es la cantidad nueva: un número.',
+        hint: 'La cantidad nueva es un número: va sin comillas.',
       },
     ],
     bossTips: [
-      'Buscá antes de borrar: fetchone() devuelve None si no existe.',
+      'Buscá antes de borrar: si len(encontrados) es 0, no existe.',
       'El DELETE y el UPDATE siempre con WHERE.',
-      'Los ? se llenan en el orden de la tupla.',
+      'En f""", el texto va con comillas simples: \'{nombre}\'.',
     ],
   },
 ]
@@ -1406,8 +1645,7 @@ const ACT_IV: Book[] = [
     glyph: 'el-arquitecto',
     bossId: 'el-arquitecto',
     intro: 'Este es el último libro del estante. Todo lo que aprendiste, en un solo programa. El Arquitecto te está mirando.',
-    prelude: INVENTARIO_PRELUDE,
-    setup: INVENTARIO_SETUP,
+    setup: EJEMPLOS_SETUP,
     pages: [
       {
         title: 'Python guarda en memoria',
@@ -1416,62 +1654,142 @@ const ACT_IV: Book[] = [
         code: 'mochila = [{"nombre": "Espada", "cantidad": 1}]\nmochila.append({"nombre": "Arco", "cantidad": 1})\nfor item in mochila:\n    print(item["nombre"])',
       },
       {
-        title: 'SQL guarda en un archivo',
-        text: 'Lo que guardás en la base sigue ahí aunque cierres el programa. Por eso el sistema final usa las dos cosas.',
+        title: 'SQL guarda en una tabla',
+        text: 'A una tabla le pedís con SELECT solo lo que querés, filtrado y ordenado. Por eso el sistema final usa las dos cosas.',
         lang: 'python',
-        code: 'import sqlite3\n\nconn = sqlite3.connect("inventario.db")\nfor fila in conn.execute("SELECT nombre, tipo FROM cofre"):\n    print(fila)\nconn.close()',
+        code: `cargar_ejemplo("cofre")
+
+muchos = sql("""
+    SELECT *
+    FROM cofre
+    WHERE cantidad > 4
+    ORDER BY cantidad DESC
+""")
+for item in muchos:
+    print(item["nombre"], item["cantidad"])`,
+        highlight: [6, 7],
       },
       {
-        title: 'executemany: muchas filas de una',
-        text: 'Le pasás una lista de tuplas y hace un INSERT por cada una.',
+        title: 'Muchas filas de una',
+        text: 'Un solo INSERT puede guardar varias filas: van separadas por comas después de VALUES.',
         lang: 'python',
-        code: 'import sqlite3\n\nnuevos = [("Pan", "comida", 4), ("Escudo", "arma", 1)]\nconn = sqlite3.connect("inventario.db")\nconn.executemany("INSERT INTO cofre (nombre, tipo, cantidad) VALUES (?, ?, ?)", nuevos)\nconn.commit()\nprint(conn.execute("SELECT COUNT(*) FROM cofre").fetchone()[0], "ítems")\nconn.close()',
-        highlight: [3, 5],
+        code: `cargar_ejemplo("cofre")
+
+sql("""
+    INSERT INTO cofre (nombre, cantidad)
+    VALUES
+        ('Pan', 4),
+        ('Escudo', 1)
+""")
+
+cofre = sql("""
+    SELECT *
+    FROM cofre
+""")
+print(len(cofre), "ítems")`,
+        highlight: [6, 7],
       },
       {
         title: 'Una función que responde',
-        text: 'Conecta, consulta, cierra y devuelve. Si no encuentra nada, devuelve 0 en vez de romperse.',
+        text: 'Busca y devuelve la cantidad. Si no encuentra nada, devuelve 0 en vez de romperse.',
         lang: 'python',
-        code: 'import sqlite3\n\ndef cantidad_de(nombre):\n    conn = sqlite3.connect("inventario.db")\n    fila = conn.execute("SELECT cantidad FROM cofre WHERE nombre = ?", (nombre,)).fetchone()\n    conn.close()\n    if fila is None:\n        return 0\n    return fila[0]\n\nprint(cantidad_de("Antorcha"))\nprint(cantidad_de("Dragón"))',
-        highlight: [7, 8, 9],
+        code: `cargar_ejemplo("cofre")
+
+def cantidad_de(nombre):
+    encontrados = sql(f"""
+        SELECT *
+        FROM cofre
+        WHERE nombre = '{nombre}'
+    """)
+    if len(encontrados) == 0:
+        return 0
+    return encontrados[0]["cantidad"]
+
+print(cantidad_de("Oro"))
+print(cantidad_de("Dragón"))`,
+        highlight: [9, 10, 11],
       },
       {
         title: 'El reporte final',
-        text: 'GROUP BY + un for + un f-string: el tipo de reporte que te va a pedir el Arquitecto.',
+        text: 'SELECT + un for + un acumulador + un f-string: el tipo de reporte que te va a pedir el Arquitecto.',
         lang: 'python',
-        code: 'import sqlite3\n\nconn = sqlite3.connect("inventario.db")\nfor tipo, total in conn.execute("SELECT tipo, SUM(cantidad) FROM cofre GROUP BY tipo ORDER BY tipo"):\n    print(f"{tipo}: {total}")\nconn.close()',
-        highlight: [4, 5],
+        code: `cargar_ejemplo("cofre")
+
+cofre = sql("""
+    SELECT *
+    FROM cofre
+    ORDER BY cantidad DESC
+""")
+total = 0
+for item in cofre:
+    print(item["nombre"], "#" * item["cantidad"])
+    total = total + item["cantidad"]
+print(f"Total: {total}")`,
+        highlight: [10, 11, 12],
       },
     ],
     spells: [
       {
         id: 'arq-s1',
-        prompt: 'Insertá la lista nuevos de una sola vez. Tiene que haber 6 ítems.',
-        template: 'import sqlite3\n\nnuevos = [("Pan", "comida", 4), ("Escudo", "arma", 1)]\nconn = sqlite3.connect("inventario.db")\nconn.executemany("INSERT INTO cofre (nombre, tipo, cantidad) VALUES (?, ?, ?)", ___)\nconn.commit()\nprint(conn.execute("SELECT COUNT(*) FROM cofre").fetchone()[0])',
-        expected: '6',
-        answers: ['nuevos'],
-        hint: 'executemany recibe la lista entera: nuevos.',
+        prompt: 'Guardá el Pan y el Escudo en el cofre. Tiene que haber 5 ítems.',
+        template: `cargar_ejemplo("cofre")
+
+sql("""
+    INSERT INTO ___ (nombre, cantidad)
+    VALUES
+        ('Pan', 4),
+        ('Escudo', 1)
+""")
+
+cofre = sql("""
+    SELECT *
+    FROM cofre
+""")
+print(len(cofre))`,
+        expected: '5',
+        answers: ['cofre'],
+        hint: 'Después de INSERT INTO va el nombre de la tabla: cofre.',
       },
       {
         id: 'arq-s2',
-        prompt: 'Borrá el Arco y confirmá cuántos quedan.',
-        template: 'import sqlite3\n\nconn = sqlite3.connect("inventario.db")\nconn.execute("DELETE FROM cofre WHERE nombre = ___")\nconn.commit()\nprint(conn.execute("SELECT COUNT(*) FROM cofre").fetchone()[0])',
-        expected: '3',
-        answers: ["'Arco'"],
-        hint: "Adentro del SQL, el texto va con comillas simples: 'Arco'.",
+        prompt: 'Borrá el Hierro y confirmá cuántos quedan.',
+        template: `cargar_ejemplo("cofre")
+
+sql("""
+    DELETE FROM cofre
+    WHERE nombre = ___
+""")
+
+cofre = sql("""
+    SELECT *
+    FROM cofre
+""")
+print(len(cofre))`,
+        expected: '2',
+        answers: ["'Hierro'"],
+        hint: "Adentro del SQL, el texto va con comillas simples: 'Hierro'.",
       },
       {
         id: 'arq-s3',
-        prompt: 'Armá el reporte: cuántos ítems hay de cada tipo.',
-        template: 'import sqlite3\n\nconn = sqlite3.connect("inventario.db")\nfor tipo, n in conn.execute("SELECT tipo, COUNT(*) FROM cofre GROUP BY ___ ORDER BY tipo"):\n    print(f"{tipo}: {n}")',
-        expected: 'arma: 2\nherramienta: 1\nluz: 1',
-        answers: ['tipo'],
-        hint: 'Agrupás por tipo.',
+        prompt: 'Armá el reporte: el total de cosas del cofre.',
+        template: `cargar_ejemplo("cofre")
+
+cofre = sql("""
+    SELECT *
+    FROM cofre
+""")
+total = 0
+for item in cofre:
+    total = total + item["___"]
+print(f"Total: {total}")`,
+        expected: 'Total: 15',
+        answers: ['cantidad'],
+        hint: 'Sumás la columna con el número: cantidad.',
       },
     ],
     bossTips: [
       'Repasá los 5 verbos: CREATE, INSERT, SELECT, UPDATE, DELETE.',
-      'Toda modificación lleva commit().',
+      'UPDATE y DELETE siempre con WHERE.',
       'Leé el error: te dice la línea y qué no entendió.',
     ],
   },

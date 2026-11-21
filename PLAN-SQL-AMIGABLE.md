@@ -43,9 +43,9 @@ Cinco ataques Junior, uno por cada parte del taller. Vida 500, 100 de daño cada
 
 No frenan ninguna clase, pero todavía muestran el estilo viejo:
 
-- [ ] Escuelita de repasos, jefes 11 a 14 (`lib/game/repasos.ts`).
-- [ ] Grimorios de la Biblioteca del Acto III (`lib/game/biblioteca.ts`).
-- [ ] Plantillas de La Arena de los jefes 11 a 14 (`lib/game/arena/generators.ts`).
+- [x] Escuelita de repasos, jefes 11 a 14 (`lib/game/repasos.ts`): corre con `maquinaSql`.
+- [x] Grimorios de la Biblioteca del Acto III y "El sistema completo" del Acto IV (`lib/game/biblioteca.ts`): `runBookCode` corre con `maquinaSql` y los datos salen de `cargar_ejemplo()`.
+- [x] Plantillas de La Arena de los jefes 11 a 14 (`lib/game/arena/generators.ts`): con la máquina a la vista arriba, como los ataques Junior (la arena no la precarga).
 - [ ] Ejercicios Trainee/Senior de los jefes 11 a 14: hoy no se pelean, pero los duelos PvP usan el banco Trainee.
 - [ ] Manual de marca y README, si mencionan `sqlite3` para los chicos.
 

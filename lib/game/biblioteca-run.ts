@@ -30,7 +30,7 @@ export async function runBookCode(
     const { runPython } = await import('./executor/pyodide-runner')
     const pre = opts.prelude ? `${opts.prelude}\n` : ''
     const offset = pre ? pre.split('\n').length - 1 : 0
-    const { output, display, error } = await runPython(pre + code, { ask: opts.ask })
+    const { output, display, error } = await runPython(pre + code, { ask: opts.ask, maquinaSql: true })
     if (error) {
       const fixed = offset ? error.replace(/línea (\d+)/g, (_, n) => `línea ${Math.max(1, Number(n) - offset)}`) : error
       return { lines: display ? display.split('\n') : [], table: null, error: fixed, flat: output }

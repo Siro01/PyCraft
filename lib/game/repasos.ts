@@ -84,9 +84,35 @@ const COFRE: LessonTable = {
   rows: [['Espada', 1, 'diamante'], ['Antorcha', 16, 'madera'], ['Pico', 1, 'diamante'], ['Manzana', 8, 'comida']],
 }
 
-const PY_DB = `import sqlite3
-conn = sqlite3.connect(":memory:")
-cursor = conn.cursor()`
+// Jefes 11 a 14: Python le habla a SQL con la máquina sql(), que ya viene
+// precargada (MAQUINA_SQL en lib/game/executor/pyodide-runner.ts) junto con
+// cargar_ejemplo("mobs") / ("cofre"). RepasoActivity corre con maquinaSql.
+const ITEMS_TABLA = `sql("""
+    CREATE TABLE items (
+        nombre TEXT
+    )
+""")`
+
+const ITEMS_LISTA = `items = sql("""
+    SELECT *
+    FROM items
+""")
+for item in items:
+    print(item["nombre"])`
+
+const COFRE_LISTA = `cofre = sql("""
+    SELECT *
+    FROM cofre
+""")
+for item in cofre:
+    print(item["nombre"], item["cantidad"])`
+
+const AGREGAR = `def agregar(nombre):
+    sql(f"""
+        INSERT INTO items (nombre)
+        VALUES
+            ('{nombre}')
+    """)`
 
 export const REPASOS: Repaso[] = [
   // ── 01 · Creeper Formulario — variables, suma y f-strings ─────────────────
@@ -750,62 +776,113 @@ export const REPASOS: Repaso[] = [
     outro: '¡Bien ahí! UPDATE para cambiar, DELETE para borrar, y SIEMPRE con WHERE. El Falsificador no te va a engañar.',
   },
 
-  // ── 11 · El Nexo — Python + sqlite3 ───────────────────────────────────────
+  // ── 11 · El Nexo — la máquina sql() ───────────────────────────────────────
   {
     bossId: 'el-nexo',
-    file: 'repaso_sqlite3.py',
+    file: 'repaso_sql.py',
     title: 'Python habla con SQL',
-    topics: ['import sqlite3', 'cursor.execute()', 'fetchone()'],
+    topics: ['La máquina sql()', 'Filas como diccionarios', 'cargar_ejemplo()'],
     beats: [
       {
         kind: 'talk',
         say: [
-          '¡Llegamos a la frontera! Python puede hablar con una base de datos usando sqlite3.',
-          'Son 3 pasos: conectar (connect), pedir un cursor, y con cursor.execute() mandar órdenes SQL.',
+          '¡Llegamos a la frontera! Python puede hablar con una base de datos usando la máquina sql().',
+          'Le pasás la orden SQL entre tres comillas """, escrita como en el Acto II. Con un SELECT te devuelve una lista: un diccionario por fila.',
         ],
         lang: 'python',
-        code: `${PY_DB}\ncursor.execute("CREATE TABLE items (nombre TEXT)")\ncursor.execute("INSERT INTO items VALUES ('Espada')")\ncursor.execute("SELECT nombre FROM items")\nprint(cursor.fetchone()[0])`,
-        highlight: [5, 6, 7],
-        output: ['Espada'],
+        code: `${ITEMS_TABLA}
+
+sql("""
+    INSERT INTO items (nombre)
+    VALUES
+        ('Espada')
+""")
+
+items = sql("""
+    SELECT *
+    FROM items
+""")
+print(items)`,
+        highlight: [1, 7, 13],
+        output: ["[{'nombre': 'Espada'}]"],
       },
       {
         kind: 'choice',
-        say: ['¿Qué hace cursor.execute(...)?'],
-        options: ['Manda una orden SQL a la base', 'Imprime en pantalla', 'Cierra la base de datos'],
-        answer: 'Manda una orden SQL a la base',
-        explain: 'execute quiere decir "ejecutar": le pasás un texto con SQL adentro y la base lo hace.',
+        say: ['¿Qué te devuelve sql() cuando le pedís un SELECT?'],
+        options: ['Una lista de diccionarios, uno por fila', 'Un solo número', 'Nada, solo imprime'],
+        answer: 'Una lista de diccionarios, uno por fila',
+        explain: 'Cada fila es un diccionario: item["nombre"] te da el nombre. ¡Como en el Archivista!',
       },
       {
         kind: 'fill',
-        say: ['Falta la palabra que manda el SELECT a la base. Completala.'],
+        say: ['Falta el nombre de la máquina que manda el SELECT. Completalo.'],
         lang: 'python',
-        template: `${PY_DB}\ncursor.execute("CREATE TABLE items (nombre TEXT)")\ncursor.execute("INSERT INTO items VALUES ('Espada')")\ncursor.___("SELECT nombre FROM items")\nprint(cursor.fetchone()[0])`,
+        template: `${ITEMS_TABLA}
+
+sql("""
+    INSERT INTO items (nombre)
+    VALUES
+        ('Espada')
+""")
+
+items = ___("""
+    SELECT *
+    FROM items
+""")
+for item in items:
+    print(item["nombre"])`,
         expected: 'Espada',
-        hint: 'Es la misma palabra que aparece en las otras líneas: execute.',
-        solution: ['execute'],
+        hint: 'Es la misma palabra que aparece en las otras órdenes: sql.',
+        solution: ['sql'],
       },
       {
         kind: 'fill',
         say: ['Ahora guardá un Pico en vez de una Espada.'],
         lang: 'python',
-        template: `${PY_DB}\ncursor.execute("CREATE TABLE items (nombre TEXT)")\ncursor.execute("INSERT INTO items VALUES ('___')")\ncursor.execute("SELECT nombre FROM items")\nprint(cursor.fetchone()[0])`,
+        template: `${ITEMS_TABLA}
+
+sql("""
+    INSERT INTO items (nombre)
+    VALUES
+        ('___')
+""")
+
+${ITEMS_LISTA}`,
         expected: 'Pico',
-        hint: 'Escribí Pico entre las comillas simples.',
+        hint: 'Escribí Pico entre las comillas simples: en el SQL, los textos van con comillas simples.',
         solution: ['Pico'],
       },
       {
         kind: 'talk',
         say: [
-          'Dos cosas más que vas a ver en la batalla: conn.commit() GUARDA los cambios, y conn.close() cierra la conexión.',
-          'Sin commit, es como escribir en un cuaderno y no guardarlo.',
+          'Para practicar rápido, cargar_ejemplo("cofre") te arma la tabla cofre ya llena.',
+          'Con un for recorrés las filas: item["nombre"] es el nombre y item["cantidad"] la cantidad.',
         ],
         lang: 'python',
-        code: `${PY_DB}\ncursor.execute("CREATE TABLE items (nombre TEXT)")\nconn.commit()\nconn.close()\nprint("Guardado")`,
-        highlight: [5, 6],
-        output: ['Guardado'],
+        code: `cargar_ejemplo("cofre")
+
+${COFRE_LISTA}`,
+        highlight: [1, 7, 8],
+        output: ['Diamante 5', 'Hierro 3', 'Oro 7'],
+      },
+      {
+        kind: 'fill',
+        say: ['Mostrá cuántas vidas tiene cada mob. ¿Qué clave tiene el número?'],
+        lang: 'python',
+        template: `cargar_ejemplo("mobs")
+
+mobs = sql("""
+    SELECT *
+    FROM mobs
+""")
+for mob in mobs:
+    print(mob["nombre"], mob["___"])`,
+        expected: 'Zombie 4\nCreeper 6\nEsqueleto 3',
+        hint: 'La tabla mobs tiene dos columnas: nombre y vida.',
+        solution: ['vida'],
       },
     ],
-    outro: '¡Puente cruzado! Python y SQL ya son amigos: connect, cursor, execute y commit. El Nexo te espera.',
+    outro: '¡Puente cruzado! Python y SQL ya son amigos: sql() manda la orden y te devuelve las filas. El Nexo te espera.',
   },
 
   // ── 12 · La Hydra — agregar y listar ──────────────────────────────────────
@@ -813,46 +890,73 @@ export const REPASOS: Repaso[] = [
     bossId: 'la-hydra',
     file: 'repaso_agregar.py',
     title: 'Agregar y listar',
-    topics: ['Funciones + SQL', 'El signo ?', 'fetchall()'],
+    topics: ['Funciones + SQL', 'Variables con f"""', 'Listar con for'],
     beats: [
       {
         kind: 'talk',
         say: [
           'Ahora juntamos funciones y SQL: una función agregar() que mete cosas en la tabla.',
-          'El ? es un lugar vacío que se llena con el valor que pasás después. Y fetchall() trae TODAS las filas.',
+          'Con f""" la variable entra al SQL entre llaves. Como es un texto, además lleva comillas simples: \'{nombre}\'.',
         ],
         lang: 'python',
-        code: `${PY_DB}\ncursor.execute("CREATE TABLE items (nombre TEXT)")\n\ndef agregar(nombre):\n    cursor.execute("INSERT INTO items VALUES (?)", (nombre,))\n\nagregar("Pan")\nagregar("Pico")\n\ncursor.execute("SELECT nombre FROM items")\nfor fila in cursor.fetchall():\n    print(fila[0])`,
-        highlight: [6, 7, 13],
+        code: `${ITEMS_TABLA}
+
+${AGREGAR}
+
+agregar("Pan")
+agregar("Pico")
+
+${ITEMS_LISTA}`,
+        highlight: [7, 8, 11],
         output: ['Pan', 'Pico'],
       },
       {
         kind: 'choice',
-        say: ['¿Por qué escribimos (nombre,) con una coma al final?'],
-        options: ['Para que sea una tupla de un solo valor', 'Porque Python pide coma siempre', 'Para separar dos nombres'],
-        answer: 'Para que sea una tupla de un solo valor',
-        explain: 'sqlite3 necesita los valores en una tupla. Una tupla de un solo valor lleva coma: (nombre,). ¡Sin la coma no funciona!',
+        say: ['¿Por qué {nombre} va entre comillas simples en el SQL?'],
+        options: ['Porque es un texto, y en SQL los textos van con comillas simples', 'Porque Python lo pide siempre', 'Para que sea un número'],
+        answer: 'Porque es un texto, y en SQL los textos van con comillas simples',
+        explain: 'Si nombre vale Pan, el SQL queda (\'Pan\'). Los números, como la vida, van sin comillas: {vida}.',
       },
       {
         kind: 'fill',
         say: ['Usá la función para agregar una Antorcha, así la lista muestra 3 cosas.'],
         lang: 'python',
-        template: `${PY_DB}\ncursor.execute("CREATE TABLE items (nombre TEXT)")\n\ndef agregar(nombre):\n    cursor.execute("INSERT INTO items VALUES (?)", (nombre,))\n\nagregar("Pan")\nagregar("Pico")\nagregar("___")\n\ncursor.execute("SELECT nombre FROM items")\nfor fila in cursor.fetchall():\n    print(fila[0])`,
+        template: `${ITEMS_TABLA}
+
+${AGREGAR}
+
+agregar("Pan")
+agregar("Pico")
+agregar("___")
+
+${ITEMS_LISTA}`,
         expected: 'Pan\nPico\nAntorcha',
         hint: 'Escribí Antorcha entre las comillas.',
         solution: ['Antorcha'],
       },
       {
         kind: 'fill',
-        say: ['Falta el método que trae TODAS las filas para recorrerlas con el for.'],
+        say: ['Falta la letra que deja meter variables adentro del SQL.'],
         lang: 'python',
-        template: `${PY_DB}\ncursor.execute("CREATE TABLE items (nombre TEXT)")\ncursor.execute("INSERT INTO items VALUES (?)", ("Pan",))\ncursor.execute("INSERT INTO items VALUES (?)", ("Pico",))\n\ncursor.execute("SELECT nombre FROM items")\nfor fila in cursor.___():\n    print(fila[0])`,
+        template: `${ITEMS_TABLA}
+
+def agregar(nombre):
+    sql(___"""
+        INSERT INTO items (nombre)
+        VALUES
+            ('{nombre}')
+    """)
+
+agregar("Pan")
+agregar("Pico")
+
+${ITEMS_LISTA}`,
         expected: 'Pan\nPico',
-        hint: 'fetch = traer, all = todo. Todo junto: fetchall.',
-        solution: ['fetchall'],
+        hint: 'Es la misma letra de los f-strings: f.',
+        solution: ['f'],
       },
     ],
-    outro: '¡Una cabeza menos! Ya sabés agregar con una función y listar con fetchall(). La Hydra está temblando.',
+    outro: '¡Una cabeza menos! Ya sabés agregar con una función y listar con un for. La Hydra está temblando.',
   },
 
   // ── 13 · Dragón Rojo — buscar, quitar, actualizar ─────────────────────────
@@ -860,45 +964,78 @@ export const REPASOS: Repaso[] = [
     bossId: 'dragon-rojo',
     file: 'repaso_buscar.py',
     title: 'Buscar, cambiar y quitar',
-    topics: ['WHERE con ?', 'UPDATE desde Python', 'DELETE desde Python'],
+    topics: ['WHERE desde Python', 'UPDATE desde Python', 'DELETE desde Python'],
     beats: [
       {
         kind: 'talk',
         say: [
-          'Para buscar UNA cosa usamos WHERE con un ?, y le pasamos el nombre en la tupla.',
-          'fetchone() trae una sola fila, y [0] saca su primer dato.',
+          'Para buscar UNA cosa usamos WHERE. sql() te devuelve la lista de lo que encontró.',
+          'encontrados[0] es la primera fila, y ["cantidad"] saca su cantidad.',
         ],
         lang: 'python',
-        code: `${PY_DB}\ncursor.execute("CREATE TABLE items (nombre TEXT, cantidad INTEGER)")\ncursor.execute("INSERT INTO items VALUES ('Pan', 3)")\ncursor.execute("INSERT INTO items VALUES ('Pico', 1)")\n\ncursor.execute("SELECT cantidad FROM items WHERE nombre = ?", ("Pan",))\nprint(cursor.fetchone()[0])`,
-        highlight: [8, 9],
-        output: ['3'],
+        code: `cargar_ejemplo("cofre")
+
+encontrados = sql("""
+    SELECT *
+    FROM cofre
+    WHERE nombre = 'Oro'
+""")
+print(encontrados[0]["cantidad"])`,
+        highlight: [6, 8],
+        output: ['7'],
       },
       {
         kind: 'fill',
-        say: ['Buscá cuántos picos hay.'],
+        say: ['Buscá cuánto Hierro hay.'],
         lang: 'python',
-        template: `${PY_DB}\ncursor.execute("CREATE TABLE items (nombre TEXT, cantidad INTEGER)")\ncursor.execute("INSERT INTO items VALUES ('Pan', 3)")\ncursor.execute("INSERT INTO items VALUES ('Pico', 1)")\n\ncursor.execute("SELECT cantidad FROM items WHERE nombre = ?", ("___",))\nprint(cursor.fetchone()[0])`,
-        expected: '1',
-        hint: 'Escribí Pico entre las comillas.',
-        solution: ['Pico'],
+        template: `cargar_ejemplo("cofre")
+
+encontrados = sql("""
+    SELECT *
+    FROM cofre
+    WHERE nombre = '___'
+""")
+print(encontrados[0]["cantidad"])`,
+        expected: '3',
+        hint: 'Escribí Hierro entre las comillas simples.',
+        solution: ['Hierro'],
       },
       {
         kind: 'talk',
         say: [
-          'Con dos ? pasás dos valores, EN ORDEN: el primero va al primer ?, el segundo al segundo.',
-          'Acá ponemos 10 panes.',
+          'UPDATE cambia lo que ya está. ¡Siempre con WHERE, así toca una sola fila!',
+          'Acá le sumamos 10 al Diamante.',
         ],
         lang: 'python',
-        code: `${PY_DB}\ncursor.execute("CREATE TABLE items (nombre TEXT, cantidad INTEGER)")\ncursor.execute("INSERT INTO items VALUES ('Pan', 3)")\n\ncursor.execute("UPDATE items SET cantidad = ? WHERE nombre = ?", (10, "Pan"))\ncursor.execute("SELECT cantidad FROM items")\nprint(cursor.fetchone()[0])`,
-        highlight: [7],
-        output: ['10'],
+        code: `cargar_ejemplo("cofre")
+
+sql("""
+    UPDATE cofre
+    SET cantidad = cantidad + 10
+    WHERE nombre = 'Diamante'
+""")
+
+${COFRE_LISTA}`,
+        highlight: [4, 5, 6],
+        output: ['Diamante 15', 'Hierro 3', 'Oro 7'],
       },
       {
         kind: 'fill',
-        say: ['Quitá el pico de la tabla. Falta la palabra SQL que borra.'],
+        say: ['Quitá el Hierro del cofre. Falta la palabra SQL que borra.'],
         lang: 'python',
-        template: `${PY_DB}\ncursor.execute("CREATE TABLE items (nombre TEXT, cantidad INTEGER)")\ncursor.execute("INSERT INTO items VALUES ('Pan', 3)")\ncursor.execute("INSERT INTO items VALUES ('Pico', 1)")\n\ncursor.execute("___ FROM items WHERE nombre = ?", ("Pico",))\ncursor.execute("SELECT COUNT(*) FROM items")\nprint(cursor.fetchone()[0])`,
-        expected: '1',
+        template: `cargar_ejemplo("cofre")
+
+sql("""
+    ___ FROM cofre
+    WHERE nombre = 'Hierro'
+""")
+
+cofre = sql("""
+    SELECT *
+    FROM cofre
+""")
+print("Quedan", len(cofre), "cosas")`,
+        expected: 'Quedan 2 cosas',
         hint: 'Es la misma palabra que en SQL: DELETE.',
         solution: ['DELETE'],
       },
@@ -911,43 +1048,90 @@ export const REPASOS: Repaso[] = [
     bossId: 'el-arquitecto',
     file: 'repaso_final.py',
     title: 'Todo junto',
-    topics: ['Variables y f-strings', 'for', 'sqlite3'],
+    topics: ['Variables y f-strings', 'for', 'sql()'],
     beats: [
       {
         kind: 'talk',
         say: [
           'Último repaso antes del gran final. El Arquitecto usa TODO lo que aprendiste, así que lo repasamos en un solo programa.',
-          'Mirá: una lista, un for que guarda cada cosa en la tabla, un COUNT y un f-string para mostrar el total.',
+          'Mirá: una lista, un for que guarda cada cosa en la tabla, len() para contar y un f-string para mostrar el total.',
         ],
         lang: 'python',
-        code: `${PY_DB}\ncursor.execute("CREATE TABLE items (nombre TEXT)")\n\nfor nombre in ["Pan", "Pico", "Antorcha"]:\n    cursor.execute("INSERT INTO items VALUES (?)", (nombre,))\n\ncursor.execute("SELECT COUNT(*) FROM items")\ntotal = cursor.fetchone()[0]\nprint(f"Tenés {total} items")`,
-        highlight: [6, 7, 11],
+        code: `${ITEMS_TABLA}
+
+for nombre in ["Pan", "Pico", "Antorcha"]:
+    sql(f"""
+        INSERT INTO items (nombre)
+        VALUES
+            ('{nombre}')
+    """)
+
+items = sql("""
+    SELECT *
+    FROM items
+""")
+total = len(items)
+print(f"Tenés {total} items")`,
+        highlight: [7, 18, 19],
         output: ['Tenés 3 items'],
       },
       {
         kind: 'fill',
         say: ['Completá el f-string para que muestre la variable total.'],
         lang: 'python',
-        template: `${PY_DB}\ncursor.execute("CREATE TABLE items (nombre TEXT)")\n\nfor nombre in ["Pan", "Pico", "Antorcha"]:\n    cursor.execute("INSERT INTO items VALUES (?)", (nombre,))\n\ncursor.execute("SELECT COUNT(*) FROM items")\ntotal = cursor.fetchone()[0]\nprint(f"Tenés {___} items")`,
+        template: `${ITEMS_TABLA}
+
+for nombre in ["Pan", "Pico", "Antorcha"]:
+    sql(f"""
+        INSERT INTO items (nombre)
+        VALUES
+            ('{nombre}')
+    """)
+
+items = sql("""
+    SELECT *
+    FROM items
+""")
+total = len(items)
+print(f"Tenés {___} items")`,
         expected: 'Tenés 3 items',
-        hint: 'Adentro de las llaves va el nombre de la variable que guardó el COUNT: total.',
+        hint: 'Adentro de las llaves va el nombre de la variable que guardó el len(): total.',
         solution: ['total'],
       },
       {
         kind: 'fill',
         say: ['Agregá una cuarta cosa a la lista, una Espada, y mirá cómo cambia el total.'],
         lang: 'python',
-        template: `${PY_DB}\ncursor.execute("CREATE TABLE items (nombre TEXT)")\n\nfor nombre in ["Pan", "Pico", "Antorcha", "___"]:\n    cursor.execute("INSERT INTO items VALUES (?)", (nombre,))\n\ncursor.execute("SELECT COUNT(*) FROM items")\ntotal = cursor.fetchone()[0]\nprint(f"Tenés {total} items")`,
+        template: `${ITEMS_TABLA}
+
+for nombre in ["Pan", "Pico", "Antorcha", "___"]:
+    sql(f"""
+        INSERT INTO items (nombre)
+        VALUES
+            ('{nombre}')
+    """)
+
+items = sql("""
+    SELECT *
+    FROM items
+""")
+total = len(items)
+print(f"Tenés {total} items")`,
         expected: 'Tenés 4 items',
         hint: 'Escribí Espada entre las comillas: cualquier nombre suma uno más.',
         solution: ['Espada'],
       },
       {
         kind: 'choice',
-        say: ['Y para cerrar: si después de cambiar la tabla te olvidás de conn.commit()... ¿qué pasa?'],
-        options: ['Los cambios no se guardan', 'Se borra Python', 'Se guardan igual'],
-        answer: 'Los cambios no se guardan',
-        explain: 'commit es el botón de "guardar". Sin él, los cambios se pierden al cerrar. ¡El Arquitecto lo sabe!',
+        say: ['Y para cerrar: ¿qué le falta a este UPDATE?'],
+        lang: 'python',
+        code: `sql("""
+    UPDATE cofre
+    SET cantidad = 0
+""")`,
+        options: ['Un WHERE: sin él cambia TODAS las filas', 'Un print', 'Nada, está perfecto'],
+        answer: 'Un WHERE: sin él cambia TODAS las filas',
+        explain: 'Sin WHERE, el UPDATE y el DELETE tocan todas las filas de la tabla. ¡El Arquitecto lo sabe!',
       },
     ],
     outro: 'Ya está. Repasaste todo el taller. Respirá hondo: estás listo para enfrentar al Arquitecto.',
